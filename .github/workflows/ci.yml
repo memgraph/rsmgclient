@@ -1,0 +1,17 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build_and_test:
+    strategy:
+     matrix:
+        platform: [ubuntu-18.04]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Run Tests
+        uses: actions/checkout@v2
+        run: |
+          cargo build
+          cargo run
+          cargo test
