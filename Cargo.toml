@@ -5,4 +5,8 @@ authors = ["Mario Herceg <mario.herceg@memgraph.io>"]
 edition = "2018"
 
 [dependencies]
-cargo-husky = "1"
+
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["user-hooks"]
