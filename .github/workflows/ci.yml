@@ -17,3 +17,4 @@ jobs:
           cargo build --verbose
           cargo run --verbose
           cargo test --verbose
+          
