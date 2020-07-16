@@ -7,5 +7,5 @@ cargo test --all
 echo '+cargo clippy'
 cargo clippy
 echo '+clippy --fix -Z unstable-options --allow-dirty --allow-staged'
-cargo clippy --fix -Z unstable-options --allow-dirty --allow-staged;
+cargo clippy --fix -Z unstable-options --allow-dirty --allow-staged
 
