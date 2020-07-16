@@ -12,6 +12,6 @@ jobs:
       - name: Run Tests
         uses: actions/checkout@v2
         run: |
-          cargo build
-          cargo run
-          cargo test
+          cargo build --verbose
+          cargo run --verbose
+          cargo test --verbose

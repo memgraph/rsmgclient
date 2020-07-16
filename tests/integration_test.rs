@@ -1,5 +1,3 @@
-use rsmgclient;
-
 mod common;
 
 #[test]

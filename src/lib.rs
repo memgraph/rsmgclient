@@ -15,5 +15,3 @@ mod tests {
         assert_eq!(4, internal_adder(2, 2));
     }
 }
-
-
