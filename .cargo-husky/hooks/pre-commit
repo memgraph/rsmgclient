@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -eou pipefail
+set -e
 
 echo '+cargo test --all'
 cargo test --all
