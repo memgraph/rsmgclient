@@ -9,6 +9,26 @@ jobs:
         platform: [ubuntu-18.04]
     runs-on: ${{ matrix.platform }}
     steps:
+      - name: Install dependencies (Ubuntu 18.04)
+      if: matrix.platform == 'ubuntu-18.04'
+      run: |
+        mkdir ~/memgraph
+        curl -L https://memgraph.com/download/memgraph/v1.1.0/ubuntu-18.04/memgraph_1.1.0-community-1_amd64.deb > ~/memgraph/memgraph_1.1.0-community-1_amd64.deb
+        sudo dpkg -i ~/memgraph/memgraph_1.1.0-community-1_amd64.deb
+        sudo systemctl stop memgraph && sudo systemctl disable memgraph
+        
+    - name: Download mgclient
+      uses: actions/checkout@master
+      with:
+        repository: memgraph/mgclient
+    - name: Install mgclient
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF ..
+        make
+        sudo make install
+
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
