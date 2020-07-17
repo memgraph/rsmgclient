@@ -1,0 +1,19 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build_and_test:
+    strategy:
+     matrix:
+        platform: [ubuntu-18.04]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo clippy
+      - run: cargo build --verbose
+      - run: cargo run --verbose
+      - run: cargo test --verbose
