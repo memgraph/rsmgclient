@@ -9,7 +9,7 @@ jobs:
         platform: [ubuntu-18.04]
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Install dependencies (Ubuntu 18.04)
+    - name: Install dependencies (Ubuntu 18.04)
       if: matrix.platform == 'ubuntu-18.04'
       run: |
         mkdir ~/memgraph
