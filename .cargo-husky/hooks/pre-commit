@@ -1,14 +1,7 @@
 #!/bin/sh
 
-set -eu
+set -eux
 
-
-if cargo test --all; then \
-    echo '+cargo test --all'; \
-fi
-if cargo clippy; then \
-    echo '+cargo clippy'; \
-fi
-if cargo clippy --fix -Z unstable-options --allow-dirty --allow-staged; then \
-    echo '+clippy --fix -Z unstable-options --allow-dirty --allow-staged'; \
-fi
+cargo test --all
+cargo clippy
+cargo clippy --fix -Z unstable-options --allow-dirty --allow-staged
