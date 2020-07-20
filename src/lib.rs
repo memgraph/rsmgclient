@@ -1,3 +1,13 @@
+#[allow(dead_code)]
+mod bindings;
+mod mg_value;
+mod connection;
+mod error;
+
+pub use connection::*;
+pub use mg_value::*;
+pub use error::*;
+
 pub fn add_two(a: i32) -> i32 {
     internal_adder(a, 2)
 }
