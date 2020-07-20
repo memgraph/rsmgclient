@@ -41,7 +41,7 @@ impl Connection {
                     _ => return Err(MgError::new(read_error_message(self.mg_session))),
                 }
 
-                if status != 0 {
+                if status != 1 {
                     break;
                 }
             }
