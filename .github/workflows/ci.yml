@@ -9,11 +9,25 @@ jobs:
         platform: [ubuntu-18.04]
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - run: cargo clippy
-      - run: cargo build --verbose
-      - run: cargo run --verbose
-      - run: cargo test --verbose
+    - name: Install system dependencies
+      run: sudo apt-get install -y git cmake make gcc g++ libssl-dev
+    - name: Download mgclient
+      uses: actions/checkout@master
+      with:
+        repository: memgraph/mgclient
+    - name: Install mgclient
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+        make
+        sudo make install
+
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - run: cargo clippy
+    - run: cargo build --verbose
+    - run: cargo run --verbose
+    - run: cargo test --verbose
