@@ -235,6 +235,106 @@ pub unsafe fn mg_list_to_vec(mg_list: *const bindings::mg_list) -> Vec<MgValue> 
 }
 
 impl MgValue {
+    pub fn get_bool_value(&self) -> bool {
+        if self.value_type != MgValueType::Bool {
+            panic!("Not bool value");
+        }
+        match self.bool_value {
+            Some(x) => x,
+            None => panic!("Not bool value"),
+        }
+    }
+
+    pub fn get_int_value(&self) -> i64 {
+        if self.value_type != MgValueType::Int {
+            panic!("Not int value");
+        }
+        match self.int_value {
+            Some(x) => x,
+            None => panic!("Not int value"),
+        }
+    }
+
+    pub fn get_float_value(&self) -> f64 {
+        if self.value_type != MgValueType::Float {
+            panic!("Not float value");
+        }
+        match self.float_value {
+            Some(x) => x,
+            None => panic!("Not float value"),
+        }
+    }
+
+    pub fn get_string_value(&self) -> &String {
+        if self.value_type != MgValueType::String {
+            panic!("Not String value");
+        }
+        match &self.string_value {
+            Some(x) => &x,
+            None => panic!("Not string value"),
+        }
+    }
+
+    pub fn get_list_value(&self) -> &Vec<MgValue> {
+        if self.value_type != MgValueType::List {
+            panic!("Not list value");
+        }
+        match &self.list_value {
+            Some(x) => x,
+            None => panic!("Not list value"),
+        }
+    }
+
+    pub fn get_map_value(&self) -> &HashMap<String, MgValue> {
+        if self.value_type != MgValueType::Map {
+            panic!("Not map value");
+        }
+        match &self.map_value {
+            Some(x) => x,
+            None => panic!("Not map value"),
+        }
+    }
+
+    pub fn get_node_value(&self) -> &MgNode {
+        if self.value_type != MgValueType::Node {
+            panic!("Not node value");
+        }
+        match &self.node_value {
+            Some(x) => x,
+            None => panic!("Not node value"),
+        }
+    }
+
+    pub fn get_relationship_value(&self) -> &MgRelationship {
+        if self.value_type != MgValueType::Relationship {
+            panic!("Not relationship value");
+        }
+        match &self.relationship_value {
+            Some(x) => x,
+            None => panic!("Not relationship value"),
+        }
+    }
+
+    pub fn get_unbound_relationship_value(&self) -> &MgUnboundRelationship {
+        if self.value_type != MgValueType::UnboundRelationship {
+            panic!("Not unbound_relationship value");
+        }
+        match &self.unbound_relationship_value {
+            Some(x) => x,
+            None => panic!("Not unbound_relationship value"),
+        }
+    }
+
+    pub fn get_path_value(&self) -> &MgPath {
+        if self.value_type != MgValueType::Path {
+            panic!("Not path value");
+        }
+        match &self.path_value {
+            Some(x) => x,
+            None => panic!("Not path value"),
+        }
+    }
+    
     pub fn from_mg_value(c_mg_value: *const bindings::mg_value) -> MgValue {
         let mg_value_type: MgValueType =
             match unsafe { bindings::mg_value_get_type(c_mg_value) } {
