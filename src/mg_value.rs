@@ -334,7 +334,7 @@ impl MgValue {
             None => panic!("Not path value"),
         }
     }
-    
+
     pub fn from_mg_value(c_mg_value: *const bindings::mg_value) -> MgValue {
         let mg_value_type: MgValueType =
             match unsafe { bindings::mg_value_get_type(c_mg_value) } {
@@ -387,3 +387,81 @@ impl MgValue {
         mg_value
     }
 }
+
+impl fmt::Display for MgValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.value_type {
+            MgValueType::Null => write!(f, "NULL"),
+            MgValueType::Bool => write!(f, "{}", match self.bool_value {
+                Some(x) => x.to_string(),
+                None => String::from("NULL"),
+            }),
+            MgValueType::Int => write!(f, "{}", match self.int_value {
+                Some(x) => x.to_string(),
+                None => String::from("NULL"),
+            }),
+            MgValueType::Float => write!(f, "{}", match self.float_value {
+                Some(x) => x.to_string(),
+                None => String::from("NULL"),
+            }),
+            MgValueType::String => write!(f, "{}", match &self.string_value {
+                Some(x) => format!("'{}'", x),
+                None => String::from("NULL"),
+            }),
+            MgValueType::List => write!(f, "{}", match &self.list_value {
+                Some(x) => x.iter().map(|val| val.to_string()).collect::<Vec<String>>().join(", "),
+                None => String::from("NULL"),
+            }),
+            MgValueType::Map => write!(f, "{}", match &self.map_value {
+                Some(x) => mg_map_to_string(x),
+                None => String::from("NULL"),
+            }),
+            MgValueType::Node => write!(f, "{}", match &self.node_value {
+                Some(x) => x.to_string(),
+                None => String::from("NULL"),
+            }),
+            MgValueType::Relationship => write!(f, "{}", match &self.relationship_value {
+                Some(x) => x.to_string(),
+                None => String::from("NULL"),
+            }),
+            MgValueType::UnboundRelationship => write!(f, "{}", match &self.unbound_relationship_value {
+                Some(x) => x.to_string(),
+                None => String::from("NULL"),
+            }),
+            MgValueType::Path => write!(f, "{}", match &self.path_value {
+                Some(x) => x.to_string(),
+                None => String::from("NULL"),
+            }),
+            MgValueType::Unknown => write!(f, "NULL"),
+        }
+    }
+}
+
+
+fn mg_map_to_string(mg_map: &HashMap<String, MgValue>) -> String {
+    let mut properties: Vec<String> = Vec::new();
+    for (key, value) in mg_map {
+        properties.push(format!("'{}': {}", key, value));
+    }
+    return format!("{{{}}}", properties.join(", "));
+}
+
+impl fmt::Display for MgNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "(:{} {})", self.labels.join(", "), mg_map_to_string(&self.properties))
+    }
+}
+
+impl fmt::Display for MgRelationship {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "[:{} {}]", self.type_, mg_map_to_string(&self.properties))
+    }
+}
+
+impl fmt::Display for MgUnboundRelationship {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "[:{} {}]", self.type_, mg_map_to_string(&self.properties))
+    }
+}
+
+// TODO: display for path
