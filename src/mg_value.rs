@@ -87,14 +87,14 @@ fn mg_value_float(mg_value: *const bindings::mg_value) -> f64 {
     unsafe { bindings::mg_value_float(mg_value) }
 }
 
-pub fn c_string_to_string(c_str: *const i8) -> String {
-    let str = unsafe { CStr::from_ptr(c_str).to_str().unwrap() };
+pub unsafe fn c_string_to_string(c_str: *const i8) -> String {
+    let str = CStr::from_ptr(c_str).to_str().unwrap();
     str.to_string()
 }
 
 fn mg_string_to_string(mg_string: *const bindings::mg_string) -> String {
     let c_str = unsafe { bindings::mg_string_data(mg_string) };
-    c_string_to_string(c_str)
+    unsafe { c_string_to_string(c_str) }
 }
 
 fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
@@ -335,9 +335,9 @@ impl MgValue {
         }
     }
 
-    pub fn from_mg_value(c_mg_value: *const bindings::mg_value) -> MgValue {
+    pub unsafe fn from_mg_value(c_mg_value: *const bindings::mg_value) -> MgValue {
         let mg_value_type: MgValueType =
-            match unsafe { bindings::mg_value_get_type(c_mg_value) } {
+            match bindings::mg_value_get_type(c_mg_value) {
                 bindings::mg_value_type_MG_VALUE_TYPE_NULL => MgValueType::Null,
                 bindings::mg_value_type_MG_VALUE_TYPE_BOOL => MgValueType::Bool,
                 bindings::mg_value_type_MG_VALUE_TYPE_INTEGER => MgValueType::Int,
@@ -464,4 +464,9 @@ impl fmt::Display for MgUnboundRelationship {
     }
 }
 
-// TODO: display for path
+// TODO: finish
+impl fmt::Display for MgPath {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "MgPath")
+    }
+}

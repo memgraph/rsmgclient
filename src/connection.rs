@@ -9,7 +9,7 @@ pub struct Connection {
 
 fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
     let c_error_message = unsafe { bindings::mg_session_error(mg_session) };
-    return c_string_to_string(c_error_message)
+    unsafe { c_string_to_string(c_error_message) }
 }
 
 impl Connection {
