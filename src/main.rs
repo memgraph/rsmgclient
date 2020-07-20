@@ -11,7 +11,7 @@ fn main() {
         Err(err) => panic!("Query failed: {}", err),
     };
 
-    for (index, row) in rows.iter().enumerate() {
+    for row in rows {
         for val in row {
             println!("{}", val);
         }
