@@ -2,7 +2,7 @@
 
 set -eux
 
-cargo test --all
+cargo tarpaulin -v
 cargo clippy
 cargo clippy --fix -Z unstable-options --allow-dirty --allow-staged
 cargo fmt

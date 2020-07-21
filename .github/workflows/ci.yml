@@ -28,7 +28,6 @@ jobs:
       with:
         toolchain: stable
     - run: cargo clippy
-    - run: cargo build --verbose
-    - run: cargo run --verbose
-    - run: cargo test --verbose
     - run: cargo fmt -- --check
+    - run: cargo build --verbose
+    - run: cargo tarpaulin -v
