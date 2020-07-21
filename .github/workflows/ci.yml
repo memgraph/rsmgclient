@@ -27,6 +27,7 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
+    - run: cargo install cargo-tarpaulin
     - run: cargo clippy
     - run: cargo fmt -- --check
     - run: cargo build --verbose
