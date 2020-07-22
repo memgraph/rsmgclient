@@ -36,7 +36,7 @@ jobs:
       with:
         path: ~/memgraph
         key: cache-tarpaulin-v0.14.2
-    - name: Download Memgraph Docker image
+    - name: Download Tarpaulin
       if: steps.cache-tarpaulin.outputs.cache-hit != 'true'
       run: cargo install cargo-tarpaulin
     - run: cargo tarpaulin -v
