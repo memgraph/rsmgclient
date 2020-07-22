@@ -31,7 +31,7 @@ jobs:
     - run: cargo fmt -- --check
     - run: cargo build --verbose
     - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
+      uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.9.0'
           args: '-- --test-threads 1'
