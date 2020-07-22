@@ -34,7 +34,6 @@ jobs:
       id: cache-tarpaulin
       uses: actions/cache@v1
       with:
-        path: ~/memgraph
         key: cache-tarpaulin-v0.14.2
     - name: Download Tarpaulin
       if: steps.cache-tarpaulin.outputs.cache-hit != 'true'
