@@ -34,8 +34,10 @@ jobs:
       id: cache-tarpaulin
       uses: actions/cache@v1
       with:
+        path: ~/tarpaulin
         key: cache-tarpaulin-v0.14.2
     - name: Download Tarpaulin
       if: steps.cache-tarpaulin.outputs.cache-hit != 'true'
+      run: mkdir ~/tarpaulin
       run: cargo install cargo-tarpaulin
     - run: cargo tarpaulin -v
