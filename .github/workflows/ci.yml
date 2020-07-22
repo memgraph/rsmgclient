@@ -30,8 +30,13 @@ jobs:
     - run: cargo clippy
     - run: cargo fmt -- --check
     - run: cargo build --verbose
-    - name: Run cargo-tarpaulin
-      uses: actions-rs/tarpaulin@v0.1
+    - name: Cache Tarpaulin
+      id: cache-tarpaulin
+      uses: actions/cache@v1
       with:
-        version: '0.9.0'
-        args: '-v'
+        path: ~/memgraph
+        key: cache-tarpaulin-v0.14.2
+    - name: Download Memgraph Docker image
+      if: steps.cache-tarpaulin.outputs.cache-hit != 'true'
+      run: cargo install cargo-tarpaulin
+    - run: cargo tarpaulin -v
