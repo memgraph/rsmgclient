@@ -38,6 +38,8 @@ jobs:
         key: cache-tarpaulin-v0.14.2
     - name: Download Tarpaulin
       if: steps.cache-tarpaulin.outputs.cache-hit != 'true'
-      run: mkdir ~/tarpaulin
-      run: cargo install cargo-tarpaulin
+      run:  |
+        mkdir ~/tarpaulin
+        cargo install cargo-tarpaulin
+
     - run: cargo tarpaulin -v
