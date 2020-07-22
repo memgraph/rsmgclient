@@ -32,4 +32,14 @@ jobs:
     - run: cargo build --verbose
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1.2
-    - run: cargo tarpaulin -v
+      
+    - name: Upload to codecov.io
+      uses: codecov/codecov-action@v1.0.2
+      with:
+          token: ${{secrets.CODECOV_TOKEN}}
+
+    - name: Archive code coverage results
+      uses: actions/upload-artifact@v1
+      with:
+        name: code-coverage-report
+        path: cobertura.xml
