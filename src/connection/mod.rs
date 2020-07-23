@@ -12,6 +12,12 @@ fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
     unsafe { c_string_to_string(c_error_message) }
 }
 
+impl Drop for Connection {
+    fn drop(&mut self) {
+        unsafe { bindings::mg_session_destroy((&self).mg_session) };
+    }
+}
+
 impl Connection {
     pub fn execute(&self, query: &str) -> Result<Vec<Vec<MgValue>>, MgError> {
         let c_query = CString::new(query).unwrap();
