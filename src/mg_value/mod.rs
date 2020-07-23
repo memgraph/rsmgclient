@@ -44,10 +44,8 @@ pub struct MgUnboundRelationship {
 pub struct MgPath {
     pub node_count: u32,
     pub relationship_count: u32,
-    pub sequence_length: u32,
     pub nodes: Vec<MgNode>,
     pub relationships: Vec<MgUnboundRelationship>,
-    pub sequence: Vec<i64>,
 }
 
 #[derive(Copy, Clone)]
@@ -231,11 +229,9 @@ fn mg_value_path(mg_value: *const bindings::mg_value) -> MgPath {
     let path_length = unsafe { bindings::mg_path_length(c_mg_path) };
     let node_count = path_length + 1;
     let relationship_count = path_length;
-    let sequence_length = path_length;
 
     let mut nodes: Vec<MgNode> = Vec::new();
     let mut relationships: Vec<MgUnboundRelationship> = Vec::new();
-    let mut sequence: Vec<i64> = Vec::new();
 
     for i in 0..path_length {
         let c_mg_node = unsafe { bindings::mg_path_node_at(c_mg_path, i) };
@@ -246,17 +242,13 @@ fn mg_value_path(mg_value: *const bindings::mg_value) -> MgPath {
         let mg_unbound_relationship =
             c_mg_unbound_relationship_to_mg_unbound_relationship(c_mg_unbound_relationship);
         relationships.push(mg_unbound_relationship);
-
-        sequence.push(i as i64);
     }
 
     MgPath {
         node_count,
         relationship_count,
-        sequence_length,
         nodes,
         relationships,
-        sequence,
     }
 }
 
