@@ -69,6 +69,35 @@ pub struct MgValue {
     value: MgValues,
 }
 
+impl Drop for MgValue {
+    fn drop(&mut self) {
+        match self.value_type {
+            MgValueType::String => unsafe {
+                Box::from_raw((&self).value.string_ptr);
+            },
+            MgValueType::List => unsafe {
+                Box::from_raw((&self).value.list_ptr);
+            },
+            MgValueType::Map => unsafe {
+                Box::from_raw((&self).value.map_ptr);
+            },
+            MgValueType::Node => unsafe {
+                Box::from_raw((&self).value.node_ptr);
+            },
+            MgValueType::Relationship => unsafe {
+                Box::from_raw((&self).value.relationship_ptr);
+            },
+            MgValueType::UnboundRelationship => unsafe {
+                Box::from_raw((&self).value.unbound_relationship_ptr);
+            },
+            MgValueType::Path => unsafe {
+                Box::from_raw((&self).value.path_ptr);
+            },
+            _ => {},
+        }
+    }
+}
+
 fn mg_value_list_to_vec(mg_value: *const bindings::mg_value) -> Vec<MgValue> {
     unsafe {
         let mg_list = bindings::mg_value_list(mg_value);
