@@ -12,24 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{connect, MgValue};
+use std::fmt;
 
-fn main() {
-    let connection = match connect("127.0.0.1", 7687) {
-        Ok(c) => c,
-        Err(err) => panic!("{}", err),
-    };
+pub struct MgError {
+    message: String,
+}
 
-    let rows: Vec<Vec<MgValue>> = match connection.execute(
-        "CREATE (n:Person {name: 'John'})-[e:KNOWS]->(m:Person {name: 'Steve'}) RETURN n, e, m;",
-    ) {
-        Ok(res) => res,
-        Err(err) => panic!("Query failed: {}", err),
-    };
+impl fmt::Display for MgError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
 
-    for row in rows {
-        for val in row {
-            println!("{}", val);
-        }
+impl MgError {
+    pub fn new(message: String) -> MgError {
+        MgError { message }
     }
 }

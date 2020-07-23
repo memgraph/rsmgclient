@@ -12,6 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[allow(dead_code)]
+mod bindings;
+mod connection;
+mod error;
+mod mg_value;
+
+pub use connection::*;
+pub use error::*;
+pub use mg_value::*;
+
 pub fn add_two(a: i32) -> i32 {
     internal_adder(a, 2)
 }

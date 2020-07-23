@@ -12,24 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{connect, MgValue};
-
 fn main() {
-    let connection = match connect("127.0.0.1", 7687) {
-        Ok(c) => c,
-        Err(err) => panic!("{}", err),
-    };
-
-    let rows: Vec<Vec<MgValue>> = match connection.execute(
-        "CREATE (n:Person {name: 'John'})-[e:KNOWS]->(m:Person {name: 'Steve'}) RETURN n, e, m;",
-    ) {
-        Ok(res) => res,
-        Err(err) => panic!("Query failed: {}", err),
-    };
-
-    for row in rows {
-        for val in row {
-            println!("{}", val);
-        }
-    }
+    // Tell cargo to tell rustc to link the system mgclient
+    // shared library.
+    println!("cargo:rustc-link-lib=mgclient");
 }
