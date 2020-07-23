@@ -14,7 +14,7 @@ fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
 
 impl Drop for Connection {
     fn drop(&mut self) {
-        unsafe { bindings::mg_session_destroy((&self).mg_session) };
+        unsafe { bindings::mg_session_destroy(self.mg_session) };
     }
 }
 

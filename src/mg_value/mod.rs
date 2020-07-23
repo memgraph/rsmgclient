@@ -73,25 +73,25 @@ impl Drop for MgValue {
     fn drop(&mut self) {
         match self.value_type {
             MgValueType::String => unsafe {
-                Box::from_raw((&self).value.string_ptr);
+                Box::from_raw(self.value.string_ptr);
             },
             MgValueType::List => unsafe {
-                Box::from_raw((&self).value.list_ptr);
+                Box::from_raw(self.value.list_ptr);
             },
             MgValueType::Map => unsafe {
-                Box::from_raw((&self).value.map_ptr);
+                Box::from_raw(self.value.map_ptr);
             },
             MgValueType::Node => unsafe {
-                Box::from_raw((&self).value.node_ptr);
+                Box::from_raw(self.value.node_ptr);
             },
             MgValueType::Relationship => unsafe {
-                Box::from_raw((&self).value.relationship_ptr);
+                Box::from_raw(self.value.relationship_ptr);
             },
             MgValueType::UnboundRelationship => unsafe {
-                Box::from_raw((&self).value.unbound_relationship_ptr);
+                Box::from_raw(self.value.unbound_relationship_ptr);
             },
             MgValueType::Path => unsafe {
-                Box::from_raw((&self).value.path_ptr);
+                Box::from_raw(self.value.path_ptr);
             },
             _ => {},
         }
@@ -272,73 +272,73 @@ impl MgValue {
         if self.value_type != MgValueType::Bool {
             panic!("Not bool value");
         }
-        unsafe { (&self).value.bool_value }
+        unsafe { self.value.bool_value }
     }
 
     pub fn get_int_value(&self) -> i64 {
         if self.value_type != MgValueType::Int {
             panic!("Not int value");
         }
-        unsafe { (&self).value.int_value }
+        unsafe { self.value.int_value }
     }
 
     pub fn get_float_value(&self) -> f64 {
         if self.value_type != MgValueType::Float {
             panic!("Not float value");
         }
-        unsafe { (&self).value.float_value }
+        unsafe { self.value.float_value }
     }
 
     pub fn get_string_value(&self) -> &String {
         if self.value_type != MgValueType::String {
             panic!("Not String value");
         }
-        unsafe { &*((&self).value.string_ptr) }
+        unsafe { &*(self.value.string_ptr) }
     }
 
     pub fn get_list_value(&self) -> &Vec<MgValue> {
         if self.value_type != MgValueType::List {
             panic!("Not list value");
         }
-        unsafe { &*((&self).value.list_ptr) }
+        unsafe { &*(self.value.list_ptr) }
     }
 
     pub fn get_map_value(&self) -> &HashMap<String, MgValue> {
         if self.value_type != MgValueType::Map {
             panic!("Not map value");
         }
-        unsafe { &*((&self).value.map_ptr) }
+        unsafe { &*(self.value.map_ptr) }
     }
 
     pub fn get_node_value(&self) -> &MgNode {
         if self.value_type != MgValueType::Node {
             panic!("Not node value");
         }
-        unsafe { &*((&self).value.node_ptr) }
+        unsafe { &*(self.value.node_ptr) }
     }
 
     pub fn get_relationship_value(&self) -> &MgRelationship {
         if self.value_type != MgValueType::Relationship {
             panic!("Not relationship value");
         }
-        unsafe { &*((&self).value.relationship_ptr) }
+        unsafe { &*(self.value.relationship_ptr) }
     }
 
     pub fn get_unbound_relationship_value(&self) -> &MgUnboundRelationship {
         if self.value_type != MgValueType::UnboundRelationship {
             panic!("Not unbound_relationship value");
         }
-        unsafe { &*((&self).value.unbound_relationship_ptr) }
+        unsafe { &*(self.value.unbound_relationship_ptr) }
     }
 
     pub fn get_path_value(&self) -> &MgPath {
         if self.value_type != MgValueType::Path {
             panic!("Not path value");
         }
-        unsafe { &*((&self).value.path_ptr) }
+        unsafe { &*(self.value.path_ptr) }
     }
 
-    pub fn from_mg_value(c_mg_value: *const bindings::mg_value) -> MgValue {
+    pub unsafe fn from_mg_value(c_mg_value: *const bindings::mg_value) -> MgValue {
         unsafe { match bindings::mg_value_get_type(c_mg_value) {
             bindings::mg_value_type_MG_VALUE_TYPE_NULL => MgValue {
                 value_type: MgValueType::Null,
@@ -414,9 +414,9 @@ impl fmt::Display for MgValue {
         unsafe {
             match self.value_type {
                 MgValueType::Null => write!(f, "NULL"),
-                MgValueType::Bool => write!(f, "{}", (&self).value.bool_value.to_string()),
-                MgValueType::Int => write!(f, "{}", (&self).value.int_value.to_string()),
-                MgValueType::Float => write!(f, "{}", (&self).value.float_value.to_string()),
+                MgValueType::Bool => write!(f, "{}", self.value.bool_value.to_string()),
+                MgValueType::Int => write!(f, "{}", self.value.int_value.to_string()),
+                MgValueType::Float => write!(f, "{}", self.value.float_value.to_string()),
                 MgValueType::String => write!(f, "'{}'", self.get_string_value()),
                 MgValueType::List => write!(f, "{}", self.get_list_value().iter()
                     .map(|val| val.to_string())
