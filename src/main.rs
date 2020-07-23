@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{MgValue, connect};
+use rsmgclient::{connect, MgValue};
 
 fn main() {
     let connection = match connect("127.0.0.1", 7687) {
@@ -20,7 +20,9 @@ fn main() {
         Err(err) => panic!("{}", err),
     };
 
-    let rows: Vec<Vec<MgValue>> = match connection.execute("CREATE (n:Person {name: 'John'})-[e:KNOWS]->(m:Person {name: 'Steve'}) RETURN n, e, m;") {
+    let rows: Vec<Vec<MgValue>> = match connection.execute(
+        "CREATE (n:Person {name: 'John'})-[e:KNOWS]->(m:Person {name: 'Steve'}) RETURN n, e, m;",
+    ) {
         Ok(res) => res,
         Err(err) => panic!("Query failed: {}", err),
     };

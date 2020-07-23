@@ -1,6 +1,6 @@
 use super::bindings;
-use std::ffi::CStr;
 use std::collections::HashMap;
+use std::ffi::CStr;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -93,7 +93,7 @@ impl Drop for MgValue {
             MgValueType::Path => unsafe {
                 Box::from_raw(self.value.path_ptr);
             },
-            _ => {},
+            _ => {}
         }
     }
 }
@@ -198,15 +198,19 @@ fn mg_value_relationship(mg_value: *const bindings::mg_value) -> MgRelationship 
         start_id,
         end_id,
         type_,
-        properties
+        properties,
     }
 }
 
-fn c_mg_unbound_relationship_to_mg_unbound_relationship(c_mg_unbound_relationship: *const bindings::mg_unbound_relationship) -> MgUnboundRelationship {
+fn c_mg_unbound_relationship_to_mg_unbound_relationship(
+    c_mg_unbound_relationship: *const bindings::mg_unbound_relationship,
+) -> MgUnboundRelationship {
     let id = unsafe { bindings::mg_unbound_relationship_id(c_mg_unbound_relationship) };
-    let type_mg_string = unsafe { bindings::mg_unbound_relationship_type(c_mg_unbound_relationship) };
+    let type_mg_string =
+        unsafe { bindings::mg_unbound_relationship_type(c_mg_unbound_relationship) };
     let type_ = mg_string_to_string(type_mg_string);
-    let properties_mg_map = unsafe { bindings::mg_unbound_relationship_properties(c_mg_unbound_relationship) };
+    let properties_mg_map =
+        unsafe { bindings::mg_unbound_relationship_properties(c_mg_unbound_relationship) };
     let properties = mg_map_to_hash_map(properties_mg_map);
 
     MgUnboundRelationship {
@@ -339,73 +343,83 @@ impl MgValue {
     }
 
     pub unsafe fn from_mg_value(c_mg_value: *const bindings::mg_value) -> MgValue {
-        unsafe { match bindings::mg_value_get_type(c_mg_value) {
-            bindings::mg_value_type_MG_VALUE_TYPE_NULL => MgValue {
-                value_type: MgValueType::Null,
-                value: MgValues { bool_value: false },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_BOOL => MgValue {
-                value_type: MgValueType::Bool,
-                value: MgValues { bool_value: mg_value_bool(c_mg_value) }
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_INTEGER => MgValue {
-                value_type: MgValueType::Int,
-                value: MgValues { int_value: mg_value_int(c_mg_value) },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_FLOAT => MgValue {
-                value_type: MgValueType::Float,
-                value: MgValues { float_value: mg_value_float(c_mg_value) },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_STRING => MgValue {
-                value_type: MgValueType::String,
-                value: MgValues {
-                    string_ptr: Box::into_raw(Box::from(mg_value_string(c_mg_value))),
-                }
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_LIST => MgValue {
-                value_type: MgValueType::List,
-                value: MgValues {
-                    list_ptr: Box::into_raw(Box::from(mg_value_list_to_vec(c_mg_value))),
+        unsafe {
+            match bindings::mg_value_get_type(c_mg_value) {
+                bindings::mg_value_type_MG_VALUE_TYPE_NULL => MgValue {
+                    value_type: MgValueType::Null,
+                    value: MgValues { bool_value: false },
                 },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_MAP => MgValue {
-                value_type: MgValueType::Map,
-                value: MgValues {
-                    map_ptr: Box::into_raw(Box::from(mg_value_map(c_mg_value))),
+                bindings::mg_value_type_MG_VALUE_TYPE_BOOL => MgValue {
+                    value_type: MgValueType::Bool,
+                    value: MgValues {
+                        bool_value: mg_value_bool(c_mg_value),
+                    },
                 },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_NODE => MgValue {
-                value_type: MgValueType::Node,
-                value: MgValues {
-                    node_ptr: Box::into_raw(Box::from(mg_value_node(c_mg_value))),
+                bindings::mg_value_type_MG_VALUE_TYPE_INTEGER => MgValue {
+                    value_type: MgValueType::Int,
+                    value: MgValues {
+                        int_value: mg_value_int(c_mg_value),
+                    },
                 },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_RELATIONSHIP => MgValue {
-                value_type: MgValueType::Relationship,
-                value: MgValues {
-                    relationship_ptr: Box::into_raw(Box::from(mg_value_relationship(c_mg_value))),
+                bindings::mg_value_type_MG_VALUE_TYPE_FLOAT => MgValue {
+                    value_type: MgValueType::Float,
+                    value: MgValues {
+                        float_value: mg_value_float(c_mg_value),
+                    },
                 },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_UNBOUND_RELATIONSHIP => MgValue {
-                value_type: MgValueType::UnboundRelationship,
-                value: MgValues {
-                    unbound_relationship_ptr: Box::into_raw(Box::from(mg_value_unbound_relationship(c_mg_value))),
+                bindings::mg_value_type_MG_VALUE_TYPE_STRING => MgValue {
+                    value_type: MgValueType::String,
+                    value: MgValues {
+                        string_ptr: Box::into_raw(Box::from(mg_value_string(c_mg_value))),
+                    },
                 },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_PATH => MgValue {
-                value_type: MgValueType::Path,
-                value: MgValues {
-                    path_ptr: Box::into_raw(Box::from(mg_value_path(c_mg_value))),
+                bindings::mg_value_type_MG_VALUE_TYPE_LIST => MgValue {
+                    value_type: MgValueType::List,
+                    value: MgValues {
+                        list_ptr: Box::into_raw(Box::from(mg_value_list_to_vec(c_mg_value))),
+                    },
                 },
-            },
-            bindings::mg_value_type_MG_VALUE_TYPE_UNKNOWN => MgValue {
-                value_type: MgValueType::Unknown,
-                value: MgValues {
-                    bool_value: false,
+                bindings::mg_value_type_MG_VALUE_TYPE_MAP => MgValue {
+                    value_type: MgValueType::Map,
+                    value: MgValues {
+                        map_ptr: Box::into_raw(Box::from(mg_value_map(c_mg_value))),
+                    },
                 },
-            },
-            _ => panic!("Unknown type"),
-        } }
+                bindings::mg_value_type_MG_VALUE_TYPE_NODE => MgValue {
+                    value_type: MgValueType::Node,
+                    value: MgValues {
+                        node_ptr: Box::into_raw(Box::from(mg_value_node(c_mg_value))),
+                    },
+                },
+                bindings::mg_value_type_MG_VALUE_TYPE_RELATIONSHIP => MgValue {
+                    value_type: MgValueType::Relationship,
+                    value: MgValues {
+                        relationship_ptr: Box::into_raw(Box::from(mg_value_relationship(
+                            c_mg_value,
+                        ))),
+                    },
+                },
+                bindings::mg_value_type_MG_VALUE_TYPE_UNBOUND_RELATIONSHIP => MgValue {
+                    value_type: MgValueType::UnboundRelationship,
+                    value: MgValues {
+                        unbound_relationship_ptr: Box::into_raw(Box::from(
+                            mg_value_unbound_relationship(c_mg_value),
+                        )),
+                    },
+                },
+                bindings::mg_value_type_MG_VALUE_TYPE_PATH => MgValue {
+                    value_type: MgValueType::Path,
+                    value: MgValues {
+                        path_ptr: Box::into_raw(Box::from(mg_value_path(c_mg_value))),
+                    },
+                },
+                bindings::mg_value_type_MG_VALUE_TYPE_UNKNOWN => MgValue {
+                    value_type: MgValueType::Unknown,
+                    value: MgValues { bool_value: false },
+                },
+                _ => panic!("Unknown type"),
+            }
+        }
     }
 }
 
@@ -418,21 +432,29 @@ impl fmt::Display for MgValue {
                 MgValueType::Int => write!(f, "{}", self.value.int_value.to_string()),
                 MgValueType::Float => write!(f, "{}", self.value.float_value.to_string()),
                 MgValueType::String => write!(f, "'{}'", self.get_string_value()),
-                MgValueType::List => write!(f, "{}", self.get_list_value().iter()
-                    .map(|val| val.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")),
+                MgValueType::List => write!(
+                    f,
+                    "{}",
+                    self.get_list_value()
+                        .iter()
+                        .map(|val| val.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                ),
                 MgValueType::Map => write!(f, "{}", mg_map_to_string(&self.get_map_value())),
                 MgValueType::Node => write!(f, "{}", &self.get_node_value().to_string()),
-                MgValueType::Relationship => write!(f, "{}", &self.get_relationship_value().to_string()),
-                MgValueType::UnboundRelationship => write!(f, "{}", &self.get_unbound_relationship_value().to_string()),
+                MgValueType::Relationship => {
+                    write!(f, "{}", &self.get_relationship_value().to_string())
+                }
+                MgValueType::UnboundRelationship => {
+                    write!(f, "{}", &self.get_unbound_relationship_value().to_string())
+                }
                 MgValueType::Path => write!(f, "{}", &self.get_path_value().to_string()),
                 MgValueType::Unknown => write!(f, "NULL"),
             }
         }
     }
 }
-
 
 fn mg_map_to_string(mg_map: &HashMap<String, MgValue>) -> String {
     let mut properties: Vec<String> = Vec::new();
@@ -444,19 +466,34 @@ fn mg_map_to_string(mg_map: &HashMap<String, MgValue>) -> String {
 
 impl fmt::Display for MgNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "(:{} {})", self.labels.join(", "), mg_map_to_string(&self.properties))
+        write!(
+            f,
+            "(:{} {})",
+            self.labels.join(", "),
+            mg_map_to_string(&self.properties)
+        )
     }
 }
 
 impl fmt::Display for MgRelationship {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[:{} {}]", self.type_, mg_map_to_string(&self.properties))
+        write!(
+            f,
+            "[:{} {}]",
+            self.type_,
+            mg_map_to_string(&self.properties)
+        )
     }
 }
 
 impl fmt::Display for MgUnboundRelationship {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[:{} {}]", self.type_, mg_map_to_string(&self.properties))
+        write!(
+            f,
+            "[:{} {}]",
+            self.type_,
+            mg_map_to_string(&self.properties)
+        )
     }
 }
 

@@ -1,7 +1,7 @@
 use super::bindings;
-use super::mg_value::{MgValue, mg_list_to_vec, c_string_to_string};
-use std::ffi::{CString};
-use super::error::{MgError};
+use super::error::MgError;
+use super::mg_value::{c_string_to_string, mg_list_to_vec, MgValue};
+use std::ffi::CString;
 
 pub struct Connection {
     mg_session: *mut bindings::mg_session,
@@ -24,7 +24,8 @@ impl Connection {
         let mut columns: *const bindings::mg_list = std::ptr::null_mut();
         let mut status = unsafe {
             bindings::mg_session_run(
-                self.mg_session, c_query.as_ptr(),
+                self.mg_session,
+                c_query.as_ptr(),
                 std::ptr::null(),
                 &mut columns,
             )
@@ -43,7 +44,7 @@ impl Connection {
                 match status {
                     1 => res.push(mg_list_to_vec(row)),
                     // last row returned
-                    0 => {},
+                    0 => {}
                     _ => return Err(MgError::new(read_error_message(self.mg_session))),
                 }
 
@@ -58,25 +59,26 @@ impl Connection {
 }
 
 pub fn connect(host: &str, port: u16) -> Result<Connection, MgError> {
-    let mg_session_params = unsafe {
-        bindings::mg_session_params_make()
-    };
+    let mg_session_params = unsafe { bindings::mg_session_params_make() };
     let host_c_str = CString::new(host).unwrap();
     unsafe {
         bindings::mg_session_params_set_host(mg_session_params, host_c_str.as_ptr());
         bindings::mg_session_params_set_port(mg_session_params, port);
-        bindings::mg_session_params_set_sslmode(mg_session_params, bindings::mg_sslmode_MG_SSLMODE_REQUIRE);
+        bindings::mg_session_params_set_sslmode(
+            mg_session_params,
+            bindings::mg_sslmode_MG_SSLMODE_REQUIRE,
+        );
     }
 
     let mut mg_session: *mut bindings::mg_session = std::ptr::null_mut();
     let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
-    unsafe { bindings::mg_session_params_destroy(mg_session_params); };
+    unsafe {
+        bindings::mg_session_params_destroy(mg_session_params);
+    };
 
     if status != 0 {
         return Err(MgError::new(read_error_message(mg_session)));
     }
 
-    Ok(Connection {
-        mg_session,
-    })
+    Ok(Connection { mg_session })
 }

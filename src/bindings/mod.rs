@@ -167,10 +167,10 @@ fn bindgen_test_layout___fsid_t() {
         unsafe { &(*(::std::ptr::null::<__fsid_t>())).__val as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__fsid_t),
-        "::",
-        stringify!(__val)
+            "Offset of field: ",
+            stringify!(__fsid_t),
+            "::",
+            stringify!(__val)
         )
     );
 }
@@ -255,20 +255,20 @@ fn bindgen_test_layout_mg_string() {
         unsafe { &(*(::std::ptr::null::<mg_string>())).size as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_string),
-        "::",
-        stringify!(size)
+            "Offset of field: ",
+            stringify!(mg_string),
+            "::",
+            stringify!(size)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_string>())).data as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_string),
-        "::",
-        stringify!(data)
+            "Offset of field: ",
+            stringify!(mg_string),
+            "::",
+            stringify!(data)
         )
     );
 }
@@ -295,30 +295,30 @@ fn bindgen_test_layout_mg_list() {
         unsafe { &(*(::std::ptr::null::<mg_list>())).size as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_list),
-        "::",
-        stringify!(size)
+            "Offset of field: ",
+            stringify!(mg_list),
+            "::",
+            stringify!(size)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_list>())).capacity as *const _ as usize },
         4usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_list),
-        "::",
-        stringify!(capacity)
+            "Offset of field: ",
+            stringify!(mg_list),
+            "::",
+            stringify!(capacity)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_list>())).elements as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_list),
-        "::",
-        stringify!(elements)
+            "Offset of field: ",
+            stringify!(mg_list),
+            "::",
+            stringify!(elements)
         )
     );
 }
@@ -346,40 +346,40 @@ fn bindgen_test_layout_mg_map() {
         unsafe { &(*(::std::ptr::null::<mg_map>())).size as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_map),
-        "::",
-        stringify!(size)
+            "Offset of field: ",
+            stringify!(mg_map),
+            "::",
+            stringify!(size)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_map>())).capacity as *const _ as usize },
         4usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_map),
-        "::",
-        stringify!(capacity)
+            "Offset of field: ",
+            stringify!(mg_map),
+            "::",
+            stringify!(capacity)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_map>())).keys as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_map),
-        "::",
-        stringify!(keys)
+            "Offset of field: ",
+            stringify!(mg_map),
+            "::",
+            stringify!(keys)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_map>())).values as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_map),
-        "::",
-        stringify!(values)
+            "Offset of field: ",
+            stringify!(mg_map),
+            "::",
+            stringify!(values)
         )
     );
 }
@@ -407,40 +407,40 @@ fn bindgen_test_layout_mg_node() {
         unsafe { &(*(::std::ptr::null::<mg_node>())).id as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_node),
-        "::",
-        stringify!(id)
+            "Offset of field: ",
+            stringify!(mg_node),
+            "::",
+            stringify!(id)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_node>())).label_count as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_node),
-        "::",
-        stringify!(label_count)
+            "Offset of field: ",
+            stringify!(mg_node),
+            "::",
+            stringify!(label_count)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_node>())).labels as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_node),
-        "::",
-        stringify!(labels)
+            "Offset of field: ",
+            stringify!(mg_node),
+            "::",
+            stringify!(labels)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_node>())).properties as *const _ as usize },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_node),
-        "::",
-        stringify!(properties)
+            "Offset of field: ",
+            stringify!(mg_node),
+            "::",
+            stringify!(properties)
         )
     );
 }
@@ -469,50 +469,50 @@ fn bindgen_test_layout_mg_relationship() {
         unsafe { &(*(::std::ptr::null::<mg_relationship>())).id as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_relationship),
-        "::",
-        stringify!(id)
+            "Offset of field: ",
+            stringify!(mg_relationship),
+            "::",
+            stringify!(id)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_relationship>())).start_id as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_relationship),
-        "::",
-        stringify!(start_id)
+            "Offset of field: ",
+            stringify!(mg_relationship),
+            "::",
+            stringify!(start_id)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_relationship>())).end_id as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_relationship),
-        "::",
-        stringify!(end_id)
+            "Offset of field: ",
+            stringify!(mg_relationship),
+            "::",
+            stringify!(end_id)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_relationship>())).type_ as *const _ as usize },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_relationship),
-        "::",
-        stringify!(type_)
+            "Offset of field: ",
+            stringify!(mg_relationship),
+            "::",
+            stringify!(type_)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_relationship>())).properties as *const _ as usize },
         32usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_relationship),
-        "::",
-        stringify!(properties)
+            "Offset of field: ",
+            stringify!(mg_relationship),
+            "::",
+            stringify!(properties)
         )
     );
 }
@@ -539,20 +539,20 @@ fn bindgen_test_layout_mg_unbound_relationship() {
         unsafe { &(*(::std::ptr::null::<mg_unbound_relationship>())).id as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_unbound_relationship),
-        "::",
-        stringify!(id)
+            "Offset of field: ",
+            stringify!(mg_unbound_relationship),
+            "::",
+            stringify!(id)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_unbound_relationship>())).type_ as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_unbound_relationship),
-        "::",
-        stringify!(type_)
+            "Offset of field: ",
+            stringify!(mg_unbound_relationship),
+            "::",
+            stringify!(type_)
         )
     );
     assert_eq!(
@@ -561,10 +561,10 @@ fn bindgen_test_layout_mg_unbound_relationship() {
         },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_unbound_relationship),
-        "::",
-        stringify!(properties)
+            "Offset of field: ",
+            stringify!(mg_unbound_relationship),
+            "::",
+            stringify!(properties)
         )
     );
 }
@@ -594,60 +594,60 @@ fn bindgen_test_layout_mg_path() {
         unsafe { &(*(::std::ptr::null::<mg_path>())).node_count as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_path),
-        "::",
-        stringify!(node_count)
+            "Offset of field: ",
+            stringify!(mg_path),
+            "::",
+            stringify!(node_count)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_path>())).relationship_count as *const _ as usize },
         4usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_path),
-        "::",
-        stringify!(relationship_count)
+            "Offset of field: ",
+            stringify!(mg_path),
+            "::",
+            stringify!(relationship_count)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_path>())).sequence_length as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_path),
-        "::",
-        stringify!(sequence_length)
+            "Offset of field: ",
+            stringify!(mg_path),
+            "::",
+            stringify!(sequence_length)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_path>())).nodes as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_path),
-        "::",
-        stringify!(nodes)
+            "Offset of field: ",
+            stringify!(mg_path),
+            "::",
+            stringify!(nodes)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_path>())).relationships as *const _ as usize },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_path),
-        "::",
-        stringify!(relationships)
+            "Offset of field: ",
+            stringify!(mg_path),
+            "::",
+            stringify!(relationships)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_path>())).sequence as *const _ as usize },
         32usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_path),
-        "::",
-        stringify!(sequence)
+            "Offset of field: ",
+            stringify!(mg_path),
+            "::",
+            stringify!(sequence)
         )
     );
 }
@@ -688,10 +688,10 @@ fn bindgen_test_layout_mg_value__bindgen_ty_1() {
         unsafe { &(*(::std::ptr::null::<mg_value__bindgen_ty_1>())).bool_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(bool_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(bool_v)
         )
     );
     assert_eq!(
@@ -700,60 +700,60 @@ fn bindgen_test_layout_mg_value__bindgen_ty_1() {
         },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(integer_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(integer_v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_value__bindgen_ty_1>())).float_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(float_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(float_v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_value__bindgen_ty_1>())).string_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(string_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(string_v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_value__bindgen_ty_1>())).list_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(list_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(list_v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_value__bindgen_ty_1>())).map_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(map_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(map_v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_value__bindgen_ty_1>())).node_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(node_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(node_v)
         )
     );
     assert_eq!(
@@ -762,10 +762,10 @@ fn bindgen_test_layout_mg_value__bindgen_ty_1() {
         },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(relationship_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(relationship_v)
         )
     );
     assert_eq!(
@@ -775,20 +775,20 @@ fn bindgen_test_layout_mg_value__bindgen_ty_1() {
         },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(unbound_relationship_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(unbound_relationship_v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_value__bindgen_ty_1>())).path_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value__bindgen_ty_1),
-        "::",
-        stringify!(path_v)
+            "Offset of field: ",
+            stringify!(mg_value__bindgen_ty_1),
+            "::",
+            stringify!(path_v)
         )
     );
 }
@@ -808,10 +808,10 @@ fn bindgen_test_layout_mg_value() {
         unsafe { &(*(::std::ptr::null::<mg_value>())).type_ as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_value),
-        "::",
-        stringify!(type_)
+            "Offset of field: ",
+            stringify!(mg_value),
+            "::",
+            stringify!(type_)
         )
     );
 }
@@ -844,10 +844,10 @@ fn bindgen_test_layout_mg_message_success() {
         unsafe { &(*(::std::ptr::null::<mg_message_success>())).metadata as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message_success),
-        "::",
-        stringify!(metadata)
+            "Offset of field: ",
+            stringify!(mg_message_success),
+            "::",
+            stringify!(metadata)
         )
     );
 }
@@ -872,10 +872,10 @@ fn bindgen_test_layout_mg_message_failure() {
         unsafe { &(*(::std::ptr::null::<mg_message_failure>())).metadata as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message_failure),
-        "::",
-        stringify!(metadata)
+            "Offset of field: ",
+            stringify!(mg_message_failure),
+            "::",
+            stringify!(metadata)
         )
     );
 }
@@ -900,10 +900,10 @@ fn bindgen_test_layout_mg_message_record() {
         unsafe { &(*(::std::ptr::null::<mg_message_record>())).fields as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message_record),
-        "::",
-        stringify!(fields)
+            "Offset of field: ",
+            stringify!(mg_message_record),
+            "::",
+            stringify!(fields)
         )
     );
 }
@@ -929,20 +929,20 @@ fn bindgen_test_layout_mg_message_init() {
         unsafe { &(*(::std::ptr::null::<mg_message_init>())).client_name as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message_init),
-        "::",
-        stringify!(client_name)
+            "Offset of field: ",
+            stringify!(mg_message_init),
+            "::",
+            stringify!(client_name)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_message_init>())).auth_token as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message_init),
-        "::",
-        stringify!(auth_token)
+            "Offset of field: ",
+            stringify!(mg_message_init),
+            "::",
+            stringify!(auth_token)
         )
     );
 }
@@ -968,20 +968,20 @@ fn bindgen_test_layout_mg_message_run() {
         unsafe { &(*(::std::ptr::null::<mg_message_run>())).statement as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message_run),
-        "::",
-        stringify!(statement)
+            "Offset of field: ",
+            stringify!(mg_message_run),
+            "::",
+            stringify!(statement)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_message_run>())).parameters as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message_run),
-        "::",
-        stringify!(parameters)
+            "Offset of field: ",
+            stringify!(mg_message_run),
+            "::",
+            stringify!(parameters)
         )
     );
 }
@@ -1019,10 +1019,10 @@ fn bindgen_test_layout_mg_message__bindgen_ty_1() {
         },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message__bindgen_ty_1),
-        "::",
-        stringify!(success_v)
+            "Offset of field: ",
+            stringify!(mg_message__bindgen_ty_1),
+            "::",
+            stringify!(success_v)
         )
     );
     assert_eq!(
@@ -1031,10 +1031,10 @@ fn bindgen_test_layout_mg_message__bindgen_ty_1() {
         },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message__bindgen_ty_1),
-        "::",
-        stringify!(failure_v)
+            "Offset of field: ",
+            stringify!(mg_message__bindgen_ty_1),
+            "::",
+            stringify!(failure_v)
         )
     );
     assert_eq!(
@@ -1043,30 +1043,30 @@ fn bindgen_test_layout_mg_message__bindgen_ty_1() {
         },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message__bindgen_ty_1),
-        "::",
-        stringify!(record_v)
+            "Offset of field: ",
+            stringify!(mg_message__bindgen_ty_1),
+            "::",
+            stringify!(record_v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_message__bindgen_ty_1>())).init_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message__bindgen_ty_1),
-        "::",
-        stringify!(init_v)
+            "Offset of field: ",
+            stringify!(mg_message__bindgen_ty_1),
+            "::",
+            stringify!(init_v)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_message__bindgen_ty_1>())).run_v as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message__bindgen_ty_1),
-        "::",
-        stringify!(run_v)
+            "Offset of field: ",
+            stringify!(mg_message__bindgen_ty_1),
+            "::",
+            stringify!(run_v)
         )
     );
 }
@@ -1086,10 +1086,10 @@ fn bindgen_test_layout_mg_message() {
         unsafe { &(*(::std::ptr::null::<mg_message>())).type_ as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_message),
-        "::",
-        stringify!(type_)
+            "Offset of field: ",
+            stringify!(mg_message),
+            "::",
+            stringify!(type_)
         )
     );
 }
@@ -1237,7 +1237,7 @@ extern "C" {
 }
 extern "C" {
     pub fn mg_map_at(map: *const mg_map, key_str: *const ::std::os::raw::c_char)
-                     -> *const mg_value;
+        -> *const mg_value;
 }
 extern "C" {
     pub fn mg_map_at2(
@@ -1308,7 +1308,7 @@ extern "C" {
 }
 extern "C" {
     pub fn mg_unbound_relationship_properties(rel: *const mg_unbound_relationship)
-                                              -> *const mg_map;
+        -> *const mg_map;
 }
 extern "C" {
     pub fn mg_unbound_relationship_copy(
@@ -1380,30 +1380,30 @@ fn bindgen_test_layout_mg_transport() {
         unsafe { &(*(::std::ptr::null::<mg_transport>())).send as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_transport),
-        "::",
-        stringify!(send)
+            "Offset of field: ",
+            stringify!(mg_transport),
+            "::",
+            stringify!(send)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_transport>())).recv as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_transport),
-        "::",
-        stringify!(recv)
+            "Offset of field: ",
+            stringify!(mg_transport),
+            "::",
+            stringify!(recv)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_transport>())).destroy as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_transport),
-        "::",
-        stringify!(destroy)
+            "Offset of field: ",
+            stringify!(mg_transport),
+            "::",
+            stringify!(destroy)
         )
     );
 }
@@ -1440,30 +1440,30 @@ fn bindgen_test_layout_mg_allocator() {
         unsafe { &(*(::std::ptr::null::<mg_allocator>())).malloc as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_allocator),
-        "::",
-        stringify!(malloc)
+            "Offset of field: ",
+            stringify!(mg_allocator),
+            "::",
+            stringify!(malloc)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_allocator>())).realloc as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_allocator),
-        "::",
-        stringify!(realloc)
+            "Offset of field: ",
+            stringify!(mg_allocator),
+            "::",
+            stringify!(realloc)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_allocator>())).free as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_allocator),
-        "::",
-        stringify!(free)
+            "Offset of field: ",
+            stringify!(mg_allocator),
+            "::",
+            stringify!(free)
         )
     );
 }
@@ -1491,40 +1491,40 @@ fn bindgen_test_layout_mg_result() {
         unsafe { &(*(::std::ptr::null::<mg_result>())).status as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_result),
-        "::",
-        stringify!(status)
+            "Offset of field: ",
+            stringify!(mg_result),
+            "::",
+            stringify!(status)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_result>())).session as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_result),
-        "::",
-        stringify!(session)
+            "Offset of field: ",
+            stringify!(mg_result),
+            "::",
+            stringify!(session)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_result>())).message as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_result),
-        "::",
-        stringify!(message)
+            "Offset of field: ",
+            stringify!(mg_result),
+            "::",
+            stringify!(message)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_result>())).columns as *const _ as usize },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_result),
-        "::",
-        stringify!(columns)
+            "Offset of field: ",
+            stringify!(mg_result),
+            "::",
+            stringify!(columns)
         )
     );
 }
@@ -1562,140 +1562,140 @@ fn bindgen_test_layout_mg_session() {
         unsafe { &(*(::std::ptr::null::<mg_session>())).status as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(status)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(status)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).transport as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(transport)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(transport)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).out_buffer as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(out_buffer)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(out_buffer)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).out_begin as *const _ as usize },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(out_begin)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(out_begin)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).out_end as *const _ as usize },
         32usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(out_end)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(out_end)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).out_capacity as *const _ as usize },
         40usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(out_capacity)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(out_capacity)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).in_buffer as *const _ as usize },
         48usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(in_buffer)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(in_buffer)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).in_end as *const _ as usize },
         56usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(in_end)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(in_end)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).in_capacity as *const _ as usize },
         64usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(in_capacity)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(in_capacity)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).in_cursor as *const _ as usize },
         72usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(in_cursor)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(in_cursor)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).result as *const _ as usize },
         80usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(result)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(result)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).error_buffer as *const _ as usize },
         112usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(error_buffer)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(error_buffer)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).allocator as *const _ as usize },
         1136usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(allocator)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(allocator)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session>())).decoder_allocator as *const _ as usize },
         1144usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session),
-        "::",
-        stringify!(decoder_allocator)
+            "Offset of field: ",
+            stringify!(mg_session),
+            "::",
+            stringify!(decoder_allocator)
         )
     );
 }
@@ -1738,90 +1738,90 @@ fn bindgen_test_layout_mg_session_params() {
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).address as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(address)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(address)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).host as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(host)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(host)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).port as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(port)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(port)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).username as *const _ as usize },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(username)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(username)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).password as *const _ as usize },
         32usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(password)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(password)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).client_name as *const _ as usize },
         40usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(client_name)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(client_name)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).sslmode as *const _ as usize },
         48usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(sslmode)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(sslmode)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).sslcert as *const _ as usize },
         56usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(sslcert)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(sslcert)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).sslkey as *const _ as usize },
         64usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(sslkey)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(sslkey)
         )
     );
     assert_eq!(
@@ -1830,20 +1830,20 @@ fn bindgen_test_layout_mg_session_params() {
         },
         72usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(trust_callback)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(trust_callback)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<mg_session_params>())).trust_data as *const _ as usize },
         80usize,
         concat!(
-        "Offset of field: ",
-        stringify!(mg_session_params),
-        "::",
-        stringify!(trust_data)
+            "Offset of field: ",
+            stringify!(mg_session_params),
+            "::",
+            stringify!(trust_data)
         )
     );
 }

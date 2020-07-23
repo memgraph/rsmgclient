@@ -12,8 +12,6 @@ impl fmt::Display for MgError {
 
 impl MgError {
     pub fn new(message: String) -> MgError {
-        MgError {
-            message,
-        }
+        MgError { message }
     }
 }
