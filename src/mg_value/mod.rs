@@ -489,9 +489,8 @@ impl fmt::Display for MgUnboundRelationship {
     }
 }
 
-// TODO: finish
 impl fmt::Display for MgPath {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "MgPath")
+        unimplemented!();
     }
 }
