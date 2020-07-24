@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{connect, MgValue};
+use rsmgclient::{connect, ConnectParams, MgValue};
 
 fn main() {
-    let connection = match connect("127.0.0.1", 7687) {
+    let connect_prms = ConnectParams {
+        ..Default::default()
+    };
+    let connection = match connect(&connect_prms) {
         Ok(c) => c,
         Err(err) => panic!("{}", err),
     };
