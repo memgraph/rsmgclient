@@ -42,7 +42,7 @@ impl Default for ConnectParams {
             username: None,
             password: None,
             client_name: String::from("MemgraphBolt/0.1"),
-            sslmode: SSLMode::Disable,
+            sslmode: SSLMode::Require,
             sslcert: None,
             sslkey: None,
             trust_callback: None,
@@ -121,24 +121,42 @@ impl Connection {
 
 pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
     let mg_session_params = unsafe { bindings::mg_session_params_make() };
-
+    let host_c_str = CString::new("127.0.0.1").unwrap();
     unsafe {
+
+        /*match param_struct.host.as_str() {
+            "127.0.0.1" =>{
+                let host_c_str2 = CString::new(String::from(param_struct.host.as_str())).unwrap();
+                bindings::mg_session_params_set_host(
+                    mg_session_params,
+                    host_c_str2.as_ptr(),
+                )
+            }
+            x => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(&x)),
+        }*/
         match &param_struct.host {
-            Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(&x)),
+            Some(x) => {
+                let host_c_str2 = CString::new(String::from(x.as_str())).unwrap();
+                bindings::mg_session_params_set_host(mg_session_params, host_c_str.as_ptr());
+                println!("u hostu sam {}", x)
+            }
             None => {}
         };
+
         match param_struct.port {
-            7687 => bindings::mg_session_params_set_port(mg_session_params, param_struct.port),
+            7687 => {
+                bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
+            }
             x => bindings::mg_session_params_set_port(mg_session_params, x),
         }
         match param_struct.sslmode {
             SSLMode::Disable => bindings::mg_session_params_set_sslmode(
                 mg_session_params,
-                bindings::mg_sslmode_MG_SSLMODE_DISABLE,
+                sslmode_to_c(&SSLMode::Disable),
             ),
             SSLMode::Require => bindings::mg_session_params_set_sslmode(
                 mg_session_params,
-                bindings::mg_sslmode_MG_SSLMODE_REQUIRE,
+                sslmode_to_c(&SSLMode::Require),
             ),
         }
         match &param_struct.address {
@@ -188,7 +206,7 @@ pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
 }
 
 fn str_to_c_str(rust_str: &str) -> *const ::std::os::raw::c_char {
-    let c_str = CString::new(rust_str).unwrap();
+    let c_str = CString::new(String::from(rust_str)).unwrap();
 
     c_str.as_ptr()
 }
