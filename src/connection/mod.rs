@@ -28,7 +28,11 @@ pub struct ConnectParams {
     pub sslcert: Option<String>,
     pub sslkey: Option<String>,
     pub trust_callback: Option<
-        &'static dyn Fn(&String, &String, &String, &String, *mut ::std::os::raw::c_void) -> i32,
+        unsafe extern "C" fn(*const ::std::os::raw::c_char,
+        *const ::std::os::raw::c_char,
+        *const ::std::os::raw::c_char,
+        *const ::std::os::raw::c_char,
+        *mut ::std::os::raw::c_void,) -> i32,
     >,
     pub trust_data: Option<*mut ::std::os::raw::c_void>,
 }
@@ -149,6 +153,14 @@ pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
         }
         match &param_struct.sslkey {
             Some(x) => bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x)),
+            None => {},
+        }
+        match &param_struct.trust_callback {
+            Some(x) => bindings::mg_session_params_set_trust_callback(mg_session_params, Some(*x)),
+            None => {},
+        }
+        match &param_struct.trust_data {
+            Some(x) => bindings::mg_session_params_set_trust_data(mg_session_params, *x),
             None => {},
         }
     }
