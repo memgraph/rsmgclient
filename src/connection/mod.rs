@@ -28,11 +28,13 @@ pub struct ConnectParams {
     pub sslcert: Option<String>,
     pub sslkey: Option<String>,
     pub trust_callback: Option<
-        unsafe extern "C" fn(*const ::std::os::raw::c_char,
-        *const ::std::os::raw::c_char,
-        *const ::std::os::raw::c_char,
-        *const ::std::os::raw::c_char,
-        *mut ::std::os::raw::c_void,) -> i32,
+        unsafe extern "C" fn(
+            *const ::std::os::raw::c_char,
+            *const ::std::os::raw::c_char,
+            *const ::std::os::raw::c_char,
+            *const ::std::os::raw::c_char,
+            *mut ::std::os::raw::c_void,
+        ) -> i32,
     >,
     pub trust_data: Option<*mut ::std::os::raw::c_void>,
 }
@@ -127,41 +129,45 @@ pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
     let mg_session_params = unsafe { bindings::mg_session_params_make() };
     unsafe {
         match &param_struct.host {
-            Some(x) =>
-                bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
-            None => {},
+            Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
+            None => {}
         }
         bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
         match &param_struct.address {
             Some(x) => bindings::mg_session_params_set_address(mg_session_params, str_to_c_str(x)),
-            None => {},
+            None => {}
         }
         match &param_struct.username {
-            Some(x) =>
-                bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(x)),
-            None => {},
+            Some(x) => bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(x)),
+            None => {}
         }
         match &param_struct.password {
             Some(x) => bindings::mg_session_params_set_password(mg_session_params, str_to_c_str(x)),
-            None => {},
+            None => {}
         }
-        bindings::mg_session_params_set_client_name(mg_session_params, str_to_c_str(&param_struct.client_name));
-        bindings::mg_session_params_set_sslmode(mg_session_params, sslmode_to_c(&param_struct.sslmode));
+        bindings::mg_session_params_set_client_name(
+            mg_session_params,
+            str_to_c_str(&param_struct.client_name),
+        );
+        bindings::mg_session_params_set_sslmode(
+            mg_session_params,
+            sslmode_to_c(&param_struct.sslmode),
+        );
         match &param_struct.sslcert {
             Some(x) => bindings::mg_session_params_set_sslcert(mg_session_params, str_to_c_str(x)),
-            None => {},
+            None => {}
         }
         match &param_struct.sslkey {
             Some(x) => bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x)),
-            None => {},
+            None => {}
         }
         match &param_struct.trust_callback {
             Some(x) => bindings::mg_session_params_set_trust_callback(mg_session_params, Some(*x)),
-            None => {},
+            None => {}
         }
         match &param_struct.trust_data {
             Some(x) => bindings::mg_session_params_set_trust_data(mg_session_params, *x),
-            None => {},
+            None => {}
         }
     }
 
