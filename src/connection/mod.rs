@@ -121,74 +121,35 @@ impl Connection {
 
 pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
     let mg_session_params = unsafe { bindings::mg_session_params_make() };
-    let host_c_str = CString::new("127.0.0.1").unwrap();
     unsafe {
-
-        /*match param_struct.host.as_str() {
-            "127.0.0.1" =>{
-                let host_c_str2 = CString::new(String::from(param_struct.host.as_str())).unwrap();
-                bindings::mg_session_params_set_host(
-                    mg_session_params,
-                    host_c_str2.as_ptr(),
-                )
-            }
-            x => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(&x)),
-        }*/
         match &param_struct.host {
-            Some(x) => {
-                let host_c_str2 = CString::new(String::from(x.as_str())).unwrap();
-                bindings::mg_session_params_set_host(mg_session_params, host_c_str.as_ptr());
-                println!("u hostu sam {}", x)
-            }
-            None => {}
-        };
-
-        match param_struct.port {
-            7687 => {
-                bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
-            }
-            x => bindings::mg_session_params_set_port(mg_session_params, x),
+            Some(x) =>
+                bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
+            None => {},
         }
-        match param_struct.sslmode {
-            SSLMode::Disable => bindings::mg_session_params_set_sslmode(
-                mg_session_params,
-                sslmode_to_c(&SSLMode::Disable),
-            ),
-            SSLMode::Require => bindings::mg_session_params_set_sslmode(
-                mg_session_params,
-                sslmode_to_c(&SSLMode::Require),
-            ),
-        }
+        bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
         match &param_struct.address {
-            Some(x) => bindings::mg_session_params_set_address(mg_session_params, str_to_c_str(&x)),
-            None => {}
+            Some(x) => bindings::mg_session_params_set_address(mg_session_params, str_to_c_str(x)),
+            None => {},
         }
         match &param_struct.username {
-            Some(x) => {
-                bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(&x))
-            }
-            None => {}
+            Some(x) =>
+                bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(x)),
+            None => {},
         }
         match &param_struct.password {
-            Some(x) => {
-                bindings::mg_session_params_set_password(mg_session_params, str_to_c_str(&x))
-            }
-            None => {}
+            Some(x) => bindings::mg_session_params_set_password(mg_session_params, str_to_c_str(x)),
+            None => {},
         }
-        match param_struct.client_name.as_str() {
-            "MemgraphBolt/0.1" => bindings::mg_session_params_set_client_name(
-                mg_session_params,
-                str_to_c_str(&param_struct.client_name),
-            ),
-            x => bindings::mg_session_params_set_client_name(mg_session_params, str_to_c_str(&x)),
-        }
+        bindings::mg_session_params_set_client_name(mg_session_params, str_to_c_str(&param_struct.client_name));
+        bindings::mg_session_params_set_sslmode(mg_session_params, sslmode_to_c(&param_struct.sslmode));
         match &param_struct.sslcert {
-            Some(x) => bindings::mg_session_params_set_sslcert(mg_session_params, str_to_c_str(&x)),
-            None => {}
+            Some(x) => bindings::mg_session_params_set_sslcert(mg_session_params, str_to_c_str(x)),
+            None => {},
         }
         match &param_struct.sslkey {
-            Some(x) => bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(&x)),
-            None => {}
+            Some(x) => bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x)),
+            None => {},
         }
     }
 
