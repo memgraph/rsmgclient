@@ -41,6 +41,7 @@ extern "C" fn my_callback(
 fn main() {
     let data = str_to_c_str("My trust data") as *mut ::std::os::raw::c_void;
     let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
         trust_data: Some(data),
         trust_callback: Some(my_callback),
         ..Default::default()

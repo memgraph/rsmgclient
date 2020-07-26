@@ -43,12 +43,12 @@ impl Default for ConnectParams {
     fn default() -> Self {
         ConnectParams {
             port: 7687,
-            host: Some(String::from("127.0.0.1")),
+            host: None,
             address: None,
             username: None,
             password: None,
             client_name: String::from("MemgraphBolt/0.1"),
-            sslmode: SSLMode::Require,
+            sslmode: SSLMode::Disable,
             sslcert: None,
             sslkey: None,
             trust_callback: None,
