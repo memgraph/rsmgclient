@@ -45,13 +45,13 @@ fn main() {
         trust_callback: Some(my_callback),
         ..Default::default()
     };
-    // destroy data
-    unsafe {
-        Box::from_raw(data);
-    };
     let connection = match connect(&connect_prms) {
         Ok(c) => c,
         Err(err) => panic!("{}", err),
+    };
+    // destroy data
+    unsafe {
+        Box::from_raw(data);
     };
 
     let rows: Vec<Vec<MgValue>> = match connection.execute(
