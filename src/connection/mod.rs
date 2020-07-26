@@ -205,8 +205,8 @@ pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
     Ok(Connection { mg_session })
 }
 
-fn str_to_c_str(rust_str: &str) -> *const ::std::os::raw::c_char {
-    let c_str = CString::new(String::from(rust_str)).unwrap();
-
-    c_str.as_ptr()
+// allocates memory and passes ownership, user is responsible for freeing object!
+pub fn str_to_c_str(rust_str: &str) -> *const ::std::os::raw::c_char {
+    let c_str_ptr: *mut CString = Box::into_raw(Box::from(CString::new(rust_str).unwrap()));
+    unsafe { (*c_str_ptr).as_ptr() }
 }
