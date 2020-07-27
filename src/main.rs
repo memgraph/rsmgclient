@@ -12,11 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{connect, MgValue, QueryParam};
+use rsmgclient::{connect, ConnectParams, MgValue, QueryParam};
 use std::collections::HashMap;
 
+pub fn my_callback(
+    host: &String,
+    ip_address: &String,
+    key_type: &String,
+    fingerprint: &String,
+) -> i32 {
+    println!("host: {}", host);
+    println!("ip_address: {}", ip_address);
+    println!("key_type: {}", key_type);
+    println!("fingerprint: {}", fingerprint);
+
+    0
+}
+
 fn main() {
-    let connection = match connect("127.0.0.1", 7687) {
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        trust_callback: Some(&my_callback),
+        ..Default::default()
+    };
+
+    let connection = match connect(&connect_prms) {
         Ok(c) => c,
         Err(err) => panic!("{}", err),
     };
