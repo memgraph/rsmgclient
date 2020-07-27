@@ -15,26 +15,24 @@
 use rsmgclient::{connect, str_to_c_str, ConnectParams, MgValue};
 use std::ffi::CStr;
 
-extern "C" fn my_callback(
-    hostname: *const ::std::os::raw::c_char,
-    ip_address: *const ::std::os::raw::c_char,
-    key_type: *const ::std::os::raw::c_char,
-    fingerprint: *const ::std::os::raw::c_char,
-    data: *mut ::std::os::raw::c_void,
+pub fn my_callback(
+    host: &String,
+    ip_address: &String,
+    key_type: &String,
+    fingerprint: &String,
+    trust_data: *mut ::std::os::raw::c_void,
 ) -> i32 {
-    let host_str = unsafe { CStr::from_ptr(hostname).to_str().unwrap() };
-    let ip_adr_str = unsafe { CStr::from_ptr(ip_address).to_str().unwrap() };
-    let key_type_str = unsafe { CStr::from_ptr(key_type).to_str().unwrap() };
-    let fingerprint_str = unsafe { CStr::from_ptr(fingerprint).to_str().unwrap() };
-    let data_str = unsafe {
-        CStr::from_ptr(data as *const ::std::os::raw::c_char)
+    let str = unsafe {
+        CStr::from_ptr(trust_data as *const std::os::raw::c_char)
             .to_str()
             .unwrap()
     };
-    println!(
-        "Hello from C\nhostname: {}\nip_adr: {}\nkey_type: {}\nfingerprint: {}\ntrust_data: {}",
-        host_str, ip_adr_str, key_type_str, fingerprint_str, data_str
-    );
+    println!("host: {}", host);
+    println!("ip_address: {}", ip_address);
+    println!("key_type: {}", key_type);
+    println!("fingerprint: {}", fingerprint);
+    println!("data: {}", str);
+
     0
 }
 
@@ -42,8 +40,8 @@ fn main() {
     let data = str_to_c_str("My trust data") as *mut ::std::os::raw::c_void;
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
-        trust_data: Some(data),
-        trust_callback: Some(my_callback),
+        trust_data: Some(data as *mut ::std::os::raw::c_void),
+        trust_callback: Some(&my_callback),
         ..Default::default()
     };
     let connection = match connect(&connect_prms) {
