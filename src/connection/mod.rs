@@ -48,7 +48,7 @@ impl Default for ConnectParams {
             username: None,
             password: None,
             client_name: String::from("MemgraphBolt/0.1"),
-            sslmode: SSLMode::Disable,
+            sslmode: SSLMode::Require,
             sslcert: None,
             sslkey: None,
             trust_callback: None,
