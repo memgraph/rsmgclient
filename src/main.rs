@@ -12,45 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{connect, str_to_c_str, ConnectParams, MgValue};
-use std::ffi::CStr;
+use rsmgclient::{connect, ConnectParams, MgValue};
 
 pub fn my_callback(
     host: &String,
     ip_address: &String,
     key_type: &String,
     fingerprint: &String,
-    trust_data: *mut ::std::os::raw::c_void,
 ) -> i32 {
-    let str = unsafe {
-        CStr::from_ptr(trust_data as *const std::os::raw::c_char)
-            .to_str()
-            .unwrap()
-    };
     println!("host: {}", host);
     println!("ip_address: {}", ip_address);
     println!("key_type: {}", key_type);
     println!("fingerprint: {}", fingerprint);
-    println!("data: {}", str);
 
     0
 }
 
 fn main() {
-    let data = str_to_c_str("My trust data") as *mut ::std::os::raw::c_void;
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
-        trust_data: Some(data as *mut ::std::os::raw::c_void),
         trust_callback: Some(&my_callback),
         ..Default::default()
     };
+
     let connection = match connect(&connect_prms) {
         Ok(c) => c,
         Err(err) => panic!("{}", err),
-    };
-    // destroy data
-    unsafe {
-        Box::from_raw(data);
     };
 
     let rows: Vec<Vec<MgValue>> = match connection.execute(

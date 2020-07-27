@@ -27,10 +27,7 @@ pub struct ConnectParams {
     pub sslmode: SSLMode,
     pub sslcert: Option<String>,
     pub sslkey: Option<String>,
-    pub trust_callback: Option<
-        *const dyn Fn(&String, &String, &String, &String, *mut ::std::os::raw::c_void) -> i32,
-    >,
-    pub trust_data: Option<*mut ::std::os::raw::c_void>,
+    pub trust_callback: Option<*const dyn Fn(&String, &String, &String, &String) -> i32>,
 }
 
 impl Default for ConnectParams {
@@ -46,7 +43,6 @@ impl Default for ConnectParams {
             sslcert: None,
             sslkey: None,
             trust_callback: None,
-            trust_data: None,
         }
     }
 }
@@ -119,37 +115,29 @@ impl Connection {
     }
 }
 
-struct TrustDataWrapper {
-    trust_callback:
-        *const dyn Fn(&String, &String, &String, &String, *mut ::std::os::raw::c_void) -> i32,
-    trust_data: *mut ::std::os::raw::c_void,
-}
-
 extern "C" fn trust_callback_wrapper(
     host: *const ::std::os::raw::c_char,
     ip_address: *const ::std::os::raw::c_char,
     key_type: *const ::std::os::raw::c_char,
     fingerprint: *const ::std::os::raw::c_char,
-    trust_data_raw: *mut ::std::os::raw::c_void,
+    fun_raw: *mut ::std::os::raw::c_void,
 ) -> ::std::os::raw::c_int {
-    let trust_data_wrapper: &mut TrustDataWrapper = unsafe { std::mem::transmute(trust_data_raw) };
-    let trust_callback = trust_data_wrapper.trust_callback;
-    let trust_data = trust_data_wrapper.trust_data;
+    let fun: &mut &mut dyn Fn(&String, &String, &String, &String) -> i32 =
+        unsafe { std::mem::transmute(fun_raw) };
 
     unsafe {
-        (*trust_callback)(
+        fun(
             &c_string_to_string(host),
             &c_string_to_string(ip_address),
             &c_string_to_string(key_type),
             &c_string_to_string(fingerprint),
-            trust_data,
         ) as std::os::raw::c_int
     }
 }
 
 pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
     let mg_session_params = unsafe { bindings::mg_session_params_make() };
-    let mut trust_data_wrapper_ptr = std::ptr::null_mut();
+    let mut trust_callback_ptr = std::ptr::null_mut();
     unsafe {
         match &param_struct.host {
             Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
@@ -186,18 +174,11 @@ pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
         }
         match &param_struct.trust_callback {
             Some(x) => {
-                let trust_data_wrapper = TrustDataWrapper {
-                    trust_callback: *x,
-                    trust_data: match &param_struct.trust_data {
-                        Some(x) => *x,
-                        None => std::ptr::null_mut(),
-                    },
-                };
-                trust_data_wrapper_ptr = Box::into_raw(Box::new(trust_data_wrapper));
+                trust_callback_ptr = Box::into_raw(Box::new(*x));
 
                 bindings::mg_session_params_set_trust_data(
                     mg_session_params,
-                    trust_data_wrapper_ptr as *mut ::std::os::raw::c_void,
+                    trust_callback_ptr as *mut ::std::os::raw::c_void,
                 );
                 bindings::mg_session_params_set_trust_callback(
                     mg_session_params,
@@ -212,8 +193,8 @@ pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
     let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
     unsafe {
         bindings::mg_session_params_destroy(mg_session_params);
-        if !trust_data_wrapper_ptr.is_null() {
-            Box::from_raw(trust_data_wrapper_ptr);
+        if !trust_callback_ptr.is_null() {
+            Box::from_raw(trust_callback_ptr);
         }
     };
 
