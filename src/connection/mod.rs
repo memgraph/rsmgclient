@@ -17,8 +17,51 @@ use super::error::MgError;
 use super::mg_value::{c_string_to_string, mg_list_to_vec, MgValue};
 use std::ffi::CString;
 
+pub struct ConnectParams {
+    pub port: u16,
+    pub host: Option<String>,
+    pub address: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub client_name: String,
+    pub sslmode: SSLMode,
+    pub sslcert: Option<String>,
+    pub sslkey: Option<String>,
+    pub trust_callback: Option<*const dyn Fn(&String, &String, &String, &String) -> i32>,
+}
+
+impl Default for ConnectParams {
+    fn default() -> Self {
+        ConnectParams {
+            port: 7687,
+            host: None,
+            address: None,
+            username: None,
+            password: None,
+            client_name: String::from("MemgraphBolt/0.1"),
+            sslmode: SSLMode::Require,
+            sslcert: None,
+            sslkey: None,
+            trust_callback: None,
+        }
+    }
+}
+
+#[derive(PartialEq)]
+pub enum SSLMode {
+    Disable,
+    Require,
+}
+
 pub struct Connection {
     mg_session: *mut bindings::mg_session,
+}
+
+fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
+    match sslmode {
+        SSLMode::Disable => bindings::mg_sslmode_MG_SSLMODE_DISABLE,
+        SSLMode::Require => bindings::mg_sslmode_MG_SSLMODE_REQUIRE,
+    }
 }
 
 fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
@@ -72,22 +115,87 @@ impl Connection {
     }
 }
 
-pub fn connect(host: &str, port: u16) -> Result<Connection, MgError> {
-    let mg_session_params = unsafe { bindings::mg_session_params_make() };
-    let host_c_str = CString::new(host).unwrap();
+extern "C" fn trust_callback_wrapper(
+    host: *const ::std::os::raw::c_char,
+    ip_address: *const ::std::os::raw::c_char,
+    key_type: *const ::std::os::raw::c_char,
+    fingerprint: *const ::std::os::raw::c_char,
+    fun_raw: *mut ::std::os::raw::c_void,
+) -> ::std::os::raw::c_int {
+    let fun: &mut &mut dyn Fn(&String, &String, &String, &String) -> i32 =
+        unsafe { std::mem::transmute(fun_raw) };
+
     unsafe {
-        bindings::mg_session_params_set_host(mg_session_params, host_c_str.as_ptr());
-        bindings::mg_session_params_set_port(mg_session_params, port);
+        fun(
+            &c_string_to_string(host),
+            &c_string_to_string(ip_address),
+            &c_string_to_string(key_type),
+            &c_string_to_string(fingerprint),
+        ) as std::os::raw::c_int
+    }
+}
+
+pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
+    let mg_session_params = unsafe { bindings::mg_session_params_make() };
+    let mut trust_callback_ptr = std::ptr::null_mut();
+    unsafe {
+        match &param_struct.host {
+            Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
+            None => {}
+        }
+        bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
+        match &param_struct.address {
+            Some(x) => bindings::mg_session_params_set_address(mg_session_params, str_to_c_str(x)),
+            None => {}
+        }
+        match &param_struct.username {
+            Some(x) => bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(x)),
+            None => {}
+        }
+        match &param_struct.password {
+            Some(x) => bindings::mg_session_params_set_password(mg_session_params, str_to_c_str(x)),
+            None => {}
+        }
+        bindings::mg_session_params_set_client_name(
+            mg_session_params,
+            str_to_c_str(&param_struct.client_name),
+        );
         bindings::mg_session_params_set_sslmode(
             mg_session_params,
-            bindings::mg_sslmode_MG_SSLMODE_REQUIRE,
+            sslmode_to_c(&param_struct.sslmode),
         );
+        match &param_struct.sslcert {
+            Some(x) => bindings::mg_session_params_set_sslcert(mg_session_params, str_to_c_str(x)),
+            None => {}
+        }
+        match &param_struct.sslkey {
+            Some(x) => bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x)),
+            None => {}
+        }
+        match &param_struct.trust_callback {
+            Some(x) => {
+                trust_callback_ptr = Box::into_raw(Box::new(*x));
+
+                bindings::mg_session_params_set_trust_data(
+                    mg_session_params,
+                    trust_callback_ptr as *mut ::std::os::raw::c_void,
+                );
+                bindings::mg_session_params_set_trust_callback(
+                    mg_session_params,
+                    Some(trust_callback_wrapper),
+                );
+            }
+            None => {}
+        }
     }
 
     let mut mg_session: *mut bindings::mg_session = std::ptr::null_mut();
     let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
     unsafe {
         bindings::mg_session_params_destroy(mg_session_params);
+        if !trust_callback_ptr.is_null() {
+            Box::from_raw(trust_callback_ptr);
+        }
     };
 
     if status != 0 {
@@ -95,4 +203,10 @@ pub fn connect(host: &str, port: u16) -> Result<Connection, MgError> {
     }
 
     Ok(Connection { mg_session })
+}
+
+// allocates memory and passes ownership, user is responsible for freeing object!
+pub fn str_to_c_str(rust_str: &str) -> *const ::std::os::raw::c_char {
+    let c_str_ptr: *mut CString = Box::into_raw(Box::from(CString::new(rust_str).unwrap()));
+    unsafe { (*c_str_ptr).as_ptr() }
 }
