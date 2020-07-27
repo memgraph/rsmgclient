@@ -55,9 +55,7 @@ impl QueryParam {
                 }),
                 QueryParam::Int(x) => bindings::mg_value_make_integer(*x),
                 QueryParam::Float(x) => bindings::mg_value_make_float(*x),
-                QueryParam::String(x) => {
-                    bindings::mg_value_make_string(rust_to_c_string(x.as_str()))
-                }
+                QueryParam::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
                 QueryParam::List(x) => bindings::mg_value_make_list(vector_to_mg_list(x)),
                 QueryParam::Map(x) => bindings::mg_value_make_map(hash_map_to_mg_map(x)),
             }
@@ -313,13 +311,14 @@ pub fn hash_map_to_mg_map(hash_map: &HashMap<String, QueryParam>) -> *mut bindin
     let mg_map = unsafe { bindings::mg_map_make_empty(size) };
     for (key, val) in hash_map {
         unsafe {
-            bindings::mg_map_insert(mg_map, rust_to_c_string(key.as_str()), val.to_c_mg_value());
+            bindings::mg_map_insert(mg_map, str_to_c_str(key.as_str()), val.to_c_mg_value());
         };
     }
     mg_map
 }
 
-pub fn rust_to_c_string(string: &str) -> *const std::os::raw::c_char {
+// allocates memory and passes ownership, user is responsible for freeing object!
+pub fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
     let c_str = unsafe { Box::into_raw(Box::new(CString::new(string).unwrap())) };
     unsafe { (*c_str).as_ptr() }
 }
