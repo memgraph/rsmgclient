@@ -40,23 +40,15 @@ fn main() {
         Ok(c) => c,
         Err(err) => panic!("{}", err),
     };
-    let mut map: HashMap<String, QueryParam> = HashMap::new();
-    map.insert(String::from("address"), QueryParam::Null);
-    map.insert(String::from("is_programmer"), QueryParam::Bool(true));
-    map.insert(
-        String::from("name"),
-        QueryParam::String(String::from("James Bond")),
-    );
-    map.insert(
-        String::from("list"),
-        QueryParam::List(vec![QueryParam::String(String::from("val"))]),
-    );
 
     let mut params: HashMap<String, QueryParam> = HashMap::new();
-    params.insert(String::from("real_params"), QueryParam::Map(map));
+    params.insert(
+        String::from("name"),
+        QueryParam::String(String::from("John")),
+    );
 
     let rows: Vec<Vec<MgValue>> = match connection.execute(
-        "CREATE (n:Person {name: 'John'})-[e:KNOWS]->(m:Person {name: 'Steve'}) RETURN n, e, m;",
+        "MATCH (n:Person) WHERE n.name = $name RETURN n",
         Some(&params),
     ) {
         Ok(res) => res,
