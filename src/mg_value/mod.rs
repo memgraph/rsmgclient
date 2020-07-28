@@ -14,7 +14,7 @@
 
 use super::bindings;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -32,6 +32,35 @@ pub enum MgValueType {
     UnboundRelationship,
     Path,
     Unknown,
+}
+
+pub enum QueryParam {
+    Null,
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    String(String),
+    List(Vec<QueryParam>),
+    Map(HashMap<String, QueryParam>),
+}
+
+impl QueryParam {
+    fn to_c_mg_value(&self) -> *mut bindings::mg_value {
+        unsafe {
+            match self {
+                QueryParam::Null => bindings::mg_value_make_null(),
+                QueryParam::Bool(x) => bindings::mg_value_make_bool(match *x {
+                    false => 0,
+                    true => 1,
+                }),
+                QueryParam::Int(x) => bindings::mg_value_make_integer(*x),
+                QueryParam::Float(x) => bindings::mg_value_make_float(*x),
+                QueryParam::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
+                QueryParam::List(x) => bindings::mg_value_make_list(vector_to_mg_list(x)),
+                QueryParam::Map(x) => bindings::mg_value_make_map(hash_map_to_mg_map(x)),
+            }
+        }
+    }
 }
 
 pub struct MgNode {
@@ -275,6 +304,34 @@ pub unsafe fn mg_list_to_vec(mg_list: *const bindings::mg_list) -> Vec<MgValue> 
     }
 
     mg_values
+}
+
+pub fn hash_map_to_mg_map(hash_map: &HashMap<String, QueryParam>) -> *mut bindings::mg_map {
+    let size = hash_map.len() as u32;
+    let mg_map = unsafe { bindings::mg_map_make_empty(size) };
+    for (key, val) in hash_map {
+        unsafe {
+            bindings::mg_map_insert(mg_map, str_to_c_str(key.as_str()), val.to_c_mg_value());
+        };
+    }
+    mg_map
+}
+
+// allocates memory and passes ownership, user is responsible for freeing object!
+pub fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
+    let c_str = unsafe { Box::into_raw(Box::new(CString::new(string).unwrap())) };
+    unsafe { (*c_str).as_ptr() }
+}
+
+pub fn vector_to_mg_list(vector: &Vec<QueryParam>) -> *mut bindings::mg_list {
+    let size = vector.len() as u32;
+    let mg_list = unsafe { bindings::mg_list_make_empty(size) };
+    for mg_val in vector {
+        unsafe {
+            bindings::mg_list_append(mg_list, mg_val.to_c_mg_value());
+        };
+    }
+    mg_list
 }
 
 impl MgValue {

@@ -14,7 +14,10 @@
 
 use super::bindings;
 use super::error::MgError;
-use super::mg_value::{c_string_to_string, mg_list_to_vec, MgValue};
+use super::mg_value::{
+    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, str_to_c_str, MgValue, QueryParam,
+};
+use std::collections::HashMap;
 use std::ffi::CString;
 
 pub struct ConnectParams {
@@ -76,15 +79,22 @@ impl Drop for Connection {
 }
 
 impl Connection {
-    pub fn execute(&self, query: &str) -> Result<Vec<Vec<MgValue>>, MgError> {
+    pub fn execute(
+        &self,
+        query: &str,
+        params: Option<&HashMap<String, QueryParam>>,
+    ) -> Result<Vec<Vec<MgValue>>, MgError> {
         let c_query = CString::new(query).unwrap();
-        let mut columns: *const bindings::mg_list = std::ptr::null_mut();
+        let mg_params = match params {
+            Some(x) => hash_map_to_mg_map(x),
+            None => std::ptr::null(),
+        };
         let mut status = unsafe {
             bindings::mg_session_run(
                 self.mg_session,
                 c_query.as_ptr(),
-                std::ptr::null(),
-                &mut columns,
+                mg_params,
+                &mut std::ptr::null(),
             )
         };
 
@@ -203,10 +213,4 @@ pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
     }
 
     Ok(Connection { mg_session })
-}
-
-// allocates memory and passes ownership, user is responsible for freeing object!
-pub fn str_to_c_str(rust_str: &str) -> *const ::std::os::raw::c_char {
-    let c_str_ptr: *mut CString = Box::into_raw(Box::from(CString::new(rust_str).unwrap()));
-    unsafe { (*c_str_ptr).as_ptr() }
 }
