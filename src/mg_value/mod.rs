@@ -18,7 +18,7 @@ use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum MgValueType {
     Null,
     Bool,
@@ -565,3 +565,6 @@ impl fmt::Display for MgPath {
         unimplemented!();
     }
 }
+
+#[cfg(test)]
+mod tests;
