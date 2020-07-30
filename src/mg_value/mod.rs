@@ -280,12 +280,15 @@ fn mg_value_path(mg_value: *const bindings::mg_value) -> MgPath {
         nodes.push(c_mg_node_to_mg_node(c_mg_node));
     }
     loop {
-        let c_mg_unbound_relationship = unsafe { bindings::mg_path_relationship_at(c_mg_path, relationship_count) };
+        let c_mg_unbound_relationship =
+            unsafe { bindings::mg_path_relationship_at(c_mg_path, relationship_count) };
         if c_mg_unbound_relationship.is_null() {
             break;
         }
         relationship_count += 1;
-        relationships.push(c_mg_unbound_relationship_to_mg_unbound_relationship(c_mg_unbound_relationship));
+        relationships.push(c_mg_unbound_relationship_to_mg_unbound_relationship(
+            c_mg_unbound_relationship,
+        ));
     }
     MgPath {
         node_count,

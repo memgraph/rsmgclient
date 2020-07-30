@@ -70,9 +70,12 @@ fn from_c_mg_value_string() {
     };
     let query_param = QueryParam::String("test".to_string());
     let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
-    let mg_value=unsafe{ MgValue::from_mg_value(&c_mg_value) };
-    assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_STRING);
-    assert_eq!(unsafe{(*mg_value.value.string_ptr).as_str()},"test");
+    let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_STRING
+    );
+    assert_eq!(unsafe { (*mg_value.value.string_ptr).as_str() }, "test");
 }
 
 #[test]
@@ -324,7 +327,7 @@ fn from_c_mg_value_map_node_relationships_path() {
     let seq_ptr: *mut i64 = Box::into_raw(boxed);
     let mut a = Box::new([std::ptr::null_mut(); 2]);
     a[0] = &mut c_node;
-    let c_node2=unsafe{bindings::mg_node_copy(&c_node)};
+    let c_node2 = unsafe { bindings::mg_node_copy(&c_node) };
     a[1] = c_node2;
     let nodes_box = Box::into_raw(a) as *mut *mut bindings::mg_node;
     let c_unbound_relationship_ptr: *mut bindings::mg_unbound_relationship =
@@ -348,7 +351,7 @@ fn from_c_mg_value_map_node_relationships_path() {
     assert_eq!(2, mg_path.node_count);
     assert_eq!(1, mg_path.relationship_count);
     assert_eq!(2, mg_path.nodes.len());
-    assert_eq!(1,mg_path.relationships.len());
+    assert_eq!(1, mg_path.relationships.len());
 
     let get_path = MgValue::get_path_value(&mg_value);
     assert_eq!(2, get_path.node_count);
@@ -374,7 +377,7 @@ fn from_c_mg_value_unknown() {
 }
 
 #[test]
-fn from_to_c_mg_value(){
+fn from_to_c_mg_value() {
     let query_param_null = QueryParam::Null;
     let c_mg_value = unsafe { *(query_param_null.to_c_mg_value()) };
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_NULL);
@@ -389,15 +392,21 @@ fn from_to_c_mg_value(){
 
     let query_param_int = QueryParam::Int(20);
     let c_mg_value = unsafe { *(query_param_int.to_c_mg_value()) };
-    let mg_value=unsafe{ MgValue::from_mg_value(&c_mg_value) };
-    assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_INTEGER);
-    assert_eq!(unsafe{mg_value.value.int_value},20);
+    let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_INTEGER
+    );
+    assert_eq!(unsafe { mg_value.value.int_value }, 20);
 
     let query_param_float = QueryParam::Float(3.15);
     let c_mg_value = unsafe { *(query_param_float.to_c_mg_value()) };
-    let mg_value=unsafe{ MgValue::from_mg_value(&c_mg_value) };
-    assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_FLOAT);
-    assert_eq!(unsafe{mg_value.value.float_value},3.15);
+    let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_FLOAT
+    );
+    assert_eq!(unsafe { mg_value.value.float_value }, 3.15);
 
     let mut vec: Vec<QueryParam> = Vec::new();
     vec.push(query_param_null);
@@ -406,7 +415,7 @@ fn from_to_c_mg_value(){
     vec.push(query_param_float);
     let query_param_list = QueryParam::List(vec);
     let c_mg_value = unsafe { *(query_param_list.to_c_mg_value()) };
-    let mg_value=unsafe{ MgValue::from_mg_value(&c_mg_value) };
+    let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
     let mg_list = unsafe { &*mg_value.value.list_ptr };
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_LIST);
     assert_eq!(4, mg_list.len());
@@ -418,14 +427,14 @@ fn from_to_c_mg_value(){
     assert_eq!(MgValueType::Float, mg_list[3].value_type);
     assert_eq!(3.15, unsafe { mg_list[3].value.float_value });
 
-    let mut map:HashMap<String,QueryParam>=HashMap::new();
+    let mut map: HashMap<String, QueryParam> = HashMap::new();
     map.insert("null".to_string(), QueryParam::Null);
     map.insert("true".to_string(), QueryParam::Bool(true));
     map.insert("int".to_string(), QueryParam::Int(20));
     map.insert("float".to_string(), QueryParam::Float(3.15));
     let query_param_map = QueryParam::Map(map);
     let c_mg_value = unsafe { *(query_param_map.to_c_mg_value()) };
-    let mg_value=unsafe{ MgValue::from_mg_value(&c_mg_value) };
+    let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
     let mg_map = unsafe { &*mg_value.value.map_ptr };
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_MAP);
     assert_eq!(4, mg_map.len());
@@ -437,5 +446,7 @@ fn from_to_c_mg_value(){
     assert_eq!(MgValueType::Int, mg_map.get("int").unwrap().value_type);
     assert_eq!(20, unsafe { mg_map.get("int").unwrap().value.int_value });
     assert_eq!(MgValueType::Float, mg_map.get("float").unwrap().value_type);
-    assert_eq!(3.15, unsafe { mg_map.get("float").unwrap().value.float_value });
-}   
+    assert_eq!(3.15, unsafe {
+        mg_map.get("float").unwrap().value.float_value
+    });
+}
