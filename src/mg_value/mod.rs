@@ -33,7 +33,6 @@ pub enum MgValueType {
     Path,
     Unknown,
 }
-
 pub enum QueryParam {
     Null,
     Bool(bool),
@@ -268,25 +267,26 @@ fn mg_value_unbound_relationship(mg_value: *const bindings::mg_value) -> MgUnbou
 
 fn mg_value_path(mg_value: *const bindings::mg_value) -> MgPath {
     let c_mg_path = unsafe { bindings::mg_value_path(mg_value) };
-
-    let path_length = unsafe { bindings::mg_path_length(c_mg_path) };
-    let node_count = path_length + 1;
-    let relationship_count = path_length;
-
+    let mut node_count = 0;
+    let mut relationship_count = 0;
     let mut nodes: Vec<MgNode> = Vec::new();
     let mut relationships: Vec<MgUnboundRelationship> = Vec::new();
-
-    for i in 0..path_length {
-        let c_mg_node = unsafe { bindings::mg_path_node_at(c_mg_path, i) };
-        let mg_node = c_mg_node_to_mg_node(c_mg_node);
-        nodes.push(mg_node);
-
-        let c_mg_unbound_relationship = unsafe { bindings::mg_path_relationship_at(c_mg_path, i) };
-        let mg_unbound_relationship =
-            c_mg_unbound_relationship_to_mg_unbound_relationship(c_mg_unbound_relationship);
-        relationships.push(mg_unbound_relationship);
+    loop {
+        let c_mg_node = unsafe { bindings::mg_path_node_at(c_mg_path, node_count) };
+        if c_mg_node.is_null() {
+            break;
+        }
+        node_count += 1;
+        nodes.push(c_mg_node_to_mg_node(c_mg_node));
     }
-
+    loop {
+        let c_mg_unbound_relationship = unsafe { bindings::mg_path_relationship_at(c_mg_path, relationship_count) };
+        if c_mg_unbound_relationship.is_null() {
+            break;
+        }
+        relationship_count += 1;
+        relationships.push(c_mg_unbound_relationship_to_mg_unbound_relationship(c_mg_unbound_relationship));
+    }
     MgPath {
         node_count,
         relationship_count,
