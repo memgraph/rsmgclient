@@ -5,6 +5,7 @@ authors = ["Mario Herceg <mario.herceg@memgraph.io>"]
 edition = "2018"
 
 [dependencies]
+maplit = "1.0.2"
 
 [dev-dependencies.cargo-husky]
 version = "1"
