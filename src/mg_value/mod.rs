@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
-use std::ops::{Index, IndexMut};
+
 
 pub enum QueryParam {
     Null,
@@ -300,7 +300,9 @@ impl MgValue {
             bindings::mg_value_type_MG_VALUE_TYPE_NULL => MgValue::Null,
             bindings::mg_value_type_MG_VALUE_TYPE_BOOL => MgValue::Bool(mg_value_bool(c_mg_value)),
             bindings::mg_value_type_MG_VALUE_TYPE_INTEGER => MgValue::Int(mg_value_int(c_mg_value)),
-            bindings::mg_value_type_MG_VALUE_TYPE_FLOAT => MgValue::Float(mg_value_float(c_mg_value)),
+            bindings::mg_value_type_MG_VALUE_TYPE_FLOAT => {
+                MgValue::Float(mg_value_float(c_mg_value))
+            }
             bindings::mg_value_type_MG_VALUE_TYPE_STRING => {
                 MgValue::String(mg_value_string(c_mg_value))
             }
@@ -351,8 +353,8 @@ impl fmt::Display for MgValue {
 
 fn mg_map_to_string(mg_map: &HashMap<String, MgValue>) -> String {
     let mut properties: Vec<String> = Vec::new();
-    let mut sorted: Vec<_>=mg_map.iter().collect();
-    sorted.sort_by(|x,y| x.0.cmp(&y.0));
+    let mut sorted: Vec<_> = mg_map.iter().collect();
+    sorted.sort_by(|x, y| x.0.cmp(&y.0));
     for (key, value) in sorted {
         properties.push(format!("'{}': {}", key, value));
     }
