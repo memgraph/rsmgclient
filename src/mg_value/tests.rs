@@ -1,11 +1,72 @@
 use super::*;
 use std::ffi::CString;
 
+fn mg_value_to_c_mg_value(mg_value: &MgValue) -> *mut bindings::mg_value {
+    unsafe {
+        match mg_value {
+            MgValue::Null => bindings::mg_value_make_null(),
+            MgValue::Bool(x) => bindings::mg_value_make_bool(match x {
+                false => 0,
+                true => 1
+            }),
+            MgValue::Int(x) => bindings::mg_value_make_integer(*x),
+            MgValue::Float(x) => bindings::mg_value_make_float(*x),
+            MgValue::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
+            MgValue::List(x) => bindings::mg_value_make_list(bindings::mg_list_copy(*x)),
+            MgValue::Map(x) => bindings::mg_value_make_map(bindings::mg_map_copy(*x)),
+            MgValue::Node(x) => bindings::mg_value_make_node(bindings::mg_node_copy(*x)),
+            MgValue::Relationship(x) => bindings::mg_value_make_relationship(bindings::mg_relationship_copy(*x)),
+            MgValue::UnboundRelationship(x) => bindings::mg_value_make_unbound_relationship(bindings::mg_unbound_relationship_copy(*x)),
+            MgValue::Path(x) => bindings::mg_value_make_path(bindings::mg_path_copy(*x)),
+        }
+    }
+}
+fn vector_to_mg_list(vector: &Vec<MgValue>) -> *mut bindings::mg_list {
+    let size = vector.len() as u32;
+    let mg_list = unsafe { bindings::mg_list_make_empty(size) };
+    for mg_val in vector {
+        unsafe {
+            bindings::mg_list_append(mg_list, mg_value_to_c_mg_value(mg_val));
+        };
+    }
+    mg_list
+}
+
+fn hash_map_to_mg_map(hash_map: &HashMap<&str, MgValue>) -> *const bindings::mg_map {
+    let size = hash_map.len();
+    let mg_map = unsafe { bindings::mg_map_make_empty(size as u32) };
+    for (key, val) in hash_map {
+        unsafe {
+            bindings::mg_map_insert(mg_map, str_to_c_str(key), mg_value_to_c_mg_value(val));
+        }
+    }
+
+    mg_map
+}
+
+#[test]
+fn test() {
+    let mg_map = hash_map_to_mg_map(&hashmap!{
+        "name" => MgValue::Null,
+        "is_it" => MgValue::Bool(true),
+        "id" => MgValue::Int(128),
+        "rel" => MgValue::Relationship(MgRelationship {
+            id: 1,
+            start_id: 1,
+            end_id: 2,
+            type_: String::from("test"),
+            properties: hashmap!{
+                String::from("name") => MgValue::Null,
+            }
+        }),
+    });
+}
+
 #[test]
 fn from_c_mg_value_null() {
     let c_mg_value = unsafe { bindings::mg_value_make_null() };
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(MgValueType::Null, mg_value.value_type);
+    assert_eq!(MgValue::Null, mg_value);
     assert_eq!(format!("{}",mg_value),"NULL");
 }
 
@@ -13,8 +74,7 @@ fn from_c_mg_value_null() {
 fn from_c_mg_value_bool_false() {
     let c_mg_value = unsafe { bindings::mg_value_make_bool(0) };
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(MgValueType::Bool, mg_value.value_type);
-    assert_eq!(false, unsafe { mg_value.value.bool_value });
+    assert_eq!(MgValue::Bool(false), mg_value);
     assert_eq!(format!("{}",mg_value),"false");
 }
 
@@ -22,182 +82,80 @@ fn from_c_mg_value_bool_false() {
 fn from_c_mg_value_bool_true() {
     let c_mg_value = unsafe { bindings::mg_value_make_bool(27) };
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(MgValueType::Bool, mg_value.value_type);
-    assert_eq!(true, unsafe { mg_value.value.bool_value });
-    unsafe {
-        assert_eq!(
-            mg_value.value.bool_value,
-            MgValue::get_bool_value(&mg_value)
-        );
-    };
-}
-
-#[test]
-#[should_panic(expected = "Not bool value")]
-fn panic_from_c_mg_value_bool(){
-    let c_mg_value = unsafe { bindings::mg_value_make_integer(19) };
-    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    unsafe {
-        assert_eq!(
-            mg_value.value.bool_value,
-            MgValue::get_bool_value(&mg_value)
-        );
-    };
+    assert_eq!(MgValue::Bool(true), mg_value);
 }
 
 #[test]
 fn from_c_mg_value_int() {
     let c_mg_value = unsafe { bindings::mg_value_make_integer(19) };
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(MgValueType::Int, mg_value.value_type);
-    assert_eq!(19, unsafe { mg_value.value.int_value });
-    unsafe { assert_eq!(mg_value.value.int_value, MgValue::get_int_value(&mg_value)) };
+    assert_eq!(MgValue::Int(19), mg_value);
     assert_eq!(format!("{}",mg_value),"19");
-}
-
-#[test]
-#[should_panic(expected = "Not int value")]
-fn panic_from_c_mg_value_int(){
-    let c_mg_value = unsafe { bindings::mg_value_make_bool(19) };
-    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    unsafe {
-        assert_eq!(
-            mg_value.value.int_value,
-            MgValue::get_int_value(&mg_value)
-        );
-    };
 }
 
 #[test]
 fn from_c_mg_value_float() {
     let c_mg_value = unsafe { bindings::mg_value_make_float(3.1465) };
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(MgValueType::Float, mg_value.value_type);
-    assert_eq!(3.1465, unsafe { mg_value.value.float_value });
-    unsafe {
-        assert_eq!(
-            mg_value.value.float_value,
-            MgValue::get_float_value(&mg_value)
-        )
-    };
+    assert_eq!(MgValue::Float(3.1465), mg_value);
     assert_eq!(format!("{}",mg_value),"3.1465");
-}
-
-#[test]
-#[should_panic(expected = "Not float value")]
-fn panic_from_c_mg_value_float(){
-    let c_mg_value = unsafe { bindings::mg_value_make_bool(19) };
-    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    unsafe {
-        assert_eq!(
-            mg_value.value.float_value,
-            MgValue::get_float_value(&mg_value)
-        );
-    };
 }
 
 #[test]
 fn from_c_mg_value_string() {
     let c_str = CString::new(String::from("ṰⱻⱾᵀ")).unwrap();
     let c_mg_value = unsafe { bindings::mg_value_make_string(c_str.as_ptr()) };
+
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(MgValueType::String, mg_value.value_type);
-    assert_eq!("ṰⱻⱾᵀ", unsafe {
-        (*mg_value.value.string_ptr).as_str()
-    });
-    unsafe {
-        assert_eq!(
-            &*(mg_value.value.string_ptr),
-            MgValue::get_string_value(&mg_value)
-        )
-    };
+    assert_eq!(MgValue::String(String::from("ṰⱻⱾᵀ")), mg_value);
     assert_eq!(format!("{}",mg_value),"\'ṰⱻⱾᵀ\'");
+
     let query_param = QueryParam::String("test".to_string());
     let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
-    let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
     assert_eq!(
         c_mg_value.type_,
         bindings::mg_value_type_MG_VALUE_TYPE_STRING
     );
-    assert_eq!(unsafe { (*mg_value.value.string_ptr).as_str() }, "test");
-}
-
-#[test]
-#[should_panic(expected = "Not String value")]
-fn panic_from_c_mg_value_string(){
-    let c_mg_value = unsafe { bindings::mg_value_make_bool(19) };
-    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    unsafe {
-        assert_eq!(
-            &*(mg_value.value.string_ptr),
-            MgValue::get_string_value(&mg_value)
-        );
-    };
+    assert_eq!(unsafe { mg_string_to_string(c_mg_value.__bindgen_anon_1.string_v) }, String::from("test"));
 }
 
 #[test]
 fn from_c_mg_value_list() {
-    let c_mg_map = unsafe { bindings::mg_map_make_empty(1) };
-    unsafe {
-        bindings::mg_map_insert(
-            c_mg_map,
-            str_to_c_str("name"),
-            bindings::mg_value_make_null(),
-        );
-    };
-    let c_type = unsafe { bindings::mg_string_make(str_to_c_str("test")) };
-    let c_relationship = bindings::mg_relationship {
-        id: 1,
-        start_id: 1,
-        end_id: 2,
-        type_: c_type,
-        properties: c_mg_map,
+    let mg_values = vec!{
+        MgValue::Null,
+        MgValue::Bool(true),
+        MgValue::Int(130),
+        MgValue::Relationship(MgRelationship {
+            id: 1,
+            start_id: 1,
+            end_id: 2,
+            type_: "test".to_string(),
+            properties: hashmap! {
+                String.from("name") => MgValue::Null,
+            }
+        })
     };
 
-    let c_mg_list = unsafe { bindings::mg_list_make_empty(4) };
-    unsafe {
-        bindings::mg_list_append(c_mg_list, bindings::mg_value_make_null());
-        bindings::mg_list_append(c_mg_list, bindings::mg_value_make_bool(1));
-        bindings::mg_list_append(c_mg_list, bindings::mg_value_make_integer(130));
-        bindings::mg_list_append(
-            c_mg_list,
-            bindings::mg_value_make_relationship(bindings::mg_relationship_copy(&c_relationship)),
-        )
-    };
-    let c_mg_value = unsafe { bindings::mg_value_make_list(c_mg_list) };
-    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(MgValueType::List, mg_value.value_type);
-    let mg_list = unsafe { &*mg_value.value.list_ptr };
-    assert_eq!(4, mg_list.len());
-    assert_eq!(MgValueType::Null, mg_list[0].value_type);
-    assert_eq!(MgValueType::Bool, mg_list[1].value_type);
-    assert_eq!(true, unsafe { mg_list[1].value.bool_value });
-    assert_eq!(MgValueType::Int, mg_list[2].value_type);
-    assert_eq!(130, unsafe { mg_list[2].value.int_value });
-    assert_eq!(MgValueType::Relationship, mg_list[3].value_type);
+    let c_mg_value = unsafe { bindings::mg_value_make_list(vector_to_mg_list(&mg_values)) };
+    let mut mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
+    assert_eq!(mg_values, mg_value);
 
-    let get_list = MgValue::get_list_value(&mg_value);
-    unsafe { assert_eq!((*mg_value.value.list_ptr).len(), get_list.len()) };
-    assert_eq!(4, get_list.len());
-    assert_eq!(MgValueType::Null, get_list[0].value_type);
-    assert_eq!(MgValueType::Bool, get_list[1].value_type);
-    assert_eq!(true, unsafe { get_list[1].value.bool_value });
-    assert_eq!(MgValueType::Int, get_list[2].value_type);
-    assert_eq!(130, unsafe { get_list[2].value.int_value });
-    assert_eq!(MgValueType::Relationship, get_list[3].value_type);
+    mg_value = MgValue::List(vec!{
+        MgValue::Null,
+        MgValue::Bool(true),
+        MgValue::Int(130),
+        MgValue::Relationship(MgRelationship {
+            id: 1,
+            start_id: 1,
+            end_id: 2,
+            type_: "test".to_string(),
+            properties: hashmap! {
+                String.from("name") => MgValue::Null,
+            }
+        })
+    });
 
     assert_eq!(format!("{}",mg_value),"NULL, true, 130, [:test {'name': NULL}]");
-}
-
-#[test]
-#[should_panic(expected = "Not list value")]
-fn panic_from_c_mg_value_list(){
-    let c_mg_value = unsafe { bindings::mg_value_make_bool(19) };
-    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    let get_list = MgValue::get_list_value(&mg_value);
-    unsafe {
-        assert_eq!((*mg_value.value.list_ptr).len(), get_list.len());
-    };
 }
 
 #[test]
@@ -336,11 +294,11 @@ fn from_c_mg_value_map_node_relationships_path() {
     assert_eq!(1, mg_relationship.id);
     assert_eq!("test", mg_relationship.type_);
     assert_eq!(4, mg_relationship.properties.len());
-    assert_eq!(format!("{}",mg_value),"[:test {'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}]");
-    /*let c_mg_value = unsafe {
+    assert_eq!(format!("{}", mg_value),"[:test {'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}]");
+    let c_mg_value = unsafe {
         bindings::mg_value_make_relationship(bindings::mg_relationship_copy(&c_relationship2))
     };
-    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };*/
+    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
 
     let get_relationship = MgValue::get_relationship_value(&mg_value);
     unsafe { assert_eq!((*mg_value.value.relationship_ptr).id, get_relationship.id) };
@@ -381,7 +339,7 @@ fn from_c_mg_value_map_node_relationships_path() {
     assert_eq!(1, mg_unbound_relationship.id);
     assert_eq!("test", mg_unbound_relationship.type_);
     assert_eq!(4, mg_unbound_relationship.properties.len());
-    //assert_eq!(format!("{}",mg_value),"[:test {'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}]");
+    assert_eq!(format!("{}", mg_value),"[:test {'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}]");
 
 
     let get_unbound_relationship = MgValue::get_unbound_relationship_value(&mg_value);
