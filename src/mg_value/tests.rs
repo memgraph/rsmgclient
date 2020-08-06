@@ -7,7 +7,7 @@ unsafe fn to_array_of_strings(vec: &Vec<String>) -> *mut *mut bindings::mg_strin
     let size = vec.len() * mem::size_of::<*mut bindings::mg_string>();
     let ptr = libc::malloc(size) as *mut *mut bindings::mg_string;
     for (i, s) in vec.iter().enumerate() {
-        *ptr.offset(i as isize) = bindings::mg_string_make(str_to_c_str(s.as_str()));
+        *ptr.add(i) = bindings::mg_string_make(str_to_c_str(s.as_str()));
     }
     ptr
 }
@@ -16,28 +16,30 @@ unsafe fn to_array_of_nodes(vec: &Vec<MgNode>) -> *mut *mut bindings::mg_node {
     let size = vec.len() * mem::size_of::<*mut bindings::mg_node>();
     let ptr = libc::malloc(size) as *mut *mut bindings::mg_node;
     for (i, s) in vec.iter().enumerate() {
-        let mut c_node = bindings::mg_node {
+        let c_node = bindings::mg_node {
             id: s.id,
             label_count: s.label_count,
             labels: to_array_of_strings(&s.labels),
             properties: hash_map_to_mg_map(&s.properties),
         };
-        *ptr.offset(i as isize) = bindings::mg_node_copy(&c_node);
+        *ptr.add(i) = bindings::mg_node_copy(&c_node);
     }
     ptr
 }
 
-unsafe fn to_array_of_unbound_relationships(vec: &Vec<MgUnboundRelationship>) -> *mut *mut bindings::mg_unbound_relationship {
+unsafe fn to_array_of_unbound_relationships(
+    vec: &Vec<MgUnboundRelationship>,
+) -> *mut *mut bindings::mg_unbound_relationship {
     let size = vec.len() * mem::size_of::<*mut bindings::mg_unbound_relationship>();
     let ptr = libc::malloc(size) as *mut *mut bindings::mg_unbound_relationship;
     for (i, s) in vec.iter().enumerate() {
         let c_type = bindings::mg_string_make(str_to_c_str(&s.type_));
-        let mut c_unbound_relationship = bindings::mg_unbound_relationship {
+        let c_unbound_relationship = bindings::mg_unbound_relationship {
             id: s.id,
             type_: c_type,
             properties: hash_map_to_mg_map(&s.properties),
         };
-        *ptr.offset(i as isize) = bindings::mg_unbound_relationship_copy(&c_unbound_relationship);
+        *ptr.add(i) = bindings::mg_unbound_relationship_copy(&c_unbound_relationship);
     }
     ptr
 }
@@ -60,19 +62,13 @@ fn mg_value_to_c_mg_value(mg_value: &MgValue) -> *mut bindings::mg_value {
                 bindings::mg_value_make_map(bindings::mg_map_copy(hash_map_to_mg_map(x)))
             }
             MgValue::Node(x) => {
-                let labels_box= to_array_of_strings(&x.labels);
-                let mut c_node = bindings::mg_node {
+                let labels_box = to_array_of_strings(&x.labels);
+                let c_node = bindings::mg_node {
                     id: x.id,
                     label_count: x.label_count,
                     labels: labels_box,
                     properties: hash_map_to_mg_map(&x.properties),
                 };
-                let mut labels: Vec<String> = Vec::new();
-                for i in 0..c_node.label_count {
-                    let label = unsafe { bindings::mg_node_label_at(&c_node as *const bindings::mg_node, i) };
-                    labels.push(mg_string_to_string(label));
-                    println!("{}",&labels[i as usize]);
-                }
                 bindings::mg_value_make_node(bindings::mg_node_copy(&c_node))
             }
             MgValue::Relationship(x) => {
@@ -90,7 +86,7 @@ fn mg_value_to_c_mg_value(mg_value: &MgValue) -> *mut bindings::mg_value {
             }
             MgValue::UnboundRelationship(x) => {
                 let c_type = unsafe { bindings::mg_string_make(str_to_c_str(&x.type_)) };
-                let mut c_unbound_relationship = bindings::mg_unbound_relationship {
+                let c_unbound_relationship = bindings::mg_unbound_relationship {
                     id: x.id,
                     type_: c_type,
                     properties: hash_map_to_mg_map(&x.properties),
@@ -100,11 +96,10 @@ fn mg_value_to_c_mg_value(mg_value: &MgValue) -> *mut bindings::mg_value {
                 )
             }
             MgValue::Path(x) => {
-                let arr: i64 = 1;
+                let arr: i64 = (x.node_count+x.relationship_count as u32).into();
                 let boxed: Box<i64> = Box::new(arr);
                 let seq_ptr: *mut i64 = Box::into_raw(boxed);
-                let nodes_box =
-                    to_array_of_nodes(&x.nodes);
+                let nodes_box = to_array_of_nodes(&x.nodes);
                 let unbound_relationship_box = to_array_of_unbound_relationships(&x.relationships);
                 let c_path = bindings::mg_path {
                     node_count: x.node_count,
@@ -222,7 +217,6 @@ fn from_c_mg_value_list() {
     let c_mg_value = unsafe { bindings::mg_value_make_list(vector_to_mg_list(&mg_values)) };
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
     assert_eq!(MgValue::List(mg_values), mg_value);
-    
 }
 
 #[test]
@@ -266,10 +260,13 @@ fn from_c_mg_value_map() {
     };
 
     let c_mg_value = unsafe { bindings::mg_value_make_map(hash_map_to_mg_map(&mg_map)) };
-    let mut mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
+    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
     assert_eq!(MgValue::Map(mg_map), mg_value);
 
-    assert_eq!(format!("{}",mg_value),"{'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}");
+    assert_eq!(
+        format!("{}", mg_value),
+        "{'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}"
+    );
 }
 
 #[test]
@@ -289,7 +286,10 @@ fn from_c_mg_value_map_display() {
         }),
     });
 
-    assert_eq!(format!("{}",mg_map),"{'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}");
+    assert_eq!(
+        format!("{}", mg_map),
+        "{'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}"
+    );
 }
 
 #[test]
@@ -307,22 +307,22 @@ fn from_c_mg_value_node() {
             }
         }),
     };
-    let c_node = MgValue::Node(MgNode{
+    let c_node = MgValue::Node(MgNode {
         id: 1,
         label_count: 1,
         labels: values,
         properties: mg_map,
     });
-        
+
     let c_mg_value = mg_value_to_c_mg_value(&c_node);
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(c_node,mg_value);
+    assert_eq!(c_node, mg_value);
 
     //assert_eq!(format!("{}",mg_value),"{'id': 128, 'is_it': true, 'name': NULL, 'rel': [:test {'name': NULL}]}");
 }
 
 #[test]
-fn from_c_mg_value_node_display(){
+fn from_c_mg_value_node_display() {
     let values = vec![String::from("test")];
     let mg_map = hashmap! {
         String::from("id") => MgValue::Int(128),
@@ -336,18 +336,21 @@ fn from_c_mg_value_node_display(){
             }
         }),
     };
-    let c_node = MgValue::Node(MgNode{
+    let c_node = MgValue::Node(MgNode {
         id: 1,
         label_count: 1,
         labels: values,
         properties: mg_map,
     });
 
-    assert_eq!(format!("{}",c_node),"(:test {'id': 128, 'rel': [:test {'name': NULL}]})");
+    assert_eq!(
+        format!("{}", c_node),
+        "(:test {'id': 128, 'rel': [:test {'name': NULL}]})"
+    );
 }
 
 #[test]
-fn from_c_mg_value_relationship(){
+fn from_c_mg_value_relationship() {
     let mg_map = hashmap! {
         String::from("id") => MgValue::Int(128),
         String::from("rel") => MgValue::Relationship(MgRelationship {
@@ -360,7 +363,7 @@ fn from_c_mg_value_relationship(){
             }
         }),
     };
-    let c_relationship = MgValue::Relationship(MgRelationship{
+    let c_relationship = MgValue::Relationship(MgRelationship {
         id: 1,
         start_id: 1,
         end_id: 2,
@@ -370,11 +373,11 @@ fn from_c_mg_value_relationship(){
 
     let c_mg_value = mg_value_to_c_mg_value(&c_relationship);
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(c_relationship,mg_value);
+    assert_eq!(c_relationship, mg_value);
 }
 
 #[test]
-fn from_c_mg_value_relationship_display(){
+fn from_c_mg_value_relationship_display() {
     let mg_map = hashmap! {
         String::from("id") => MgValue::Int(128),
         String::from("rel") => MgValue::Relationship(MgRelationship {
@@ -387,7 +390,7 @@ fn from_c_mg_value_relationship_display(){
             }
         }),
     };
-    let c_relationship = MgValue::Relationship(MgRelationship{
+    let c_relationship = MgValue::Relationship(MgRelationship {
         id: 1,
         start_id: 1,
         end_id: 2,
@@ -395,11 +398,14 @@ fn from_c_mg_value_relationship_display(){
         properties: mg_map,
     });
 
-    assert_eq!(format!("{}",c_relationship),"[:test {'id': 128, 'rel': [:test {'name': NULL}]}]");
+    assert_eq!(
+        format!("{}", c_relationship),
+        "[:test {'id': 128, 'rel': [:test {'name': NULL}]}]"
+    );
 }
 
 #[test]
-fn from_c_mg_value_unbound_relationship(){
+fn from_c_mg_value_unbound_relationship() {
     let mg_map = hashmap! {
         String::from("id") => MgValue::Int(128),
         String::from("rel") => MgValue::Relationship(MgRelationship {
@@ -412,7 +418,7 @@ fn from_c_mg_value_unbound_relationship(){
             }
         }),
     };
-    let c_unbound_relationship = MgValue::UnboundRelationship(MgUnboundRelationship{
+    let c_unbound_relationship = MgValue::UnboundRelationship(MgUnboundRelationship {
         id: 1,
         type_: String::from("test"),
         properties: mg_map,
@@ -420,11 +426,11 @@ fn from_c_mg_value_unbound_relationship(){
 
     let c_mg_value = mg_value_to_c_mg_value(&c_unbound_relationship);
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(c_unbound_relationship,mg_value);
+    assert_eq!(c_unbound_relationship, mg_value);
 }
 
 #[test]
-fn from_c_mg_value_unbound_relationship_display(){
+fn from_c_mg_value_unbound_relationship_display() {
     let mg_map = hashmap! {
         String::from("id") => MgValue::Int(128),
         String::from("rel") => MgValue::Relationship(MgRelationship {
@@ -437,17 +443,21 @@ fn from_c_mg_value_unbound_relationship_display(){
             }
         }),
     };
-    let c_unbound_relationship = MgValue::UnboundRelationship(MgUnboundRelationship{
+    let c_unbound_relationship = MgValue::UnboundRelationship(MgUnboundRelationship {
         id: 1,
         type_: String::from("test"),
         properties: mg_map,
     });
-    assert_eq!(format!("{}",c_unbound_relationship),"[:test {'id': 128, 'rel': [:test {'name': NULL}]}]");
+    assert_eq!(
+        format!("{}", c_unbound_relationship),
+        "[:test {'id': 128, 'rel': [:test {'name': NULL}]}]"
+    );
 }
 
 #[test]
-fn from_c_mg_value_path(){
+fn from_c_mg_value_path() {
     let values = vec![String::from("test")];
+    let values2 = vec![String::from("test")];
     let mg_map = hashmap! {
         String::from("id") => MgValue::Int(128),
         String::from("rel") => MgValue::Relationship(MgRelationship {
@@ -460,7 +470,7 @@ fn from_c_mg_value_path(){
             }
         }),
     };
-    let c_unbound_relationship = MgUnboundRelationship{
+    let c_unbound_relationship = MgUnboundRelationship {
         id: 1,
         type_: String::from("test"),
         properties: mg_map,
@@ -477,22 +487,40 @@ fn from_c_mg_value_path(){
             }
         }),
     };
-    let c_node = MgNode{
+    let mg_map3 = hashmap! {
+        String::from("id") => MgValue::Int(128),
+        String::from("rel") => MgValue::Relationship(MgRelationship {
+            id: 1,
+            start_id: 1,
+            end_id: 2,
+            type_: String::from("test"),
+            properties: hashmap!{
+                String::from("name") => MgValue::Null,
+            }
+        }),
+    };
+    let c_node = MgNode {
         id: 1,
         label_count: 1,
         labels: values,
         properties: mg_map2,
     };
-    let c_path = MgValue::Path(MgPath{
+    let c_node2 = MgNode {
+        id: 1,
+        label_count: 1,
+        labels: values2,
+        properties: mg_map3,
+    };
+    let c_path = MgValue::Path(MgPath {
         node_count: 2,
         relationship_count: 1,
-        nodes: vec![c_node],
+        nodes: vec![c_node, c_node2],
         relationships: vec![c_unbound_relationship],
     });
 
     let c_mg_value = mg_value_to_c_mg_value(&c_path);
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    //assert_eq!(c_path,mg_value);
+    assert_eq!(c_path,mg_value);
 }
 #[test]
 fn from_to_c_mg_value() {
@@ -534,8 +562,8 @@ fn from_to_c_mg_value() {
     let query_param_list = QueryParam::List(vec);
     let c_mg_value = unsafe { *(query_param_list.to_c_mg_value()) };
     let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
-    assert_eq!(c_mg_value.type_,bindings::mg_value_type_MG_VALUE_TYPE_LIST);
-    let c_mg_list=mg_value_to_c_mg_value(&mg_value);
+    assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_LIST);
+    let _c_mg_list = mg_value_to_c_mg_value(&mg_value);
 
     let mut map: HashMap<String, QueryParam> = HashMap::new();
     map.insert("null".to_string(), QueryParam::Null);
@@ -544,7 +572,7 @@ fn from_to_c_mg_value() {
     map.insert("float".to_string(), QueryParam::Float(3.15));
     let query_param_map = QueryParam::Map(map);
     let c_mg_value = unsafe { *(query_param_map.to_c_mg_value()) };
-    let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
+    let _mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
 
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_MAP);
 }

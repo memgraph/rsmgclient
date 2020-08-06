@@ -18,7 +18,6 @@ use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
 
-
 pub enum QueryParam {
     Null,
     Bool(bool),
