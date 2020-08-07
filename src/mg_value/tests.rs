@@ -44,6 +44,15 @@ unsafe fn to_array_of_unbound_relationships(
     })
 }
 
+unsafe fn to_c_int_array(vec: &Vec<i64>) -> *mut i64 {
+    let size = vec.len() * mem::size_of::<i64>();
+    let ptr = libc::malloc(size) as *mut i64;
+    for (i, el) in vec.iter().enumerate() {
+        *ptr.offset(i as isize) = *el;
+    }
+    ptr
+}
+
 fn mg_value_to_c_mg_value(mg_value: &MgValue) -> *mut bindings::mg_value {
     unsafe {
         match mg_value {
@@ -96,15 +105,22 @@ fn mg_value_to_c_mg_value(mg_value: &MgValue) -> *mut bindings::mg_value {
                 )
             }
             MgValue::Path(x) => {
-                let arr: i64 = (x.node_count+x.relationship_count as u32).into();
-                let boxed: Box<i64> = Box::new(arr);
-                let seq_ptr: *mut i64 = Box::into_raw(boxed);
+                let mut sequence = Vec::new();
+                for i in 0..x.node_count {
+                    sequence.push(x.nodes[i as usize].id);
+                    if i < x.relationship_count {
+                        sequence.push(x.relationships[i as usize].id);
+                    }
+                }
+                let sequence_length = sequence.len() as u32;
+                let seq_ptr = to_c_int_array(&sequence);
+
                 let nodes_box = to_array_of_nodes(&x.nodes);
                 let unbound_relationship_box = to_array_of_unbound_relationships(&x.relationships);
                 let c_path = bindings::mg_path {
                     node_count: x.node_count,
                     relationship_count: x.relationship_count,
-                    sequence_length: x.node_count,
+                    sequence_length,
                     nodes: nodes_box,
                     relationships: unbound_relationship_box,
                     sequence: seq_ptr,
