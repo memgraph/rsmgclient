@@ -69,7 +69,7 @@ fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
 
 fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
     let c_error_message = unsafe { bindings::mg_session_error(mg_session) };
-    unsafe { c_string_to_string(c_error_message) }
+    unsafe { c_string_to_string(c_error_message, None) }
 }
 
 impl Drop for Connection {
@@ -137,10 +137,10 @@ extern "C" fn trust_callback_wrapper(
 
     unsafe {
         fun(
-            &c_string_to_string(host),
-            &c_string_to_string(ip_address),
-            &c_string_to_string(key_type),
-            &c_string_to_string(fingerprint),
+            &c_string_to_string(host, None),
+            &c_string_to_string(ip_address, None),
+            &c_string_to_string(key_type, None),
+            &c_string_to_string(fingerprint, None),
         ) as std::os::raw::c_int
     }
 }
