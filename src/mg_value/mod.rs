@@ -103,10 +103,7 @@ fn mg_value_list_to_vec(mg_value: *const bindings::mg_value) -> Vec<MgValue> {
 }
 
 fn mg_value_bool(mg_value: *const bindings::mg_value) -> bool {
-    match unsafe { bindings::mg_value_bool(mg_value) } {
-        0 => false,
-        _ => true,
-    }
+    !matches!(unsafe { bindings::mg_value_bool(mg_value) }, 0)
 }
 
 fn mg_value_int(mg_value: *const bindings::mg_value) -> i64 {
@@ -134,7 +131,7 @@ fn mg_string_to_string(mg_string: *const bindings::mg_string) -> String {
     unsafe { c_string_to_string(c_str, Some(bindings::mg_string_size(mg_string))) }
 }
 
-pub fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
+fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     let c_str = unsafe { bindings::mg_value_string(mg_value) };
     mg_string_to_string(c_str)
 }

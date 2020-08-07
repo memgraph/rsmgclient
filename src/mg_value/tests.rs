@@ -10,7 +10,7 @@ unsafe fn to_c_pointer_array<T, S>(
     let size = vec.len() * mem::size_of::<*mut std::os::raw::c_void>();
     let ptr = libc::malloc(size) as *mut *mut S;
     for (i, el) in vec.iter().enumerate() {
-        *ptr.offset(i as isize) = convert_fun(&el);
+        *ptr.add(i) = convert_fun(&el);
     }
     ptr
 }
@@ -48,7 +48,7 @@ unsafe fn to_c_int_array(vec: &Vec<i64>) -> *mut i64 {
     let size = vec.len() * mem::size_of::<i64>();
     let ptr = libc::malloc(size) as *mut i64;
     for (i, el) in vec.iter().enumerate() {
-        *ptr.offset(i as isize) = *el;
+        *ptr.add(i) = *el;
     }
     ptr
 }
