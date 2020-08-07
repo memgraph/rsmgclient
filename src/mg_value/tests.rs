@@ -3,45 +3,45 @@ use std::ffi::CString;
 use std::mem;
 extern crate libc;
 
-unsafe fn to_array_of_strings(vec: &Vec<String>) -> *mut *mut bindings::mg_string {
-    let size = vec.len() * mem::size_of::<*mut bindings::mg_string>();
-    let ptr = libc::malloc(size) as *mut *mut bindings::mg_string;
-    for (i, s) in vec.iter().enumerate() {
-        *ptr.add(i) = bindings::mg_string_make(str_to_c_str(s.as_str()));
+unsafe fn to_c_pointer_array<T, S>(
+    vec: &Vec<T>,
+    convert_fun: impl Fn(&T) -> *mut S,
+) -> *mut *mut S {
+    let size = vec.len() * mem::size_of::<*mut std::os::raw::c_void>();
+    let ptr = libc::malloc(size) as *mut *mut S;
+    for (i, el) in vec.iter().enumerate() {
+        *ptr.offset(i as isize) = convert_fun(&el);
     }
     ptr
 }
 
+unsafe fn to_array_of_strings(vec: &Vec<String>) -> *mut *mut bindings::mg_string {
+    to_c_pointer_array(vec, |el| {
+        bindings::mg_string_make(str_to_c_str(el.as_str()))
+    })
+}
+
 unsafe fn to_array_of_nodes(vec: &Vec<MgNode>) -> *mut *mut bindings::mg_node {
-    let size = vec.len() * mem::size_of::<*mut bindings::mg_node>();
-    let ptr = libc::malloc(size) as *mut *mut bindings::mg_node;
-    for (i, s) in vec.iter().enumerate() {
-        let c_node = bindings::mg_node {
-            id: s.id,
-            label_count: s.label_count,
-            labels: to_array_of_strings(&s.labels),
-            properties: hash_map_to_mg_map(&s.properties),
-        };
-        *ptr.add(i) = bindings::mg_node_copy(&c_node);
-    }
-    ptr
+    to_c_pointer_array(vec, |el| {
+        bindings::mg_node_copy(&bindings::mg_node {
+            id: el.id,
+            label_count: el.label_count,
+            labels: to_array_of_strings(&el.labels),
+            properties: hash_map_to_mg_map(&el.properties),
+        })
+    })
 }
 
 unsafe fn to_array_of_unbound_relationships(
     vec: &Vec<MgUnboundRelationship>,
 ) -> *mut *mut bindings::mg_unbound_relationship {
-    let size = vec.len() * mem::size_of::<*mut bindings::mg_unbound_relationship>();
-    let ptr = libc::malloc(size) as *mut *mut bindings::mg_unbound_relationship;
-    for (i, s) in vec.iter().enumerate() {
-        let c_type = bindings::mg_string_make(str_to_c_str(&s.type_));
-        let c_unbound_relationship = bindings::mg_unbound_relationship {
-            id: s.id,
-            type_: c_type,
-            properties: hash_map_to_mg_map(&s.properties),
-        };
-        *ptr.add(i) = bindings::mg_unbound_relationship_copy(&c_unbound_relationship);
-    }
-    ptr
+    to_c_pointer_array(vec, |x| {
+        bindings::mg_unbound_relationship_copy(&bindings::mg_unbound_relationship {
+            id: x.id,
+            type_: bindings::mg_string_make(str_to_c_str(x.type_.as_str())),
+            properties: hash_map_to_mg_map(&x.properties),
+        })
+    })
 }
 
 fn mg_value_to_c_mg_value(mg_value: &MgValue) -> *mut bindings::mg_value {
@@ -520,7 +520,7 @@ fn from_c_mg_value_path() {
 
     let c_mg_value = mg_value_to_c_mg_value(&c_path);
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
-    assert_eq!(c_path,mg_value);
+    assert_eq!(c_path, mg_value);
 }
 #[test]
 fn from_to_c_mg_value() {
