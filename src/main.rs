@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{ConnectParams, Connection, QueryParam, Value};
+use rsmgclient::{ConnectParams, Connection, QueryParam};
 use std::collections::HashMap;
 
 fn main() {
@@ -60,7 +60,7 @@ fn main() {
     }
 
     match connection.execute(&query, Some(&params)) {
-        Ok(x) => {}
+        Ok(_x) => {}
         Err(err) => panic!("Query failed: {}", err),
     };
 
@@ -85,7 +85,7 @@ fn main() {
     }
 
     match connection.execute(&query, Some(&params)) {
-        Ok(x) => {}
+        Ok(_x) => {}
         Err(err) => panic!("{}", err),
     }
 

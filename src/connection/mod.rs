@@ -16,7 +16,7 @@ use super::bindings;
 use super::error::MgError;
 use super::value::{
     c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_value_string, str_to_c_str,
-    QueryParam, Record, Value,
+    QueryParam, Record,
 };
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -204,7 +204,7 @@ impl Connection {
             None => std::ptr::null_mut(),
         };
         let mut columns = std::ptr::null();
-        let mut status = unsafe {
+        let status = unsafe {
             bindings::mg_session_run(self.mg_session, c_query.as_ptr(), mg_params, &mut columns)
         };
 

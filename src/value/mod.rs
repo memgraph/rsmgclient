@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
-use std::ops::{Index, IndexMut};
+
 use std::slice;
 
 pub enum QueryParam {
@@ -103,10 +103,7 @@ fn mg_value_list_to_vec(mg_value: *const bindings::mg_value) -> Vec<Value> {
 }
 
 fn mg_value_bool(mg_value: *const bindings::mg_value) -> bool {
-    match unsafe { bindings::mg_value_bool(mg_value) } {
-        0 => false,
-        _ => true,
-    }
+    !matches!(unsafe { bindings::mg_value_bool(mg_value) }, 0)
 }
 
 fn mg_value_int(mg_value: *const bindings::mg_value) -> i64 {
