@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::bindings;
-use super::cursor::{Cursor, CursorStatus};
 use super::error::MgError;
 use super::value::{
     c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_value_string, str_to_c_str,
@@ -21,6 +20,7 @@ use super::value::{
 };
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::vec::IntoIter;
 
 pub struct ConnectParams {
     pub port: u16,
@@ -62,8 +62,10 @@ pub enum SSLMode {
 
 pub struct Connection {
     mg_session: *mut bindings::mg_session,
-    pub(crate) lazy: bool,
-    pub(crate) status: ConnectionStatus,
+    lazy: bool,
+    status: ConnectionStatus,
+    results_iter: Option<IntoIter<Record>>,
+    pub arraysize: u32,
 }
 
 #[derive(PartialEq)]
@@ -72,7 +74,6 @@ pub enum ConnectionStatus {
     InTransaction,
     Executing,
     Closed,
-    Bad,
 }
 
 fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
@@ -84,7 +85,7 @@ fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
 
 fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
     let c_error_message = unsafe { bindings::mg_session_error(mg_session) };
-    unsafe { c_string_to_string(c_error_message) }
+    unsafe { c_string_to_string(c_error_message, None) }
 }
 
 impl Drop for Connection {
@@ -175,40 +176,24 @@ impl Connection {
             mg_session,
             lazy: param_struct.lazy,
             status: ConnectionStatus::Ready,
+            results_iter: None,
+            arraysize: 1,
         })
     }
 
-    pub fn cursor(&mut self) -> Cursor {
-        Cursor {
-            connection: self,
-            status: CursorStatus::Ready,
-            record: None,
-            cached_records: Vec::new(),
-            arraysize: 1,
-            rownumber: -1,
-            columns: None,
-        }
-    }
-
-    pub(crate) fn run(
-        &mut self,
-        query: &String,
-        params: Option<&HashMap<String, QueryParam>>,
-    ) -> Result<Vec<String>, MgError> {
+    pub fn execute(&mut self, query: &str, params: Option<&HashMap<String, QueryParam>>) -> Result<Vec<String>, MgError> {
         match self.status {
-            ConnectionStatus::Bad | ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Bad connection status")))
-            }
+            ConnectionStatus::Closed => return Err(MgError::new(String::from("Connection is closed"))),
             ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from("Already executing")))
-            }
+                return Err(MgError::new(String::from("Connection is already executing")))
+            },
             _ => {}
         }
 
-        let c_query = CString::new(query.as_str()).unwrap();
+        let c_query = CString::new(query).unwrap();
         let mg_params = match params {
             Some(x) => hash_map_to_mg_map(x),
-            None => std::ptr::null(),
+            None => std::ptr::null_mut(),
         };
         let mut columns = std::ptr::null();
         let mut status = unsafe {
@@ -219,31 +204,101 @@ impl Connection {
             return Err(MgError::new(read_error_message(self.mg_session)));
         }
 
-        self.status = ConnectionStatus::Ready;
+        self.status = ConnectionStatus::Executing;
 
-        Ok(parse_columns(unsafe { columns }))
+        if !self.lazy {
+            match self.pull_all() {
+                Ok(x) => self.results_iter = Some(x.into_iter()),
+                Err(x) => return Err(x),
+            }
+        }
+
+        Ok(parse_columns(columns))
     }
 
-    pub(crate) fn pull(&mut self) -> Result<Option<Record>, MgError> {
+    pub fn fetchone(&mut self) -> Result<Option<Record>, MgError> {
+        match self.status {
+            ConnectionStatus::Closed => return Err(MgError::new(String::from("Connection is closed"))),
+            ConnectionStatus::Ready => return Err(MgError::new(String::from("Connection is not executing"))),
+            _ => {}
+        }
+
+        match self.lazy {
+            true => match self.pull() {
+                Ok(res) => match res {
+                    Some(x) => Ok(Some(x)),
+                    None => {
+                        self.status = ConnectionStatus::Ready;
+                        Ok(None)
+                    }
+                },
+                Err(err) => Err(err)
+            },
+            false => {
+                match &mut self.results_iter {
+                    Some(it) => match it.next() {
+                        Some(x) => Ok(Some(x)),
+                        None => {
+                            self.status = ConnectionStatus::Ready;
+                            Ok(None)
+                        }
+                    },
+                    None => panic!()
+                }
+
+            }
+        }
+    }
+
+    pub fn fetchmany(&mut self, size: Option<u32>) -> Result<Vec<Record>, MgError> {
+        let size = match size {
+            Some(x) => x,
+            None => self.arraysize
+        };
+
+        let mut vec = Vec::new();
+        for _i in 0..size {
+            match self.fetchone() {
+                Ok(record) => match record {
+                    Some(x) => vec.push(x),
+                    None => break
+                },
+                Err(err) => return Err(err)
+            }
+        }
+
+        Ok(vec)
+    }
+
+    pub fn fetchall(&mut self) -> Result<Vec<Record>, MgError> {
+        let mut vec = Vec::new();
+        loop {
+             match self.fetchone() {
+                 Ok(record) => match record {
+                     Some(x) => vec.push(x),
+                     None => break
+                 },
+                 Err(err) => return Err(err)
+             }
+        }
+
+        Ok(vec)
+    }
+
+    fn pull(&mut self) -> Result<Option<Record>, MgError> {
         let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
         let status = unsafe { bindings::mg_session_pull(self.mg_session, &mut mg_result) };
         let row = unsafe { bindings::mg_result_row(mg_result) };
         match status {
-            1 => {
-                self.status = ConnectionStatus::Executing;
-                Ok(Some(Record {
+            1 => Ok(Some(Record {
                     values: unsafe { mg_list_to_vec(row) },
-                }))
-            }
-            0 => {
-                self.status = ConnectionStatus::Ready;
-                Ok(None)
-            }
+                })),
+            0 => Ok(None),
             _ => Err(MgError::new(read_error_message(self.mg_session))),
         }
     }
 
-    pub(crate) fn pull_all(&mut self) -> Result<Vec<Record>, MgError> {
+    fn pull_all(&mut self) -> Result<Vec<Record>, MgError> {
         let mut res = Vec::new();
         loop {
             match self.pull() {
@@ -254,7 +309,6 @@ impl Connection {
                 Err(err) => return Err(err),
             }
         }
-        self.status = ConnectionStatus::Ready;
         Ok(res)
     }
 }
@@ -281,10 +335,10 @@ extern "C" fn trust_callback_wrapper(
 
     unsafe {
         fun(
-            &c_string_to_string(host),
-            &c_string_to_string(ip_address),
-            &c_string_to_string(key_type),
-            &c_string_to_string(fingerprint),
+            &c_string_to_string(host, None),
+            &c_string_to_string(ip_address, None),
+            &c_string_to_string(key_type, None),
+            &c_string_to_string(fingerprint, None),
         ) as std::os::raw::c_int
     }
 }

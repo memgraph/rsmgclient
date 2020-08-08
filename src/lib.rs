@@ -15,7 +15,6 @@
 #[allow(dead_code)]
 mod bindings;
 mod connection;
-mod cursor;
 mod error;
 mod value;
 

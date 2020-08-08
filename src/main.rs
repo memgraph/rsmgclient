@@ -18,7 +18,7 @@ use std::collections::HashMap;
 fn main() {
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
-        lazy: true,
+        lazy: false,
         ..Default::default()
     };
 
@@ -30,24 +30,20 @@ fn main() {
     let mut params: HashMap<String, QueryParam> = HashMap::new();
     params.insert(
         String::from("name"),
-        QueryParam::String(String::from("John")),
+        QueryParam::String(String::from("Alice")),
     );
 
-    let mut cursor = connection.cursor();
-    let query = String::from("MATCH (n:Person) WHERE n.name = $name RETURN n LIMIT 5");
-    match cursor.execute(&query, Some(&params)) {
-        Ok(()) => {}
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    // let query = String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
+    let columns = match connection.execute(&query, Some(&params)) {
+        Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
 
-    let columns = match cursor.get_columns() {
-        Ok(x) => x,
-        Err(err) => panic!("{}", err),
-    };
     println!("Columns: {}", columns.join(", "));
 
     loop {
-        match cursor.fetchone() {
+        match connection.fetchone() {
             Ok(res) => match res {
                 Some(x) => {
                     println!("Number of rows: 1");
@@ -63,17 +59,17 @@ fn main() {
         }
     }
 
-    match cursor.execute(&query, Some(&params)) {
-        Ok(()) => {}
+    match connection.execute(&query, Some(&params)) {
+        Ok(x) => {}
         Err(err) => panic!("Query failed: {}", err),
     };
 
     loop {
         let size = 3;
-        match cursor.fetchmany(Some(size)) {
+        match connection.fetchmany(Some(size)) {
             Ok(res) => {
                 println!("Number of rows: {}", res.len());
-                for record in res {
+                for record in &res {
                     print!("Row: ");
                     for val in &record.values {
                         print!("val: {}  ", val);
@@ -88,12 +84,12 @@ fn main() {
         }
     }
 
-    match cursor.execute(&query, Some(&params)) {
-        Ok(()) => {}
+    match connection.execute(&query, Some(&params)) {
+        Ok(x) => {}
         Err(err) => panic!("{}", err),
     }
 
-    match cursor.fetchall() {
+    match connection.fetchall() {
         Ok(records) => {
             println!("Number of rows: {}", records.len());
             for record in records {
