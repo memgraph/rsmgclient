@@ -181,12 +181,20 @@ impl Connection {
         })
     }
 
-    pub fn execute(&mut self, query: &str, params: Option<&HashMap<String, QueryParam>>) -> Result<Vec<String>, MgError> {
+    pub fn execute(
+        &mut self,
+        query: &str,
+        params: Option<&HashMap<String, QueryParam>>,
+    ) -> Result<Vec<String>, MgError> {
         match self.status {
-            ConnectionStatus::Closed => return Err(MgError::new(String::from("Connection is closed"))),
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
             ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from("Connection is already executing")))
-            },
+                return Err(MgError::new(String::from(
+                    "Connection is already executing",
+                )))
+            }
             _ => {}
         }
 
@@ -218,8 +226,12 @@ impl Connection {
 
     pub fn fetchone(&mut self) -> Result<Option<Record>, MgError> {
         match self.status {
-            ConnectionStatus::Closed => return Err(MgError::new(String::from("Connection is closed"))),
-            ConnectionStatus::Ready => return Err(MgError::new(String::from("Connection is not executing"))),
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
+            ConnectionStatus::Ready => {
+                return Err(MgError::new(String::from("Connection is not executing")))
+            }
             _ => {}
         }
 
@@ -232,28 +244,25 @@ impl Connection {
                         Ok(None)
                     }
                 },
-                Err(err) => Err(err)
+                Err(err) => Err(err),
             },
-            false => {
-                match &mut self.results_iter {
-                    Some(it) => match it.next() {
-                        Some(x) => Ok(Some(x)),
-                        None => {
-                            self.status = ConnectionStatus::Ready;
-                            Ok(None)
-                        }
-                    },
-                    None => panic!()
-                }
-
-            }
+            false => match &mut self.results_iter {
+                Some(it) => match it.next() {
+                    Some(x) => Ok(Some(x)),
+                    None => {
+                        self.status = ConnectionStatus::Ready;
+                        Ok(None)
+                    }
+                },
+                None => panic!(),
+            },
         }
     }
 
     pub fn fetchmany(&mut self, size: Option<u32>) -> Result<Vec<Record>, MgError> {
         let size = match size {
             Some(x) => x,
-            None => self.arraysize
+            None => self.arraysize,
         };
 
         let mut vec = Vec::new();
@@ -261,9 +270,9 @@ impl Connection {
             match self.fetchone() {
                 Ok(record) => match record {
                     Some(x) => vec.push(x),
-                    None => break
+                    None => break,
                 },
-                Err(err) => return Err(err)
+                Err(err) => return Err(err),
             }
         }
 
@@ -273,13 +282,13 @@ impl Connection {
     pub fn fetchall(&mut self) -> Result<Vec<Record>, MgError> {
         let mut vec = Vec::new();
         loop {
-             match self.fetchone() {
-                 Ok(record) => match record {
-                     Some(x) => vec.push(x),
-                     None => break
-                 },
-                 Err(err) => return Err(err)
-             }
+            match self.fetchone() {
+                Ok(record) => match record {
+                    Some(x) => vec.push(x),
+                    None => break,
+                },
+                Err(err) => return Err(err),
+            }
         }
 
         Ok(vec)
@@ -291,8 +300,8 @@ impl Connection {
         let row = unsafe { bindings::mg_result_row(mg_result) };
         match status {
             1 => Ok(Some(Record {
-                    values: unsafe { mg_list_to_vec(row) },
-                })),
+                values: unsafe { mg_list_to_vec(row) },
+            })),
             0 => Ok(None),
             _ => Err(MgError::new(read_error_message(self.mg_session))),
         }

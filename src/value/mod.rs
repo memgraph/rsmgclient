@@ -134,7 +134,7 @@ fn mg_string_to_string(mg_string: *const bindings::mg_string) -> String {
     unsafe { c_string_to_string(c_str, Some(bindings::mg_string_size(mg_string))) }
 }
 
-pub fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
+pub(crate) fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     let c_str = unsafe { bindings::mg_value_string(mg_value) };
     mg_string_to_string(c_str)
 }
