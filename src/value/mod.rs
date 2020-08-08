@@ -18,6 +18,7 @@ use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Index, IndexMut};
+use std::slice;
 
 pub enum QueryParam {
     Null,
@@ -116,14 +117,21 @@ fn mg_value_float(mg_value: *const bindings::mg_value) -> f64 {
     unsafe { bindings::mg_value_float(mg_value) }
 }
 
-pub unsafe fn c_string_to_string(c_str: *const i8) -> String {
-    let str = CStr::from_ptr(c_str).to_str().unwrap();
-    str.to_string()
+pub unsafe fn c_string_to_string(c_str: *const i8, size: Option<u32>) -> String {
+    // https://github.com/rust-lang/rust/blob/master/library/std/src/ffi/c_str.rs#L1230
+    let c_str = match size {
+        Some(x) => CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+            c_str as *const u8,
+            (x + 1) as usize,
+        )),
+        None => CStr::from_ptr(c_str),
+    };
+    c_str.to_str().unwrap().to_string()
 }
 
 fn mg_string_to_string(mg_string: *const bindings::mg_string) -> String {
     let c_str = unsafe { bindings::mg_string_data(mg_string) };
-    unsafe { c_string_to_string(c_str) }
+    unsafe { c_string_to_string(c_str, Some(bindings::mg_string_size(mg_string))) }
 }
 
 pub fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
