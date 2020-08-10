@@ -162,10 +162,24 @@ fn from_c_mg_value_null() {
 }
 
 #[test]
+fn from_c_mg_value_null_display() {
+    let c_mg_value = unsafe { bindings::mg_value_make_null() };
+    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
+    assert_eq!(format!("{}", mg_value), "NULL");
+}
+
+#[test]
 fn from_c_mg_value_bool_false() {
     let c_mg_value = unsafe { bindings::mg_value_make_bool(0) };
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
     assert_eq!(MgValue::Bool(false), mg_value);
+    assert_eq!(format!("{}", mg_value), "false");
+}
+
+#[test]
+fn from_c_mg_value_bool_false_display() {
+    let c_mg_value = unsafe { bindings::mg_value_make_bool(0) };
+    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
     assert_eq!(format!("{}", mg_value), "false");
 }
 
@@ -185,10 +199,24 @@ fn from_c_mg_value_int() {
 }
 
 #[test]
+fn from_c_mg_value_int_display() {
+    let c_mg_value = unsafe { bindings::mg_value_make_integer(19) };
+    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
+    assert_eq!(format!("{}", mg_value), "19");
+}
+
+#[test]
 fn from_c_mg_value_float() {
     let c_mg_value = unsafe { bindings::mg_value_make_float(3.1465) };
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
     assert_eq!(MgValue::Float(3.1465), mg_value);
+    assert_eq!(format!("{}", mg_value), "3.1465");
+}
+
+#[test]
+fn from_c_mg_value_float_display() {
+    let c_mg_value = unsafe { bindings::mg_value_make_float(3.1465) };
+    let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
     assert_eq!(format!("{}", mg_value), "3.1465");
 }
 
@@ -538,20 +566,30 @@ fn from_c_mg_value_path() {
     let mg_value = unsafe { MgValue::from_mg_value(c_mg_value) };
     assert_eq!(c_path, mg_value);
 }
+
 #[test]
-fn from_to_c_mg_value() {
+fn from_to_c_mg_value_null() {
     let query_param_null = QueryParam::Null;
     let c_mg_value = unsafe { *(query_param_null.to_c_mg_value()) };
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_NULL);
+}
 
+#[test]
+fn from_to_c_mg_value_false() {
     let query_param_false = QueryParam::Bool(false);
     let c_mg_value = unsafe { *(query_param_false.to_c_mg_value()) };
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_BOOL);
+}
 
+#[test]
+fn from_to_c_mg_value_true() {
     let query_param_true = QueryParam::Bool(true);
     let c_mg_value = unsafe { *(query_param_true.to_c_mg_value()) };
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_BOOL);
+}
 
+#[test]
+fn from_to_c_mg_value_int() {
     let query_param_int = QueryParam::Int(20);
     let c_mg_value = unsafe { *(query_param_int.to_c_mg_value()) };
     let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
@@ -560,7 +598,10 @@ fn from_to_c_mg_value() {
         bindings::mg_value_type_MG_VALUE_TYPE_INTEGER
     );
     assert_eq!(mg_value.to_string(), "20");
+}
 
+#[test]
+fn from_to_c_mg_value_float() {
     let query_param_float = QueryParam::Float(3.15);
     let c_mg_value = unsafe { *(query_param_float.to_c_mg_value()) };
     let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
@@ -569,18 +610,24 @@ fn from_to_c_mg_value() {
         bindings::mg_value_type_MG_VALUE_TYPE_FLOAT
     );
     assert_eq!(mg_value.to_string(), "3.15");
+}
 
+#[test]
+fn from_to_c_mg_value_list() {
     let mut vec: Vec<QueryParam> = Vec::new();
-    vec.push(query_param_null);
-    vec.push(query_param_true);
-    vec.push(query_param_int);
-    vec.push(query_param_float);
+    vec.push(QueryParam::Null);
+    vec.push(QueryParam::Bool(true));
+    vec.push(QueryParam::Int(20));
+    vec.push(QueryParam::Float(3.15));
     let query_param_list = QueryParam::List(vec);
     let c_mg_value = unsafe { *(query_param_list.to_c_mg_value()) };
     let mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_LIST);
     let _c_mg_list = mg_value_to_c_mg_value(&mg_value);
+}
 
+#[test]
+fn from_to_c_mg_value_map() {
     let mut map: HashMap<String, QueryParam> = HashMap::new();
     map.insert("null".to_string(), QueryParam::Null);
     map.insert("true".to_string(), QueryParam::Bool(true));
@@ -591,4 +638,19 @@ fn from_to_c_mg_value() {
     let _mg_value = unsafe { MgValue::from_mg_value(&c_mg_value) };
 
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_MAP);
+}
+
+#[test]
+fn from_c_mg_value_unknown() {
+    let c_mg_value = bindings::mg_value {
+        type_: bindings::mg_value_type_MG_VALUE_TYPE_UNKNOWN,
+        __bindgen_anon_1: bindings::mg_value__bindgen_ty_1 { bool_v: 0 },
+    };
+    let _mg_value = unsafe { MgValue::from_mg_value(&c_mg_value as *const bindings::mg_value) };
+    unsafe {
+        assert_eq!(
+            c_mg_value.type_,
+            bindings::mg_value_get_type(&c_mg_value as *const bindings::mg_value)
+        )
+    };
 }
