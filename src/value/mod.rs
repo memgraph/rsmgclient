@@ -309,9 +309,7 @@ impl Value {
             bindings::mg_value_type_MG_VALUE_TYPE_NULL => Value::Null,
             bindings::mg_value_type_MG_VALUE_TYPE_BOOL => Value::Bool(mg_value_bool(c_mg_value)),
             bindings::mg_value_type_MG_VALUE_TYPE_INTEGER => Value::Int(mg_value_int(c_mg_value)),
-            bindings::mg_value_type_MG_VALUE_TYPE_FLOAT => {
-                Value::Float(mg_value_float(c_mg_value))
-            }
+            bindings::mg_value_type_MG_VALUE_TYPE_FLOAT => Value::Float(mg_value_float(c_mg_value)),
             bindings::mg_value_type_MG_VALUE_TYPE_STRING => {
                 Value::String(mg_value_string(c_mg_value))
             }
