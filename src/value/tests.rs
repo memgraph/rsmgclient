@@ -228,17 +228,6 @@ fn from_c_mg_value_string() {
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
     assert_eq!(Value::String(String::from("ṰⱻⱾᵀ")), mg_value);
     assert_eq!(format!("{}", mg_value), "\'ṰⱻⱾᵀ\'");
-
-    let query_param = QueryParam::String("test".to_string());
-    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
-    assert_eq!(
-        c_mg_value.type_,
-        bindings::mg_value_type_MG_VALUE_TYPE_STRING
-    );
-    assert_eq!(
-        unsafe { mg_string_to_string(c_mg_value.__bindgen_anon_1.string_v) },
-        String::from("test")
-    );
 }
 
 #[test]
@@ -610,6 +599,20 @@ fn from_to_c_mg_value_float() {
         bindings::mg_value_type_MG_VALUE_TYPE_FLOAT
     );
     assert_eq!(mg_value.to_string(), "3.15");
+}
+
+#[test]
+fn from_to_c_mg_value_string() {
+    let query_param = QueryParam::String("test".to_string());
+    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_STRING
+    );
+    assert_eq!(
+        unsafe { mg_string_to_string(c_mg_value.__bindgen_anon_1.string_v) },
+        String::from("test")
+    );
 }
 
 #[test]
