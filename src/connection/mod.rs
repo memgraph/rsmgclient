@@ -14,11 +14,13 @@
 
 use super::bindings;
 use super::error::MgError;
-use super::mg_value::{
-    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, str_to_c_str, MgValue, QueryParam,
+use super::value::{
+    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_value_string, str_to_c_str,
+    QueryParam, Record,
 };
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::vec::IntoIter;
 
 pub struct ConnectParams {
     pub port: u16,
@@ -31,6 +33,7 @@ pub struct ConnectParams {
     pub sslcert: Option<String>,
     pub sslkey: Option<String>,
     pub trust_callback: Option<*const dyn Fn(&String, &String, &String, &String) -> i32>,
+    pub lazy: bool,
 }
 
 impl Default for ConnectParams {
@@ -46,6 +49,7 @@ impl Default for ConnectParams {
             sslcert: None,
             sslkey: None,
             trust_callback: None,
+            lazy: true,
         }
     }
 }
@@ -58,6 +62,18 @@ pub enum SSLMode {
 
 pub struct Connection {
     mg_session: *mut bindings::mg_session,
+    lazy: bool,
+    status: ConnectionStatus,
+    results_iter: Option<IntoIter<Record>>,
+    pub arraysize: u32,
+}
+
+#[derive(PartialEq)]
+pub enum ConnectionStatus {
+    Ready,
+    InTransaction,
+    Executing,
+    Closed,
 }
 
 fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
@@ -69,7 +85,7 @@ fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
 
 fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
     let c_error_message = unsafe { bindings::mg_session_error(mg_session) };
-    unsafe { c_string_to_string(c_error_message) }
+    unsafe { c_string_to_string(c_error_message, None) }
 }
 
 impl Drop for Connection {
@@ -79,50 +95,241 @@ impl Drop for Connection {
 }
 
 impl Connection {
+    pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
+        let mg_session_params = unsafe { bindings::mg_session_params_make() };
+        let mut trust_callback_ptr = std::ptr::null_mut();
+        unsafe {
+            match &param_struct.host {
+                Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
+                None => {}
+            }
+            bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
+            match &param_struct.address {
+                Some(x) => {
+                    bindings::mg_session_params_set_address(mg_session_params, str_to_c_str(x))
+                }
+                None => {}
+            }
+            match &param_struct.username {
+                Some(x) => {
+                    bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(x))
+                }
+                None => {}
+            }
+            match &param_struct.password {
+                Some(x) => {
+                    bindings::mg_session_params_set_password(mg_session_params, str_to_c_str(x))
+                }
+                None => {}
+            }
+            bindings::mg_session_params_set_client_name(
+                mg_session_params,
+                str_to_c_str(&param_struct.client_name),
+            );
+            bindings::mg_session_params_set_sslmode(
+                mg_session_params,
+                sslmode_to_c(&param_struct.sslmode),
+            );
+            match &param_struct.sslcert {
+                Some(x) => {
+                    bindings::mg_session_params_set_sslcert(mg_session_params, str_to_c_str(x))
+                }
+                None => {}
+            }
+            match &param_struct.sslkey {
+                Some(x) => {
+                    bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x))
+                }
+                None => {}
+            }
+            match &param_struct.trust_callback {
+                Some(x) => {
+                    trust_callback_ptr = Box::into_raw(Box::new(*x));
+
+                    bindings::mg_session_params_set_trust_data(
+                        mg_session_params,
+                        trust_callback_ptr as *mut ::std::os::raw::c_void,
+                    );
+                    bindings::mg_session_params_set_trust_callback(
+                        mg_session_params,
+                        Some(trust_callback_wrapper),
+                    );
+                }
+                None => {}
+            }
+        }
+
+        let mut mg_session: *mut bindings::mg_session = std::ptr::null_mut();
+        let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
+        unsafe {
+            bindings::mg_session_params_destroy(mg_session_params);
+            if !trust_callback_ptr.is_null() {
+                Box::from_raw(trust_callback_ptr);
+            }
+        };
+
+        if status != 0 {
+            return Err(MgError::new(read_error_message(mg_session)));
+        }
+
+        Ok(Connection {
+            mg_session,
+            lazy: param_struct.lazy,
+            status: ConnectionStatus::Ready,
+            results_iter: None,
+            arraysize: 1,
+        })
+    }
+
     pub fn execute(
-        &self,
+        &mut self,
         query: &str,
         params: Option<&HashMap<String, QueryParam>>,
-    ) -> Result<Vec<Vec<MgValue>>, MgError> {
+    ) -> Result<Vec<String>, MgError> {
+        match self.status {
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
+            ConnectionStatus::Executing => {
+                return Err(MgError::new(String::from(
+                    "Connection is already executing",
+                )))
+            }
+            _ => {}
+        }
+
         let c_query = CString::new(query).unwrap();
         let mg_params = match params {
             Some(x) => hash_map_to_mg_map(x),
-            None => std::ptr::null(),
+            None => std::ptr::null_mut(),
         };
-        let mut status = unsafe {
-            bindings::mg_session_run(
-                self.mg_session,
-                c_query.as_ptr(),
-                mg_params,
-                &mut std::ptr::null(),
-            )
+        let mut columns = std::ptr::null();
+        let status = unsafe {
+            bindings::mg_session_run(self.mg_session, c_query.as_ptr(), mg_params, &mut columns)
         };
 
         if status != 0 {
             return Err(MgError::new(read_error_message(self.mg_session)));
         }
 
-        let mut res: Vec<Vec<MgValue>> = Vec::new();
-        unsafe {
-            loop {
-                let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
-                status = bindings::mg_session_pull(self.mg_session, &mut mg_result);
-                let row = bindings::mg_result_row(mg_result);
-                match status {
-                    1 => res.push(mg_list_to_vec(row)),
-                    // last row returned
-                    0 => {}
-                    _ => return Err(MgError::new(read_error_message(self.mg_session))),
-                }
+        self.status = ConnectionStatus::Executing;
 
-                if status != 1 {
-                    break;
-                }
+        if !self.lazy {
+            match self.pull_all() {
+                Ok(x) => self.results_iter = Some(x.into_iter()),
+                Err(x) => return Err(x),
             }
+        }
+
+        Ok(parse_columns(columns))
+    }
+
+    pub fn fetchone(&mut self) -> Result<Option<Record>, MgError> {
+        match self.status {
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
+            ConnectionStatus::Ready => {
+                return Err(MgError::new(String::from("Connection is not executing")))
+            }
+            _ => {}
+        }
+
+        match self.lazy {
+            true => match self.pull() {
+                Ok(res) => match res {
+                    Some(x) => Ok(Some(x)),
+                    None => {
+                        self.status = ConnectionStatus::Ready;
+                        Ok(None)
+                    }
+                },
+                Err(err) => Err(err),
+            },
+            false => match &mut self.results_iter {
+                Some(it) => match it.next() {
+                    Some(x) => Ok(Some(x)),
+                    None => {
+                        self.status = ConnectionStatus::Ready;
+                        Ok(None)
+                    }
+                },
+                None => panic!(),
+            },
+        }
+    }
+
+    pub fn fetchmany(&mut self, size: Option<u32>) -> Result<Vec<Record>, MgError> {
+        let size = match size {
+            Some(x) => x,
+            None => self.arraysize,
         };
 
+        let mut vec = Vec::new();
+        for _i in 0..size {
+            match self.fetchone() {
+                Ok(record) => match record {
+                    Some(x) => vec.push(x),
+                    None => break,
+                },
+                Err(err) => return Err(err),
+            }
+        }
+
+        Ok(vec)
+    }
+
+    pub fn fetchall(&mut self) -> Result<Vec<Record>, MgError> {
+        let mut vec = Vec::new();
+        loop {
+            match self.fetchone() {
+                Ok(record) => match record {
+                    Some(x) => vec.push(x),
+                    None => break,
+                },
+                Err(err) => return Err(err),
+            }
+        }
+
+        Ok(vec)
+    }
+
+    fn pull(&mut self) -> Result<Option<Record>, MgError> {
+        let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
+        let status = unsafe { bindings::mg_session_pull(self.mg_session, &mut mg_result) };
+        let row = unsafe { bindings::mg_result_row(mg_result) };
+        match status {
+            1 => Ok(Some(Record {
+                values: unsafe { mg_list_to_vec(row) },
+            })),
+            0 => Ok(None),
+            _ => Err(MgError::new(read_error_message(self.mg_session))),
+        }
+    }
+
+    fn pull_all(&mut self) -> Result<Vec<Record>, MgError> {
+        let mut res = Vec::new();
+        loop {
+            match self.pull() {
+                Ok(x) => match x {
+                    Some(x) => res.push(x),
+                    None => break,
+                },
+                Err(err) => return Err(err),
+            }
+        }
         Ok(res)
     }
+}
+
+fn parse_columns(mg_list: *const bindings::mg_list) -> Vec<String> {
+    let size = unsafe { bindings::mg_list_size(mg_list) };
+    let mut columns: Vec<String> = Vec::new();
+    for i in 0..size {
+        let mg_value = unsafe { bindings::mg_list_at(mg_list, i) };
+        columns.push(mg_value_string(mg_value));
+    }
+    columns
 }
 
 extern "C" fn trust_callback_wrapper(
@@ -137,80 +344,10 @@ extern "C" fn trust_callback_wrapper(
 
     unsafe {
         fun(
-            &c_string_to_string(host),
-            &c_string_to_string(ip_address),
-            &c_string_to_string(key_type),
-            &c_string_to_string(fingerprint),
+            &c_string_to_string(host, None),
+            &c_string_to_string(ip_address, None),
+            &c_string_to_string(key_type, None),
+            &c_string_to_string(fingerprint, None),
         ) as std::os::raw::c_int
     }
-}
-
-pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
-    let mg_session_params = unsafe { bindings::mg_session_params_make() };
-    let mut trust_callback_ptr = std::ptr::null_mut();
-    unsafe {
-        match &param_struct.host {
-            Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
-            None => {}
-        }
-        bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
-        match &param_struct.address {
-            Some(x) => bindings::mg_session_params_set_address(mg_session_params, str_to_c_str(x)),
-            None => {}
-        }
-        match &param_struct.username {
-            Some(x) => bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(x)),
-            None => {}
-        }
-        match &param_struct.password {
-            Some(x) => bindings::mg_session_params_set_password(mg_session_params, str_to_c_str(x)),
-            None => {}
-        }
-        bindings::mg_session_params_set_client_name(
-            mg_session_params,
-            str_to_c_str(&param_struct.client_name),
-        );
-        bindings::mg_session_params_set_sslmode(
-            mg_session_params,
-            sslmode_to_c(&param_struct.sslmode),
-        );
-        match &param_struct.sslcert {
-            Some(x) => bindings::mg_session_params_set_sslcert(mg_session_params, str_to_c_str(x)),
-            None => {}
-        }
-        match &param_struct.sslkey {
-            Some(x) => bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x)),
-            None => {}
-        }
-        match &param_struct.trust_callback {
-            Some(x) => {
-                trust_callback_ptr = Box::into_raw(Box::new(*x));
-
-                bindings::mg_session_params_set_trust_data(
-                    mg_session_params,
-                    trust_callback_ptr as *mut ::std::os::raw::c_void,
-                );
-                bindings::mg_session_params_set_trust_callback(
-                    mg_session_params,
-                    Some(trust_callback_wrapper),
-                );
-            }
-            None => {}
-        }
-    }
-
-    let mut mg_session: *mut bindings::mg_session = std::ptr::null_mut();
-    let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
-    unsafe {
-        bindings::mg_session_params_destroy(mg_session_params);
-        if !trust_callback_ptr.is_null() {
-            Box::from_raw(trust_callback_ptr);
-        }
-    };
-
-    if status != 0 {
-        return Err(MgError::new(read_error_message(mg_session)));
-    }
-
-    Ok(Connection { mg_session })
 }
