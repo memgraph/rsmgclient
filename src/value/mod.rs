@@ -49,7 +49,7 @@ impl QueryParam {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Node {
     pub id: i64,
     pub label_count: u32,
@@ -57,7 +57,7 @@ pub struct Node {
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Relationship {
     pub id: i64,
     pub start_id: i64,
@@ -66,14 +66,14 @@ pub struct Relationship {
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq)]
 pub struct UnboundRelationship {
     pub id: i64,
     pub type_: String,
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Path {
     pub node_count: u32,
     pub relationship_count: u32,
@@ -81,7 +81,7 @@ pub struct Path {
     pub relationships: Vec<UnboundRelationship>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -233,25 +233,29 @@ fn mg_value_unbound_relationship(mg_value: *const bindings::mg_value) -> Unbound
 
 fn mg_value_path(mg_value: *const bindings::mg_value) -> Path {
     let c_mg_path = unsafe { bindings::mg_value_path(mg_value) };
-
-    let path_length = unsafe { bindings::mg_path_length(c_mg_path) };
-    let node_count = path_length + 1;
-    let relationship_count = path_length;
-
+    let mut node_count = 0;
+    let mut relationship_count = 0;
     let mut nodes: Vec<Node> = Vec::new();
     let mut relationships: Vec<UnboundRelationship> = Vec::new();
-
-    for i in 0..path_length {
-        let c_mg_node = unsafe { bindings::mg_path_node_at(c_mg_path, i) };
-        let mg_node = c_mg_node_to_mg_node(c_mg_node);
-        nodes.push(mg_node);
-
-        let c_mg_unbound_relationship = unsafe { bindings::mg_path_relationship_at(c_mg_path, i) };
-        let mg_unbound_relationship =
-            c_mg_unbound_relationship_to_mg_unbound_relationship(c_mg_unbound_relationship);
-        relationships.push(mg_unbound_relationship);
+    loop {
+        let c_mg_node = unsafe { bindings::mg_path_node_at(c_mg_path, node_count) };
+        if c_mg_node.is_null() {
+            break;
+        }
+        node_count += 1;
+        nodes.push(c_mg_node_to_mg_node(c_mg_node));
     }
-
+    loop {
+        let c_mg_unbound_relationship =
+            unsafe { bindings::mg_path_relationship_at(c_mg_path, relationship_count) };
+        if c_mg_unbound_relationship.is_null() {
+            break;
+        }
+        relationship_count += 1;
+        relationships.push(c_mg_unbound_relationship_to_mg_unbound_relationship(
+            c_mg_unbound_relationship,
+        ));
+    }
     Path {
         node_count,
         relationship_count,
@@ -335,7 +339,7 @@ impl fmt::Display for Value {
                 Value::Bool(x) => write!(f, "{}", x),
                 Value::Int(x) => write!(f, "{}", x),
                 Value::Float(x) => write!(f, "{}", x),
-                Value::String(x) => write!(f, "{}", x),
+                Value::String(x) => write!(f, "'{}'", x),
                 Value::List(x) => write!(
                     f,
                     "{}",
