@@ -49,6 +49,7 @@ impl QueryParam {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct Node {
     pub id: i64,
     pub label_count: u32,
@@ -56,6 +57,7 @@ pub struct Node {
     pub properties: HashMap<String, Value>,
 }
 
+#[derive(PartialEq, Debug)]
 pub struct Relationship {
     pub id: i64,
     pub start_id: i64,
@@ -64,12 +66,14 @@ pub struct Relationship {
     pub properties: HashMap<String, Value>,
 }
 
+#[derive(PartialEq, Debug)]
 pub struct UnboundRelationship {
     pub id: i64,
     pub type_: String,
     pub properties: HashMap<String, Value>,
 }
 
+#[derive(PartialEq, Debug)]
 pub struct Path {
     pub node_count: u32,
     pub relationship_count: u32,
@@ -77,6 +81,7 @@ pub struct Path {
     pub relationships: Vec<UnboundRelationship>,
 }
 
+#[derive(PartialEq, Debug)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -351,7 +356,9 @@ impl fmt::Display for Value {
 
 fn mg_map_to_string(mg_map: &HashMap<String, Value>) -> String {
     let mut properties: Vec<String> = Vec::new();
-    for (key, value) in mg_map {
+    let mut sorted: Vec<_> = mg_map.iter().collect();
+    sorted.sort_by(|x, y| x.0.cmp(&y.0));
+    for (key, value) in sorted {
         properties.push(format!("'{}': {}", key, value));
     }
     return format!("{{{}}}", properties.join(", "));
@@ -395,3 +402,6 @@ impl fmt::Display for Path {
         unimplemented!();
     }
 }
+
+#[cfg(test)]
+mod tests;

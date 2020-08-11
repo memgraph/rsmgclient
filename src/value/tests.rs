@@ -227,7 +227,7 @@ fn from_c_mg_value_string() {
 
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
     assert_eq!(Value::String(String::from("ṰⱻⱾᵀ")), mg_value);
-    assert_eq!(format!("{}", mg_value), "\'ṰⱻⱾᵀ\'");
+    assert_eq!(format!("{}", mg_value), "ṰⱻⱾᵀ");
 
     let query_param = QueryParam::String("test".to_string());
     let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
@@ -504,15 +504,7 @@ fn from_c_mg_value_path() {
     let values2 = vec![String::from("test")];
     let mg_map = hashmap! {
         String::from("id") => Value::Int(128),
-        String::from("rel") => Value::Relationship(Relationship {
-            id: 1,
-            start_id: 1,
-            end_id: 2,
-            type_: String::from("test"),
-            properties: hashmap!{
-                String::from("name") => Value::Null,
-            }
-        }),};
+        };
     let c_unbound_relationship = UnboundRelationship {
         id: 1,
         type_: String::from("test"),
@@ -520,27 +512,11 @@ fn from_c_mg_value_path() {
     };
     let mg_map2 = hashmap! {
         String::from("id") => Value::Int(128),
-        String::from("rel") => Value::Relationship(Relationship {
-            id: 1,
-            start_id: 1,
-            end_id: 2,
-            type_: String::from("test"),
-            properties: hashmap!{
-                String::from("name") => Value::Null,
-            }
-        }),
+        
     };
     let mg_map3 = hashmap! {
         String::from("id") => Value::Int(128),
-        String::from("rel") => Value::Relationship(Relationship {
-            id: 1,
-            start_id: 1,
-            end_id: 2,
-            type_: String::from("test"),
-            properties: hashmap!{
-                String::from("name") => Value::Null,
-            }
-        }),
+        
     };
     let c_node = Node {
         id: 1,
