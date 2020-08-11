@@ -49,53 +49,53 @@ impl QueryParam {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MgNode {
+pub struct Node {
     pub id: i64,
     pub label_count: u32,
     pub labels: Vec<String>,
-    pub properties: HashMap<String, MgValue>,
+    pub properties: HashMap<String, Value>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MgRelationship {
+pub struct Relationship {
     pub id: i64,
     pub start_id: i64,
     pub end_id: i64,
     pub type_: String,
-    pub properties: HashMap<String, MgValue>,
+    pub properties: HashMap<String, Value>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MgUnboundRelationship {
+pub struct UnboundRelationship {
     pub id: i64,
     pub type_: String,
-    pub properties: HashMap<String, MgValue>,
+    pub properties: HashMap<String, Value>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MgPath {
+pub struct Path {
     pub node_count: u32,
     pub relationship_count: u32,
-    pub nodes: Vec<MgNode>,
-    pub relationships: Vec<MgUnboundRelationship>,
+    pub nodes: Vec<Node>,
+    pub relationships: Vec<UnboundRelationship>,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum MgValue {
+pub enum Value {
     Null,
     Bool(bool),
     Int(i64),
     Float(f64),
     String(String),
-    List(Vec<MgValue>),
-    Map(HashMap<String, MgValue>),
-    Node(MgNode),
-    Relationship(MgRelationship),
-    UnboundRelationship(MgUnboundRelationship),
-    Path(MgPath),
+    List(Vec<Value>),
+    Map(HashMap<String, Value>),
+    Node(Node),
+    Relationship(Relationship),
+    UnboundRelationship(UnboundRelationship),
+    Path(Path),
 }
 
-fn mg_value_list_to_vec(mg_value: *const bindings::mg_value) -> Vec<MgValue> {
+fn mg_value_list_to_vec(mg_value: *const bindings::mg_value) -> Vec<Value> {
     unsafe {
         let mg_list = bindings::mg_value_list(mg_value);
         mg_list_to_vec(mg_list)
@@ -136,29 +136,29 @@ fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     mg_string_to_string(c_str)
 }
 
-fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, MgValue> {
+fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, Value> {
     unsafe {
         let size = bindings::mg_map_size(mg_map);
-        let mut hash_map: HashMap<String, MgValue> = HashMap::new();
+        let mut hash_map: HashMap<String, Value> = HashMap::new();
         for i in 0..size {
             let mg_string = bindings::mg_map_key_at(mg_map, i);
             let key = mg_string_to_string(mg_string);
             let map_value = bindings::mg_map_value_at(mg_map, i);
-            hash_map.insert(key, MgValue::from_mg_value(map_value));
+            hash_map.insert(key, Value::from_mg_value(map_value));
         }
 
         hash_map
     }
 }
 
-fn mg_value_map(mg_value: *const bindings::mg_value) -> HashMap<String, MgValue> {
+fn mg_value_map(mg_value: *const bindings::mg_value) -> HashMap<String, Value> {
     unsafe {
         let mg_map = bindings::mg_value_map(mg_value);
         mg_map_to_hash_map(mg_map)
     }
 }
 
-fn c_mg_node_to_mg_node(c_mg_node: *const bindings::mg_node) -> MgNode {
+fn c_mg_node_to_mg_node(c_mg_node: *const bindings::mg_node) -> Node {
     let id = unsafe { bindings::mg_node_id(c_mg_node) };
     let label_count = unsafe { bindings::mg_node_label_count(c_mg_node) };
     let mut labels: Vec<String> = Vec::new();
@@ -168,9 +168,9 @@ fn c_mg_node_to_mg_node(c_mg_node: *const bindings::mg_node) -> MgNode {
     }
 
     let properties_map = unsafe { bindings::mg_node_properties(c_mg_node) };
-    let properties: HashMap<String, MgValue> = mg_map_to_hash_map(properties_map);
+    let properties: HashMap<String, Value> = mg_map_to_hash_map(properties_map);
 
-    MgNode {
+    Node {
         id,
         label_count,
         labels,
@@ -178,12 +178,12 @@ fn c_mg_node_to_mg_node(c_mg_node: *const bindings::mg_node) -> MgNode {
     }
 }
 
-fn mg_value_node(mg_value: *const bindings::mg_value) -> MgNode {
+fn mg_value_node(mg_value: *const bindings::mg_value) -> Node {
     let c_mg_node = unsafe { bindings::mg_value_node(mg_value) };
     c_mg_node_to_mg_node(c_mg_node)
 }
 
-fn mg_value_relationship(mg_value: *const bindings::mg_value) -> MgRelationship {
+fn mg_value_relationship(mg_value: *const bindings::mg_value) -> Relationship {
     let c_mg_relationship = unsafe { bindings::mg_value_relationship(mg_value) };
 
     let id = unsafe { bindings::mg_relationship_id(c_mg_relationship) };
@@ -194,7 +194,7 @@ fn mg_value_relationship(mg_value: *const bindings::mg_value) -> MgRelationship 
     let properties_mg_map = unsafe { bindings::mg_relationship_properties(c_mg_relationship) };
     let properties = mg_map_to_hash_map(properties_mg_map);
 
-    MgRelationship {
+    Relationship {
         id,
         start_id,
         end_id,
@@ -205,7 +205,7 @@ fn mg_value_relationship(mg_value: *const bindings::mg_value) -> MgRelationship 
 
 fn c_mg_unbound_relationship_to_mg_unbound_relationship(
     c_mg_unbound_relationship: *const bindings::mg_unbound_relationship,
-) -> MgUnboundRelationship {
+) -> UnboundRelationship {
     let id = unsafe { bindings::mg_unbound_relationship_id(c_mg_unbound_relationship) };
     let type_mg_string =
         unsafe { bindings::mg_unbound_relationship_type(c_mg_unbound_relationship) };
@@ -214,24 +214,24 @@ fn c_mg_unbound_relationship_to_mg_unbound_relationship(
         unsafe { bindings::mg_unbound_relationship_properties(c_mg_unbound_relationship) };
     let properties = mg_map_to_hash_map(properties_mg_map);
 
-    MgUnboundRelationship {
+    UnboundRelationship {
         id,
         type_,
         properties,
     }
 }
 
-fn mg_value_unbound_relationship(mg_value: *const bindings::mg_value) -> MgUnboundRelationship {
+fn mg_value_unbound_relationship(mg_value: *const bindings::mg_value) -> UnboundRelationship {
     let c_mg_unbound_relationship = unsafe { bindings::mg_value_unbound_relationship(mg_value) };
     c_mg_unbound_relationship_to_mg_unbound_relationship(c_mg_unbound_relationship)
 }
 
-fn mg_value_path(mg_value: *const bindings::mg_value) -> MgPath {
+fn mg_value_path(mg_value: *const bindings::mg_value) -> Path {
     let c_mg_path = unsafe { bindings::mg_value_path(mg_value) };
     let mut node_count = 0;
     let mut relationship_count = 0;
-    let mut nodes: Vec<MgNode> = Vec::new();
-    let mut relationships: Vec<MgUnboundRelationship> = Vec::new();
+    let mut nodes: Vec<Node> = Vec::new();
+    let mut relationships: Vec<UnboundRelationship> = Vec::new();
     loop {
         let c_mg_node = unsafe { bindings::mg_path_node_at(c_mg_path, node_count) };
         if c_mg_node.is_null() {
@@ -251,7 +251,7 @@ fn mg_value_path(mg_value: *const bindings::mg_value) -> MgPath {
             c_mg_unbound_relationship,
         ));
     }
-    MgPath {
+    Path {
         node_count,
         relationship_count,
         nodes,
@@ -259,12 +259,12 @@ fn mg_value_path(mg_value: *const bindings::mg_value) -> MgPath {
     }
 }
 
-pub unsafe fn mg_list_to_vec(mg_list: *const bindings::mg_list) -> Vec<MgValue> {
+pub unsafe fn mg_list_to_vec(mg_list: *const bindings::mg_list) -> Vec<Value> {
     let size = bindings::mg_list_size(mg_list);
-    let mut mg_values: Vec<MgValue> = Vec::new();
+    let mut mg_values: Vec<Value> = Vec::new();
     for i in 0..size {
         let mg_value = bindings::mg_list_at(mg_list, i);
-        mg_values.push(MgValue::from_mg_value(mg_value));
+        mg_values.push(Value::from_mg_value(mg_value));
     }
 
     mg_values
@@ -298,46 +298,46 @@ pub fn vector_to_mg_list(vector: &Vec<QueryParam>) -> *mut bindings::mg_list {
     mg_list
 }
 
-impl MgValue {
-    pub unsafe fn from_mg_value(c_mg_value: *const bindings::mg_value) -> MgValue {
+impl Value {
+    pub unsafe fn from_mg_value(c_mg_value: *const bindings::mg_value) -> Value {
         match bindings::mg_value_get_type(c_mg_value) {
-            bindings::mg_value_type_MG_VALUE_TYPE_NULL => MgValue::Null,
-            bindings::mg_value_type_MG_VALUE_TYPE_BOOL => MgValue::Bool(mg_value_bool(c_mg_value)),
-            bindings::mg_value_type_MG_VALUE_TYPE_INTEGER => MgValue::Int(mg_value_int(c_mg_value)),
+            bindings::mg_value_type_MG_VALUE_TYPE_NULL => Value::Null,
+            bindings::mg_value_type_MG_VALUE_TYPE_BOOL => Value::Bool(mg_value_bool(c_mg_value)),
+            bindings::mg_value_type_MG_VALUE_TYPE_INTEGER => Value::Int(mg_value_int(c_mg_value)),
             bindings::mg_value_type_MG_VALUE_TYPE_FLOAT => {
-                MgValue::Float(mg_value_float(c_mg_value))
+                Value::Float(mg_value_float(c_mg_value))
             }
             bindings::mg_value_type_MG_VALUE_TYPE_STRING => {
-                MgValue::String(mg_value_string(c_mg_value))
+                Value::String(mg_value_string(c_mg_value))
             }
             bindings::mg_value_type_MG_VALUE_TYPE_LIST => {
-                MgValue::List(mg_value_list_to_vec(c_mg_value))
+                Value::List(mg_value_list_to_vec(c_mg_value))
             }
-            bindings::mg_value_type_MG_VALUE_TYPE_MAP => MgValue::Map(mg_value_map(c_mg_value)),
-            bindings::mg_value_type_MG_VALUE_TYPE_NODE => MgValue::Node(mg_value_node(c_mg_value)),
+            bindings::mg_value_type_MG_VALUE_TYPE_MAP => Value::Map(mg_value_map(c_mg_value)),
+            bindings::mg_value_type_MG_VALUE_TYPE_NODE => Value::Node(mg_value_node(c_mg_value)),
             bindings::mg_value_type_MG_VALUE_TYPE_RELATIONSHIP => {
-                MgValue::Relationship(mg_value_relationship(c_mg_value))
+                Value::Relationship(mg_value_relationship(c_mg_value))
             }
             bindings::mg_value_type_MG_VALUE_TYPE_UNBOUND_RELATIONSHIP => {
-                MgValue::UnboundRelationship(mg_value_unbound_relationship(c_mg_value))
+                Value::UnboundRelationship(mg_value_unbound_relationship(c_mg_value))
             }
-            bindings::mg_value_type_MG_VALUE_TYPE_PATH => MgValue::Path(mg_value_path(c_mg_value)),
-            bindings::mg_value_type_MG_VALUE_TYPE_UNKNOWN => MgValue::Null,
+            bindings::mg_value_type_MG_VALUE_TYPE_PATH => Value::Path(mg_value_path(c_mg_value)),
+            bindings::mg_value_type_MG_VALUE_TYPE_UNKNOWN => Value::Null,
             _ => panic!("Unknown type"),
         }
     }
 }
 
-impl fmt::Display for MgValue {
+impl fmt::Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         unsafe {
             match self {
-                MgValue::Null => write!(f, "NULL"),
-                MgValue::Bool(x) => write!(f, "{}", x),
-                MgValue::Int(x) => write!(f, "{}", x),
-                MgValue::Float(x) => write!(f, "{}", x),
-                MgValue::String(x) => write!(f, "'{}'", x),
-                MgValue::List(x) => write!(
+                Value::Null => write!(f, "NULL"),
+                Value::Bool(x) => write!(f, "{}", x),
+                Value::Int(x) => write!(f, "{}", x),
+                Value::Float(x) => write!(f, "{}", x),
+                Value::String(x) => write!(f, "'{}'", x),
+                Value::List(x) => write!(
                     f,
                     "{}",
                     x.iter()
@@ -345,17 +345,17 @@ impl fmt::Display for MgValue {
                         .collect::<Vec<String>>()
                         .join(", ")
                 ),
-                MgValue::Map(x) => write!(f, "{}", mg_map_to_string(x)),
-                MgValue::Node(x) => write!(f, "{}", x),
-                MgValue::Relationship(x) => write!(f, "{}", x),
-                MgValue::UnboundRelationship(x) => write!(f, "{}", x),
-                MgValue::Path(x) => write!(f, "{}", x),
+                Value::Map(x) => write!(f, "{}", mg_map_to_string(x)),
+                Value::Node(x) => write!(f, "{}", x),
+                Value::Relationship(x) => write!(f, "{}", x),
+                Value::UnboundRelationship(x) => write!(f, "{}", x),
+                Value::Path(x) => write!(f, "{}", x),
             }
         }
     }
 }
 
-fn mg_map_to_string(mg_map: &HashMap<String, MgValue>) -> String {
+fn mg_map_to_string(mg_map: &HashMap<String, Value>) -> String {
     let mut properties: Vec<String> = Vec::new();
     let mut sorted: Vec<_> = mg_map.iter().collect();
     sorted.sort_by(|x, y| x.0.cmp(&y.0));
@@ -365,7 +365,7 @@ fn mg_map_to_string(mg_map: &HashMap<String, MgValue>) -> String {
     return format!("{{{}}}", properties.join(", "));
 }
 
-impl fmt::Display for MgNode {
+impl fmt::Display for Node {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -376,7 +376,7 @@ impl fmt::Display for MgNode {
     }
 }
 
-impl fmt::Display for MgRelationship {
+impl fmt::Display for Relationship {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -387,7 +387,7 @@ impl fmt::Display for MgRelationship {
     }
 }
 
-impl fmt::Display for MgUnboundRelationship {
+impl fmt::Display for UnboundRelationship {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -398,7 +398,7 @@ impl fmt::Display for MgUnboundRelationship {
     }
 }
 
-impl fmt::Display for MgPath {
+impl fmt::Display for Path {
     fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
         unimplemented!();
     }

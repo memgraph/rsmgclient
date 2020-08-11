@@ -14,8 +14,8 @@
 
 use super::bindings;
 use super::error::MgError;
-use super::mg_value::{
-    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, str_to_c_str, MgValue, QueryParam,
+use super::value::{
+    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, str_to_c_str, Value, QueryParam,
 };
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -83,7 +83,7 @@ impl Connection {
         &self,
         query: &str,
         params: Option<&HashMap<String, QueryParam>>,
-    ) -> Result<Vec<Vec<MgValue>>, MgError> {
+    ) -> Result<Vec<Vec<Value>>, MgError> {
         let c_query = CString::new(query).unwrap();
         let mg_params = match params {
             Some(x) => hash_map_to_mg_map(x),
@@ -102,7 +102,7 @@ impl Connection {
             return Err(MgError::new(read_error_message(self.mg_session)));
         }
 
-        let mut res: Vec<Vec<MgValue>> = Vec::new();
+        let mut res: Vec<Vec<Value>> = Vec::new();
         unsafe {
             loop {
                 let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();

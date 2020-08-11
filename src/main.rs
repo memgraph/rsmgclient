@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{connect, ConnectParams, MgValue, QueryParam};
+use rsmgclient::{connect, ConnectParams, Value, QueryParam};
 use std::collections::HashMap;
 
 pub fn my_callback(
@@ -47,7 +47,7 @@ fn main() {
         QueryParam::String(String::from("John")),
     );
 
-    let rows: Vec<Vec<MgValue>> = match connection.execute(
+    let rows: Vec<Vec<Value>> = match connection.execute(
         "MATCH (n:Person) WHERE n.name = $name RETURN n",
         Some(&params),
     ) {

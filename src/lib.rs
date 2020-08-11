@@ -19,11 +19,11 @@ extern crate maplit;
 mod bindings;
 mod connection;
 mod error;
-mod mg_value;
+mod value;
 
 pub use connection::*;
 pub use error::*;
-pub use mg_value::*;
+pub use value::*;
 
 pub fn add_two(a: i32) -> i32 {
     internal_adder(a, 2)
