@@ -19,26 +19,8 @@ extern crate maplit;
 mod bindings;
 mod connection;
 mod error;
-mod mg_value;
+mod value;
 
 pub use connection::*;
 pub use error::*;
-pub use mg_value::*;
-
-pub fn add_two(a: i32) -> i32 {
-    internal_adder(a, 2)
-}
-
-fn internal_adder(a: i32, b: i32) -> i32 {
-    a + b
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn internal() {
-        assert_eq!(4, internal_adder(2, 2));
-    }
-}
+pub use value::*;

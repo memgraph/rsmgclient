@@ -12,31 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{connect, ConnectParams, MgValue, QueryParam};
+use rsmgclient::{ConnectParams, Connection, QueryParam};
 use std::collections::HashMap;
-
-pub fn my_callback(
-    host: &String,
-    ip_address: &String,
-    key_type: &String,
-    fingerprint: &String,
-) -> i32 {
-    println!("host: {}", host);
-    println!("ip_address: {}", ip_address);
-    println!("key_type: {}", key_type);
-    println!("fingerprint: {}", fingerprint);
-
-    0
-}
 
 fn main() {
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
-        trust_callback: Some(&my_callback),
+        lazy: false,
         ..Default::default()
     };
 
-    let connection = match connect(&connect_prms) {
+    let mut connection = match Connection::connect(&connect_prms) {
         Ok(c) => c,
         Err(err) => panic!("{}", err),
     };
@@ -44,20 +30,76 @@ fn main() {
     let mut params: HashMap<String, QueryParam> = HashMap::new();
     params.insert(
         String::from("name"),
-        QueryParam::String(String::from("John")),
+        QueryParam::String(String::from("Alice")),
     );
 
-    let rows: Vec<Vec<MgValue>> = match connection.execute(
-        "MATCH (n:Person) WHERE n.name = $name RETURN n",
-        Some(&params),
-    ) {
-        Ok(res) => res,
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    // let query = String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
+    let columns = match connection.execute(&query, Some(&params)) {
+        Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
 
-    for row in rows {
-        for val in row {
-            println!("{}", val);
+    println!("Columns: {}", columns.join(", "));
+
+    loop {
+        match connection.fetchone() {
+            Ok(res) => match res {
+                Some(x) => {
+                    println!("Number of rows: 1");
+                    print!("Row: ");
+                    for val in &x.values {
+                        print!("val: {}    ", val);
+                    }
+                    println!();
+                }
+                None => break,
+            },
+            Err(err) => panic!("Fetch failed: {}", err),
         }
+    }
+
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("Query failed: {}", err),
+    };
+
+    loop {
+        let size = 3;
+        match connection.fetchmany(Some(size)) {
+            Ok(res) => {
+                println!("Number of rows: {}", res.len());
+                for record in &res {
+                    print!("Row: ");
+                    for val in &record.values {
+                        print!("val: {}  ", val);
+                    }
+                    println!();
+                }
+                if res.len() != size as usize {
+                    break;
+                }
+            }
+            Err(err) => panic!("Fetch failed: {}", err),
+        }
+    }
+
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+            println!("Number of rows: {}", records.len());
+            for record in records {
+                print!("Row: ");
+                for val in &record.values {
+                    print!("val: {}    ", val);
+                }
+                println!();
+            }
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
     }
 }
