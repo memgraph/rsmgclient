@@ -351,3 +351,6 @@ extern "C" fn trust_callback_wrapper(
         ) as std::os::raw::c_int
     }
 }
+
+#[cfg(test)]
+mod tests;
