@@ -34,6 +34,7 @@ pub struct ConnectParams {
     pub sslkey: Option<String>,
     pub trust_callback: Option<*const dyn Fn(&String, &String, &String, &String) -> i32>,
     pub lazy: bool,
+    pub autocommit: bool,
 }
 
 impl Default for ConnectParams {
@@ -50,6 +51,7 @@ impl Default for ConnectParams {
             sslkey: None,
             trust_callback: None,
             lazy: true,
+            autocommit: false,
         }
     }
 }
@@ -63,6 +65,8 @@ pub enum SSLMode {
 pub struct Connection {
     mg_session: *mut bindings::mg_session,
     lazy: bool,
+    autocommit: bool,
+    in_transaction: bool,
     status: ConnectionStatus,
     results_iter: Option<IntoIter<Record>>,
     pub arraysize: u32,
@@ -71,7 +75,6 @@ pub struct Connection {
 #[derive(PartialEq)]
 pub enum ConnectionStatus {
     Ready,
-    InTransaction,
     Executing,
     Closed,
     Bad,
@@ -174,10 +177,35 @@ impl Connection {
         Ok(Connection {
             mg_session,
             lazy: param_struct.lazy,
+            autocommit: param_struct.autocommit,
+            in_transaction: false,
             status: ConnectionStatus::Ready,
             results_iter: None,
             arraysize: 1,
         })
+    }
+
+    fn connection_run_without_results(&mut self, query: &str) -> Result<(), MgError> {
+        match unsafe {
+            bindings::mg_session_run(
+                self.mg_session,
+                str_to_c_str(query),
+                std::ptr::null(),
+                std::ptr::null_mut(),
+            )
+        } {
+            0 => {}
+            _ => {
+                self.status = ConnectionStatus::Bad;
+                return Err(MgError::new(read_error_message(self.mg_session)));
+            }
+        }
+
+        let mut result = std::ptr::null_mut();
+        match unsafe { bindings::mg_session_pull(self.mg_session, &mut result) } {
+            0 => Ok(()),
+            _ => Err(MgError::new(read_error_message(self.mg_session))),
+        }
     }
 
     pub fn execute(
@@ -196,6 +224,13 @@ impl Connection {
             }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             _ => {}
+        }
+
+        if !self.autocommit && !self.in_transaction {
+            match self.connection_run_without_results("BEGIN") {
+                Ok(()) => self.in_transaction = true,
+                Err(err) => return Err(err),
+            }
         }
 
         let c_query = CString::new(query).unwrap();
@@ -327,6 +362,64 @@ impl Connection {
             }
         }
         Ok(res)
+    }
+
+    pub fn commit(&mut self) -> Result<(), MgError> {
+        match self.status {
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
+            ConnectionStatus::Executing => {
+                return Err(MgError::new(String::from("Can't commit while executing")))
+            }
+            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
+            ConnectionStatus::Ready => {}
+        }
+
+        if !self.in_transaction {
+            return Err(MgError::new(String::from("Not in transaction")));
+        }
+
+        match self.connection_run_without_results("COMMIT") {
+            Ok(()) => {
+                self.in_transaction = false;
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn rollback(&mut self) -> Result<(), MgError> {
+        match self.status {
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
+            ConnectionStatus::Executing => {
+                return Err(MgError::new(String::from("Can't commit while executing")))
+            }
+            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
+            ConnectionStatus::Ready => {}
+        }
+
+        if !self.in_transaction {
+            return Err(MgError::new(String::from("Not in transaction")));
+        }
+
+        match self.connection_run_without_results("ROLLBACK") {
+            Ok(()) => {
+                self.in_transaction = false;
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn close(&mut self) {
+        match self.status {
+            ConnectionStatus::Ready => self.status = ConnectionStatus::Closed,
+            ConnectionStatus::Executing => panic!("Connection is executing"),
+            _ => {}
+        }
     }
 }
 
