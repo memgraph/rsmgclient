@@ -61,15 +61,10 @@ fn main() {
         }
     }
 
-    let summary = connection.get_summary().unwrap();
-    println!(
-        "cost_estimate: {}\nparsing_time: {}\nplan_execution_time: {}\nplanning_time: {}\ntype: {}",
-        summary.cost_estimate,
-        summary.parsing_time,
-        summary.plan_execution_time,
-        summary.planning_time,
-        summary.type_
-    );
+    let summary = connection.summary().unwrap();
+    for (key, val) in summary {
+        println!("{}: {}", key, val);
+    }
 
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}

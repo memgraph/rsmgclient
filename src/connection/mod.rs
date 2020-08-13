@@ -70,7 +70,7 @@ pub struct Connection {
     status: ConnectionStatus,
     results_iter: Option<IntoIter<Record>>,
     arraysize: u32,
-    summary: Option<Summary>,
+    summary: Option<HashMap<String, Value>>,
 }
 
 #[derive(PartialEq)]
@@ -122,7 +122,7 @@ impl Connection {
 
     pub fn summary(&self) -> Option<HashMap<String, Value>> {
         match &self.summary {
-            Some(x) => Some(x.clone()),
+            Some(x) => Some((*x).clone()),
             None => None,
         }
     }
@@ -403,7 +403,9 @@ impl Connection {
                 values: unsafe { mg_list_to_vec(row) },
             })),
             0 => {
-                self.summary = Some(Summary::from_mg_result(mg_result));
+                self.summary = Some(mg_map_to_hash_map(unsafe {
+                    bindings::mg_result_summary(mg_result)
+                }));
                 Ok(None)
             }
             _ => Err(MgError::new(read_error_message(self.mg_session))),
@@ -479,58 +481,6 @@ impl Connection {
             ConnectionStatus::Ready => self.status = ConnectionStatus::Closed,
             ConnectionStatus::Executing => panic!("Connection is executing"),
             _ => {}
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct Summary {
-    pub cost_estimate: f64,
-    pub parsing_time: f64,
-    pub plan_execution_time: f64,
-    pub planning_time: f64,
-    pub type_: String,
-}
-
-impl Summary {
-    fn from_mg_result(mg_result: *const bindings::mg_result) -> Summary {
-        let mg_summary = mg_map_to_hash_map(unsafe { bindings::mg_result_summary(mg_result) });
-        Summary {
-            cost_estimate: match mg_summary.get("cost_estimate") {
-                Some(value) => match value {
-                    Value::Float(x) => *x,
-                    _ => panic!(),
-                },
-                None => panic!(),
-            },
-            parsing_time: match mg_summary.get("parsing_time") {
-                Some(value) => match value {
-                    Value::Float(x) => *x,
-                    _ => panic!(),
-                },
-                None => panic!(),
-            },
-            plan_execution_time: match mg_summary.get("plan_execution_time") {
-                Some(value) => match value {
-                    Value::Float(x) => *x,
-                    _ => panic!(),
-                },
-                None => panic!(),
-            },
-            planning_time: match mg_summary.get("planning_time") {
-                Some(value) => match value {
-                    Value::Float(x) => *x,
-                    _ => panic!(),
-                },
-                None => panic!(),
-            },
-            type_: match mg_summary.get("type") {
-                Some(value) => match value {
-                    Value::String(x) => x.clone(),
-                    _ => panic!(),
-                },
-                None => panic!(),
-            },
         }
     }
 }

@@ -49,7 +49,7 @@ impl QueryParam {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     pub id: i64,
     pub label_count: u32,
@@ -57,7 +57,7 @@ pub struct Node {
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Relationship {
     pub id: i64,
     pub start_id: i64,
@@ -66,14 +66,14 @@ pub struct Relationship {
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UnboundRelationship {
     pub id: i64,
     pub type_: String,
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Path {
     pub node_count: u32,
     pub relationship_count: u32,
@@ -81,7 +81,7 @@ pub struct Path {
     pub relationships: Vec<UnboundRelationship>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Null,
     Bool(bool),
