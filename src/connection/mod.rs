@@ -100,27 +100,27 @@ impl Drop for Connection {
 }
 
 impl Connection {
-    pub fn get_lazy(&self) -> bool {
+    pub fn lazy(&self) -> bool {
         self.lazy
     }
 
-    pub fn get_autocommit(&self) -> bool {
+    pub fn autocommit(&self) -> bool {
         self.autocommit
     }
 
-    pub fn get_arraysize(&self) -> u32 {
+    pub fn arraysize(&self) -> u32 {
         self.arraysize
     }
 
-    pub fn get_in_transaction(&self) -> bool {
+    pub fn in_transaction(&self) -> bool {
         self.in_transaction
     }
 
-    pub fn get_status(&self) -> &ConnectionStatus {
+    pub fn status(&self) -> &ConnectionStatus {
         &self.status
     }
 
-    pub fn get_summary(&self) -> Option<Summary> {
+    pub fn summary(&self) -> Option<HashMap<String, Value>> {
         match &self.summary {
             Some(x) => Some(x.clone()),
             None => None,
