@@ -69,7 +69,7 @@ pub struct Connection {
     in_transaction: bool,
     status: ConnectionStatus,
     results_iter: Option<IntoIter<Record>>,
-    pub arraysize: u32,
+    arraysize: u32,
 }
 
 #[derive(PartialEq)]
@@ -99,6 +99,52 @@ impl Drop for Connection {
 }
 
 impl Connection {
+    pub fn get_lazy(&self) -> bool {
+        self.lazy
+    }
+
+    pub fn get_autocommit(&self) -> bool {
+        self.autocommit
+    }
+
+    pub fn get_arraysize(&self) -> u32 {
+        self.arraysize
+    }
+
+    pub fn get_in_transaction(&self) -> bool {
+        self.in_transaction
+    }
+
+    pub fn get_status(&self) -> &ConnectionStatus {
+        &self.status
+    }
+
+    pub fn set_lazy(&mut self, lazy: bool) {
+        match self.status {
+            ConnectionStatus::Ready => self.lazy = lazy,
+            ConnectionStatus::Executing => panic!("Can't set lazy while executing"),
+            ConnectionStatus::Bad => panic!("Bad connection"),
+            ConnectionStatus::Closed => panic!("Connection is closed"),
+        }
+    }
+
+    pub fn set_autocommit(&mut self, autocommit: bool) {
+        if self.in_transaction {
+            panic!("Can't set autocommit while in pending transaction");
+        }
+
+        match self.status {
+            ConnectionStatus::Ready => self.autocommit = autocommit,
+            ConnectionStatus::Executing => panic!("Can't set autocommit while executing"),
+            ConnectionStatus::Bad => panic!("Bad connection"),
+            ConnectionStatus::Closed => panic!("Connection is closed"),
+        }
+    }
+
+    pub fn set_arraysize(&mut self, arraysize: u32) {
+        self.arraysize = arraysize;
+    }
+
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
         let mg_session_params = unsafe { bindings::mg_session_params_make() };
         unsafe {
