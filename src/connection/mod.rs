@@ -155,6 +155,7 @@ impl Connection {
 
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
         let mg_session_params = unsafe { bindings::mg_session_params_make() };
+        let mut trust_callback_ptr = std::ptr::null_mut();
         unsafe {
             match &param_struct.host {
                 Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
@@ -201,7 +202,7 @@ impl Connection {
             }
             match &param_struct.trust_callback {
                 Some(x) => {
-                    let trust_callback_ptr = Box::into_raw(Box::new(*x));
+                    trust_callback_ptr = Box::into_raw(Box::new(*x));
 
                     bindings::mg_session_params_set_trust_data(
                         mg_session_params,
@@ -211,8 +212,6 @@ impl Connection {
                         mg_session_params,
                         Some(trust_callback_wrapper),
                     );
-
-                    Box::from_raw(trust_callback_ptr);
                 }
                 None => {}
             }
@@ -222,6 +221,9 @@ impl Connection {
         let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
         unsafe {
             bindings::mg_session_params_destroy(mg_session_params);
+            if !trust_callback_ptr.is_null() {
+                Box::from_raw(trust_callback_ptr);
+            }
         };
 
         if status != 0 {
