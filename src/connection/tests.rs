@@ -1,5 +1,5 @@
+use crate::{Value, Node};
 use super::*;
-use super::super::value;
 
 fn get_connection(prms: ConnectParams) -> Connection {
     match Connection::connect(&prms) {
@@ -83,18 +83,18 @@ fn from_connect_fetchone() {
                     for val in &x.values {
                         let values = vec![String::from("User")];
                         let mg_map = hashmap! {
-                            String::from("name") => value::Value::String("Alice".to_string()),
+                            String::from("name") => Value::String("Alice".to_string()),
                         };
-                        let c_node = value::Value::Node(value::Node {
+                        let node = Value::Node(Node {
                             id: match val {
-                                value::Value::Node(x) => x.id,
-                                _=>1,
+                                Value::Node(x) => x.id,
+                                _ => 1,
                             },
                             label_count: 1,
                             labels: values,
                             properties: mg_map,
                         });
-                        assert_eq!(&c_node, val);
+                        assert_eq!(&node, val);
                     }
                 }
                 None => break,
@@ -159,18 +159,18 @@ fn from_connect_fetchone_explicit_panic() {
                     for val in &x.values {
                         let values = vec![String::from("User")];
                         let mg_map = hashmap! {
-                            String::from("name") => value::Value::String("Alice".to_string()),
+                            String::from("name") => Value::String("Alice".to_string()),
                         };
-                        let c_node = value::Value::Node(value::Node {
+                        let node = Value::Node(Node {
                             id: match val {
-                                value::Value::Node(x) => x.id,
-                                _=>1,
+                                Value::Node(x) => x.id,
+                                _ => 1,
                             },
                             label_count: 1,
                             labels: values,
                             properties: mg_map,
                         });
-                        assert_eq!(&c_node, val);
+                        assert_eq!(&node, val);
                     }
                 }
                 None => break,
@@ -233,18 +233,18 @@ fn from_connect_fetchmany() {
                     for val in &record.values {
                         let values = vec![String::from("User")];
                         let mg_map = hashmap! {
-                            String::from("name") => value::Value::String("Alice".to_string()),
+                            String::from("name") => Value::String("Alice".to_string()),
                         };
-                        let c_node = value::Value::Node(value::Node {
+                        let node = Value::Node(Node {
                             id: match val {
-                                value::Value::Node(x) => x.id,
-                                _=>1,
+                                Value::Node(x) => x.id,
+                                _ => 1,
                             },
                             label_count: 1,
                             labels: values,
                             properties: mg_map,
                         });
-                        assert_eq!(&c_node, val);
+                        assert_eq!(&node, val);
                     }
                 }
                 if res.len() != size as usize {
@@ -280,18 +280,18 @@ fn from_connect_fetchmany_error() {
                     for val in &record.values {
                         let values = vec![String::from("User")];
                         let mg_map = hashmap! {
-                            String::from("name") => value::Value::String("Alice".to_string()),
+                            String::from("name") => Value::String("Alice".to_string()),
                         };
-                        let c_node = value::Value::Node(value::Node {
+                        let node = Value::Node(Node {
                             id: match val {
-                                value::Value::Node(x) => x.id,
-                                _=>1,
+                                Value::Node(x) => x.id,
+                                _ => 1,
                             },
                             label_count: 1,
                             labels: values,
                             properties: mg_map,
                         });
-                        assert_eq!(&c_node, val);
+                        assert_eq!(&node, val);
                     }
                 }
                 if res.len() != size as usize {
@@ -324,19 +324,19 @@ fn from_connect_fetchall() {
             for record in records {
                 for val in &record.values {
                     let values = vec![String::from("User")];
-                        let mg_map = hashmap! {
-                            String::from("name") => value::Value::String("Alice".to_string()),
-                        };
-                        let c_node = value::Value::Node(value::Node {
-                            id: match val {
-                                value::Value::Node(x) => x.id,
-                                _=>1,
-                            },
-                            label_count: 1,
-                            labels: values,
-                            properties: mg_map,
-                        });
-                        assert_eq!(&c_node, val);
+                    let mg_map = hashmap! {
+                        String::from("name") => Value::String("Alice".to_string()),
+                    };
+                    let node = Value::Node(Node {
+                        id: match val {
+                            Value::Node(x) => x.id,
+                            _ => 1,
+                        },
+                        label_count: 1,
+                        labels: values,
+                        properties: mg_map,
+                    });
+                    assert_eq!(&node, val);
                 }
             }
         }
@@ -358,19 +358,19 @@ fn from_connect_fetchall_panic() {
             for record in records {
                 for val in &record.values {
                     let values = vec![String::from("User")];
-                        let mg_map = hashmap! {
-                            String::from("name") => value::Value::String("Alice".to_string()),
-                        };
-                        let c_node = value::Value::Node(value::Node {
-                            id: match val {
-                                value::Value::Node(x) => x.id,
-                                _=>1,
-                            },
-                            label_count: 1,
-                            labels: values,
-                            properties: mg_map,
-                        });
-                        assert_eq!(&c_node, val);
+                    let mg_map = hashmap! {
+                        String::from("name") => Value::String("Alice".to_string()),
+                    };
+                    let node = Value::Node(Node {
+                        id: match val {
+                            Value::Node(x) => x.id,
+                            _ => 1,
+                        },
+                        label_count: 1,
+                        labels: values,
+                        properties: mg_map,
+                    });
+                    assert_eq!(&node, val);
                 }
             }
         }
