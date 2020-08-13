@@ -1,18 +1,17 @@
 use super::*;
 
 fn get_connection(prms: ConnectParams) -> Connection {
-    let connection = match Connection::connect(&prms) {
+    match Connection::connect(&prms) {
         Ok(c) => c,
         Err(err) => panic!("{}", err),
-    };
-    connection
+    }
 }
 
-fn get_params() -> HashMap<String, QueryParam> {
+fn get_params(str_value: String, qrp: String) -> HashMap<String, QueryParam> {
     let mut params: HashMap<String, QueryParam> = HashMap::new();
     params.insert(
-        String::from("name"),
-        QueryParam::String(String::from("Alice")),
+        str_value,
+        QueryParam::String(qrp),
     );
     params
 }
@@ -69,10 +68,9 @@ fn from_connect_fetchone() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params();
+    let params = get_params("name".to_string(),"Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    //let query = String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
     let columns = match connection.execute(&query, Some(&params)) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
@@ -83,12 +81,9 @@ fn from_connect_fetchone() {
         match connection.fetchone() {
             Ok(res) => match res {
                 Some(x) => {
-                    println!("Number of rows: 1");
-                    print!("Row: ");
                     for val in &x.values {
-                        print!("val: {}    ", val);
+                        assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
                     }
-                    println!();
                 }
                 None => break,
             },
@@ -136,7 +131,7 @@ fn from_connect_fetchone_explicit_panic() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params();
+    let params = get_params("name".to_string(),"Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -149,12 +144,9 @@ fn from_connect_fetchone_explicit_panic() {
             Ok(res) => match res {
                 Some(x) => {
                     connection.results_iter = None;
-                    println!("Number of rows: 1");
-                    print!("Row: ");
                     for val in &x.values {
-                        print!("val: {}    ", val);
+                        assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
                     }
-                    println!();
                 }
                 None => break,
             },
@@ -176,14 +168,13 @@ fn from_connect_fetchone_closed_panic() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params();
+    let params = get_params("name".to_string(),"Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    let columns = match connection.execute(&query, Some(&params)) {
+    match connection.execute(&query, Some(&params)) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
-    println!("Columns: {}", columns.join(", "));
     connection.status = ConnectionStatus::Closed;
     loop {
         match connection.fetchone() {
@@ -201,7 +192,7 @@ fn from_connect_fetchmany() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params();
+    let params = get_params("name".to_string(),"Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -213,13 +204,10 @@ fn from_connect_fetchmany() {
         let size = 3;
         match connection.fetchmany(Some(size)) {
             Ok(res) => {
-                println!("Number of rows: {}", res.len());
                 for record in &res {
-                    print!("Row: ");
                     for val in &record.values {
-                        print!("val: {}  ", val);
+                        assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
                     }
-                    println!();
                 }
                 if res.len() != size as usize {
                     break;
@@ -238,7 +226,7 @@ fn from_connect_fetchmany_error() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params();
+    let params = get_params("name".to_string(),"Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -250,13 +238,10 @@ fn from_connect_fetchmany_error() {
         let size = 3;
         match connection.fetchmany(None) {
             Ok(res) => {
-                println!("Number of rows: {}", res.len());
                 for record in &res {
-                    print!("Row: ");
                     for val in &record.values {
-                        print!("val: {}  ", val);
+                        assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
                     }
-                    println!();
                 }
                 if res.len() != size as usize {
                     break;
@@ -275,7 +260,7 @@ fn from_connect_fetchall() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params();
+    let params = get_params("name".to_string(),"Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -285,13 +270,10 @@ fn from_connect_fetchall() {
 
     match connection.fetchall() {
         Ok(records) => {
-            println!("Number of rows: {}", records.len());
             for record in records {
-                print!("Row: ");
                 for val in &record.values {
-                    print!("val: {}    ", val);
+                    assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
                 }
-                println!();
             }
         }
         Err(err) => panic!("Fetching failed: {}", err),
@@ -309,13 +291,10 @@ fn from_connect_fetchall_panic() {
     let mut connection = get_connection(connect_prms);
     match connection.fetchall() {
         Ok(records) => {
-            println!("Number of rows: {}", records.len());
             for record in records {
-                print!("Row: ");
                 for val in &record.values {
-                    print!("val: {}    ", val);
+                    assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
                 }
-                println!();
             }
         }
         Err(err) => panic!("Fetching failed: {}", err),
@@ -330,7 +309,7 @@ fn from_connect_fetchall_executing_panic() {
         lazy: true,
         ..Default::default()
     };
-    let params = get_params();
+    let params = get_params("name".to_string(),"Alice".to_string());
     let mut connection = get_connection(connect_prms);
     connection.status = ConnectionStatus::Executing;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
@@ -348,7 +327,7 @@ fn from_connect_fetchall_closed_panic() {
         lazy: true,
         ..Default::default()
     };
-    let params = get_params();
+    let params = get_params("name".to_string(),"Alice".to_string());
     let mut connection = get_connection(connect_prms);
     connection.status = ConnectionStatus::Closed;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
