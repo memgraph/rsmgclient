@@ -33,12 +33,25 @@ pub fn my_callback(
 
 #[test]
 #[should_panic(expected = "both sslcert and sslkey should be provided")]
-fn from_connect_fetchone_panic() {
+fn from_connect_fetchone_panic_sslcert() {
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
         trust_callback: Some(&my_callback),
         lazy: false,
         sslcert: Some(String::from("test_sslcert")),
+        ..Default::default()
+    };
+    let _connection = get_connection(connect_prms);
+}
+
+#[test]
+#[should_panic(expected = "both sslcert and sslkey should be provided")]
+fn from_connect_fetchone_panic_sslkey() {
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        trust_callback: Some(&my_callback),
+        lazy: false,
+        sslkey: Some(String::from("test_sslkey")),
         ..Default::default()
     };
     let _connection = get_connection(connect_prms);
@@ -64,8 +77,8 @@ fn from_connect_fetchone() {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
-    println!("Columns: {}", columns.join(", "));
-
+    assert_eq!(columns.join(", "),"n");
+    assert_eq!(connection.lazy,false);
     loop {
         match connection.fetchone() {
             Ok(res) => match res {
@@ -79,6 +92,102 @@ fn from_connect_fetchone() {
                 }
                 None => break,
             },
+            Err(err) => panic!("Fetch failed: {}", err),
+        }
+    }
+}
+
+#[test]
+#[should_panic(expected = "Query failed: Parameter $name not provided.")]
+fn from_connect_fetchone_none_params() {
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);
+
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, None) {
+        Ok(x) => x,
+        Err(err) => panic!("Query failed: {}", err),
+    };
+}
+
+#[test]
+fn from_connect_fetchone_address() {
+    let connect_prms = ConnectParams {
+        address: Some(String::from("127.0.0.1")),
+        ..Default::default()
+    };
+    let connection = get_connection(connect_prms);
+    assert_eq!(connection.lazy,true);
+}
+
+#[test]
+#[should_panic(expected = "explicit panic")]
+fn from_connect_fetchone_explicit_panic() {
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        trust_callback: Some(&my_callback),
+        lazy: false,
+        username: Some(String::from("test_username")),
+        password: Some(String::from("test_password")),
+        client_name: String::from("test_username test_password"),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);
+    let params = get_params();
+
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(x) => x,
+        Err(err) => panic!("Query failed: {}", err),
+    };
+
+    loop {
+        match connection.fetchone() {
+            Ok(res) => match res {
+                Some(x) => {
+                    connection.results_iter=None;
+                    println!("Number of rows: 1");
+                    print!("Row: ");
+                    for val in &x.values {
+                        print!("val: {}    ", val);
+                    }
+                    println!();
+                }
+                None => break,
+            },
+            Err(err) => panic!("Fetch failed: {}", err),
+        }
+    }
+}
+
+#[test]
+#[should_panic(expected = "Connection is closed")]
+fn from_connect_fetchone_closed_panic() {
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        trust_callback: Some(&my_callback),
+        lazy: false,
+        username: Some(String::from("test_username")),
+        password: Some(String::from("test_password")),
+        client_name: String::from("test_username test_password"),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);
+    let params = get_params();
+
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    let columns = match connection.execute(&query, Some(&params)) {
+        Ok(x) => x,
+        Err(err) => panic!("Query failed: {}", err),
+    };
+    println!("Columns: {}", columns.join(", "));
+    connection.status=ConnectionStatus::Closed;
+    loop {
+        match connection.fetchone() {
+            Ok(res) => {},
             Err(err) => panic!("Fetch failed: {}", err),
         }
     }
@@ -198,7 +307,6 @@ fn from_connect_fetchall_panic() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-
     match connection.fetchall() {
         Ok(records) => {
             println!("Number of rows: {}", records.len());
@@ -211,5 +319,41 @@ fn from_connect_fetchall_panic() {
             }
         }
         Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+#[test]
+#[should_panic(expected = "Connection is already executing")]
+fn from_connect_fetchall_executing_panic() {
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params();
+    let mut connection = get_connection(connect_prms);
+    connection.status=ConnectionStatus::Executing;
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+}
+
+#[test]
+#[should_panic(expected = "Connection is closed")]
+fn from_connect_fetchall_closed_panic() {
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params();
+    let mut connection = get_connection(connect_prms);
+    connection.status=ConnectionStatus::Closed;
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
     }
 }
