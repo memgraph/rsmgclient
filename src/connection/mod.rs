@@ -74,6 +74,7 @@ pub enum ConnectionStatus {
     InTransaction,
     Executing,
     Closed,
+    Bad,
 }
 
 fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
@@ -193,6 +194,7 @@ impl Connection {
                     "Connection is already executing",
                 )))
             }
+            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             _ => {}
         }
 
@@ -207,6 +209,7 @@ impl Connection {
         };
 
         if status != 0 {
+            self.status = ConnectionStatus::Bad;
             return Err(MgError::new(read_error_message(self.mg_session)));
         }
 
@@ -215,7 +218,10 @@ impl Connection {
         if !self.lazy {
             match self.pull_all() {
                 Ok(x) => self.results_iter = Some(x.into_iter()),
-                Err(x) => return Err(x),
+                Err(x) => {
+                    self.status = ConnectionStatus::Bad;
+                    return Err(x);
+                }
             }
         }
 
@@ -230,6 +236,7 @@ impl Connection {
             ConnectionStatus::Ready => {
                 return Err(MgError::new(String::from("Connection is not executing")))
             }
+            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             _ => {}
         }
 
@@ -242,7 +249,10 @@ impl Connection {
                         Ok(None)
                     }
                 },
-                Err(err) => Err(err),
+                Err(err) => {
+                    self.status = ConnectionStatus::Bad;
+                    Err(err)
+                }
             },
             false => match &mut self.results_iter {
                 Some(it) => match it.next() {
