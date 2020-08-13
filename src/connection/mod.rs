@@ -15,8 +15,8 @@
 use super::bindings;
 use super::error::MgError;
 use super::value::{
-    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_value_string, str_to_c_str,
-    QueryParam, Record,
+    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_map_to_hash_map, mg_value_string,
+    str_to_c_str, QueryParam, Record, Value,
 };
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -70,6 +70,7 @@ pub struct Connection {
     status: ConnectionStatus,
     results_iter: Option<IntoIter<Record>>,
     arraysize: u32,
+    summary: Option<Summary>,
 }
 
 #[derive(PartialEq)]
@@ -117,6 +118,13 @@ impl Connection {
 
     pub fn get_status(&self) -> &ConnectionStatus {
         &self.status
+    }
+
+    pub fn get_summary(&self) -> Option<Summary> {
+        match &self.summary {
+            Some(x) => Some(x.clone()),
+            None => None,
+        }
     }
 
     pub fn set_lazy(&mut self, lazy: bool) {
@@ -228,6 +236,7 @@ impl Connection {
             status: ConnectionStatus::Ready,
             results_iter: None,
             arraysize: 1,
+            summary: None,
         })
     }
 
@@ -278,6 +287,8 @@ impl Connection {
                 Err(err) => return Err(err),
             }
         }
+
+        self.summary = None;
 
         let c_query = CString::new(query).unwrap();
         let mg_params = match params {
@@ -391,7 +402,10 @@ impl Connection {
             1 => Ok(Some(Record {
                 values: unsafe { mg_list_to_vec(row) },
             })),
-            0 => Ok(None),
+            0 => {
+                self.summary = Some(Summary::from_mg_result(mg_result));
+                Ok(None)
+            }
             _ => Err(MgError::new(read_error_message(self.mg_session))),
         }
     }
@@ -465,6 +479,58 @@ impl Connection {
             ConnectionStatus::Ready => self.status = ConnectionStatus::Closed,
             ConnectionStatus::Executing => panic!("Connection is executing"),
             _ => {}
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Summary {
+    pub cost_estimate: f64,
+    pub parsing_time: f64,
+    pub plan_execution_time: f64,
+    pub planning_time: f64,
+    pub type_: String,
+}
+
+impl Summary {
+    fn from_mg_result(mg_result: *const bindings::mg_result) -> Summary {
+        let mg_summary = mg_map_to_hash_map(unsafe { bindings::mg_result_summary(mg_result) });
+        Summary {
+            cost_estimate: match mg_summary.get("cost_estimate") {
+                Some(value) => match value {
+                    Value::Float(x) => *x,
+                    _ => panic!(),
+                },
+                None => panic!(),
+            },
+            parsing_time: match mg_summary.get("parsing_time") {
+                Some(value) => match value {
+                    Value::Float(x) => *x,
+                    _ => panic!(),
+                },
+                None => panic!(),
+            },
+            plan_execution_time: match mg_summary.get("plan_execution_time") {
+                Some(value) => match value {
+                    Value::Float(x) => *x,
+                    _ => panic!(),
+                },
+                None => panic!(),
+            },
+            planning_time: match mg_summary.get("planning_time") {
+                Some(value) => match value {
+                    Value::Float(x) => *x,
+                    _ => panic!(),
+                },
+                None => panic!(),
+            },
+            type_: match mg_summary.get("type") {
+                Some(value) => match value {
+                    Value::String(x) => x.clone(),
+                    _ => panic!(),
+                },
+                None => panic!(),
+            },
         }
     }
 }

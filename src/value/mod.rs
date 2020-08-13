@@ -141,7 +141,7 @@ pub(crate) fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     mg_string_to_string(c_str)
 }
 
-fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, Value> {
+pub(crate) fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, Value> {
     unsafe {
         let size = bindings::mg_map_size(mg_map);
         let mut hash_map: HashMap<String, Value> = HashMap::new();
