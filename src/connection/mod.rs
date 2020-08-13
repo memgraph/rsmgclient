@@ -15,8 +15,8 @@
 use super::bindings;
 use super::error::MgError;
 use super::value::{
-    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_value_string, str_to_c_str,
-    QueryParam, Record,
+    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_map_to_hash_map, mg_value_string,
+    str_to_c_str, QueryParam, Record, Value,
 };
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -70,6 +70,7 @@ pub struct Connection {
     status: ConnectionStatus,
     results_iter: Option<IntoIter<Record>>,
     arraysize: u32,
+    summary: Option<HashMap<String, Value>>,
 }
 
 #[derive(PartialEq)]
@@ -99,24 +100,31 @@ impl Drop for Connection {
 }
 
 impl Connection {
-    pub fn get_lazy(&self) -> bool {
+    pub fn lazy(&self) -> bool {
         self.lazy
     }
 
-    pub fn get_autocommit(&self) -> bool {
+    pub fn autocommit(&self) -> bool {
         self.autocommit
     }
 
-    pub fn get_arraysize(&self) -> u32 {
+    pub fn arraysize(&self) -> u32 {
         self.arraysize
     }
 
-    pub fn get_in_transaction(&self) -> bool {
+    pub fn in_transaction(&self) -> bool {
         self.in_transaction
     }
 
-    pub fn get_status(&self) -> &ConnectionStatus {
+    pub fn status(&self) -> &ConnectionStatus {
         &self.status
+    }
+
+    pub fn summary(&self) -> Option<HashMap<String, Value>> {
+        match &self.summary {
+            Some(x) => Some((*x).clone()),
+            None => None,
+        }
     }
 
     pub fn set_lazy(&mut self, lazy: bool) {
@@ -228,6 +236,7 @@ impl Connection {
             status: ConnectionStatus::Ready,
             results_iter: None,
             arraysize: 1,
+            summary: None,
         })
     }
 
@@ -278,6 +287,8 @@ impl Connection {
                 Err(err) => return Err(err),
             }
         }
+
+        self.summary = None;
 
         let c_query = CString::new(query).unwrap();
         let mg_params = match params {
@@ -391,7 +402,12 @@ impl Connection {
             1 => Ok(Some(Record {
                 values: unsafe { mg_list_to_vec(row) },
             })),
-            0 => Ok(None),
+            0 => {
+                self.summary = Some(mg_map_to_hash_map(unsafe {
+                    bindings::mg_result_summary(mg_result)
+                }));
+                Ok(None)
+            }
             _ => Err(MgError::new(read_error_message(self.mg_session))),
         }
     }

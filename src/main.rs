@@ -61,6 +61,11 @@ fn main() {
         }
     }
 
+    let summary = connection.summary().unwrap();
+    for (key, val) in summary {
+        println!("{}: {}", key, val);
+    }
+
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
         Err(err) => panic!("Query failed: {}", err),
