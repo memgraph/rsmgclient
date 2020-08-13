@@ -77,8 +77,8 @@ fn from_connect_fetchone() {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
-    assert_eq!(columns.join(", "),"n");
-    assert_eq!(connection.lazy,false);
+    assert_eq!(columns.join(", "), "n");
+    assert_eq!(connection.lazy, false);
     loop {
         match connection.fetchone() {
             Ok(res) => match res {
@@ -120,7 +120,7 @@ fn from_connect_fetchone_address() {
         ..Default::default()
     };
     let connection = get_connection(connect_prms);
-    assert_eq!(connection.lazy,true);
+    assert_eq!(connection.lazy, true);
 }
 
 #[test]
@@ -148,7 +148,7 @@ fn from_connect_fetchone_explicit_panic() {
         match connection.fetchone() {
             Ok(res) => match res {
                 Some(x) => {
-                    connection.results_iter=None;
+                    connection.results_iter = None;
                     println!("Number of rows: 1");
                     print!("Row: ");
                     for val in &x.values {
@@ -184,10 +184,10 @@ fn from_connect_fetchone_closed_panic() {
         Err(err) => panic!("Query failed: {}", err),
     };
     println!("Columns: {}", columns.join(", "));
-    connection.status=ConnectionStatus::Closed;
+    connection.status = ConnectionStatus::Closed;
     loop {
         match connection.fetchone() {
-            Ok(res) => {},
+            Ok(_res) => {}
             Err(err) => panic!("Fetch failed: {}", err),
         }
     }
@@ -332,7 +332,7 @@ fn from_connect_fetchall_executing_panic() {
     };
     let params = get_params();
     let mut connection = get_connection(connect_prms);
-    connection.status=ConnectionStatus::Executing;
+    connection.status = ConnectionStatus::Executing;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -350,7 +350,7 @@ fn from_connect_fetchall_closed_panic() {
     };
     let params = get_params();
     let mut connection = get_connection(connect_prms);
-    connection.status=ConnectionStatus::Closed;
+    connection.status = ConnectionStatus::Closed;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
