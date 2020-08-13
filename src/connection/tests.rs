@@ -1,4 +1,5 @@
 use super::*;
+use super::super::value;
 
 fn get_connection(prms: ConnectParams) -> Connection {
     match Connection::connect(&prms) {
@@ -9,10 +10,7 @@ fn get_connection(prms: ConnectParams) -> Connection {
 
 fn get_params(str_value: String, qrp: String) -> HashMap<String, QueryParam> {
     let mut params: HashMap<String, QueryParam> = HashMap::new();
-    params.insert(
-        str_value,
-        QueryParam::String(qrp),
-    );
+    params.insert(str_value, QueryParam::String(qrp));
     params
 }
 
@@ -68,7 +66,7 @@ fn from_connect_fetchone() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(),"Alice".to_string());
+    let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     let columns = match connection.execute(&query, Some(&params)) {
@@ -77,12 +75,26 @@ fn from_connect_fetchone() {
     };
     assert_eq!(columns.join(", "), "n");
     assert_eq!(connection.lazy, false);
+
     loop {
         match connection.fetchone() {
             Ok(res) => match res {
                 Some(x) => {
                     for val in &x.values {
-                        assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
+                        let values = vec![String::from("User")];
+                        let mg_map = hashmap! {
+                            String::from("name") => value::Value::String("Alice".to_string()),
+                        };
+                        let c_node = value::Value::Node(value::Node {
+                            id: match val {
+                                value::Value::Node(x) => x.id,
+                                _=>1,
+                            },
+                            label_count: 1,
+                            labels: values,
+                            properties: mg_map,
+                        });
+                        assert_eq!(&c_node, val);
                     }
                 }
                 None => break,
@@ -131,7 +143,7 @@ fn from_connect_fetchone_explicit_panic() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(),"Alice".to_string());
+    let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -145,7 +157,20 @@ fn from_connect_fetchone_explicit_panic() {
                 Some(x) => {
                     connection.results_iter = None;
                     for val in &x.values {
-                        assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
+                        let values = vec![String::from("User")];
+                        let mg_map = hashmap! {
+                            String::from("name") => value::Value::String("Alice".to_string()),
+                        };
+                        let c_node = value::Value::Node(value::Node {
+                            id: match val {
+                                value::Value::Node(x) => x.id,
+                                _=>1,
+                            },
+                            label_count: 1,
+                            labels: values,
+                            properties: mg_map,
+                        });
+                        assert_eq!(&c_node, val);
                     }
                 }
                 None => break,
@@ -168,7 +193,7 @@ fn from_connect_fetchone_closed_panic() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(),"Alice".to_string());
+    let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -192,7 +217,7 @@ fn from_connect_fetchmany() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(),"Alice".to_string());
+    let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -206,7 +231,20 @@ fn from_connect_fetchmany() {
             Ok(res) => {
                 for record in &res {
                     for val in &record.values {
-                        assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
+                        let values = vec![String::from("User")];
+                        let mg_map = hashmap! {
+                            String::from("name") => value::Value::String("Alice".to_string()),
+                        };
+                        let c_node = value::Value::Node(value::Node {
+                            id: match val {
+                                value::Value::Node(x) => x.id,
+                                _=>1,
+                            },
+                            label_count: 1,
+                            labels: values,
+                            properties: mg_map,
+                        });
+                        assert_eq!(&c_node, val);
                     }
                 }
                 if res.len() != size as usize {
@@ -226,7 +264,7 @@ fn from_connect_fetchmany_error() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(),"Alice".to_string());
+    let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -240,7 +278,20 @@ fn from_connect_fetchmany_error() {
             Ok(res) => {
                 for record in &res {
                     for val in &record.values {
-                        assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
+                        let values = vec![String::from("User")];
+                        let mg_map = hashmap! {
+                            String::from("name") => value::Value::String("Alice".to_string()),
+                        };
+                        let c_node = value::Value::Node(value::Node {
+                            id: match val {
+                                value::Value::Node(x) => x.id,
+                                _=>1,
+                            },
+                            label_count: 1,
+                            labels: values,
+                            properties: mg_map,
+                        });
+                        assert_eq!(&c_node, val);
                     }
                 }
                 if res.len() != size as usize {
@@ -260,7 +311,7 @@ fn from_connect_fetchall() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(),"Alice".to_string());
+    let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -272,7 +323,20 @@ fn from_connect_fetchall() {
         Ok(records) => {
             for record in records {
                 for val in &record.values {
-                    assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
+                    let values = vec![String::from("User")];
+                        let mg_map = hashmap! {
+                            String::from("name") => value::Value::String("Alice".to_string()),
+                        };
+                        let c_node = value::Value::Node(value::Node {
+                            id: match val {
+                                value::Value::Node(x) => x.id,
+                                _=>1,
+                            },
+                            label_count: 1,
+                            labels: values,
+                            properties: mg_map,
+                        });
+                        assert_eq!(&c_node, val);
                 }
             }
         }
@@ -293,7 +357,20 @@ fn from_connect_fetchall_panic() {
         Ok(records) => {
             for record in records {
                 for val in &record.values {
-                    assert_eq!(format!("{}", val), "(:User {'name': 'Alice'})");
+                    let values = vec![String::from("User")];
+                        let mg_map = hashmap! {
+                            String::from("name") => value::Value::String("Alice".to_string()),
+                        };
+                        let c_node = value::Value::Node(value::Node {
+                            id: match val {
+                                value::Value::Node(x) => x.id,
+                                _=>1,
+                            },
+                            label_count: 1,
+                            labels: values,
+                            properties: mg_map,
+                        });
+                        assert_eq!(&c_node, val);
                 }
             }
         }
@@ -309,7 +386,7 @@ fn from_connect_fetchall_executing_panic() {
         lazy: true,
         ..Default::default()
     };
-    let params = get_params("name".to_string(),"Alice".to_string());
+    let params = get_params("name".to_string(), "Alice".to_string());
     let mut connection = get_connection(connect_prms);
     connection.status = ConnectionStatus::Executing;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
@@ -327,7 +404,7 @@ fn from_connect_fetchall_closed_panic() {
         lazy: true,
         ..Default::default()
     };
-    let params = get_params("name".to_string(),"Alice".to_string());
+    let params = get_params("name".to_string(), "Alice".to_string());
     let mut connection = get_connection(connect_prms);
     connection.status = ConnectionStatus::Closed;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
