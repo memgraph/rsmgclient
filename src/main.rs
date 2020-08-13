@@ -61,6 +61,16 @@ fn main() {
         }
     }
 
+    let summary = connection.get_summary().unwrap();
+    println!(
+        "cost_estimate: {}\nparsing_time: {}\nplan_execution_time: {}\nplanning_time: {}\ntype: {}",
+        summary.cost_estimate,
+        summary.parsing_time,
+        summary.plan_execution_time,
+        summary.planning_time,
+        summary.type_
+    );
+
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
         Err(err) => panic!("Query failed: {}", err),
