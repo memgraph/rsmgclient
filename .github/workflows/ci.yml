@@ -36,10 +36,6 @@ jobs:
     - name: Load Memgraph Docker image
       run: |
         docker load -i ~/memgraph/memgraph-docker.tar.gz
-
-    - name: Run Memgraph
-      run: |
-        docker run -p 7687:7687 -v mg_lib:/var/lib/memgraph -v mg_log:/var/log/memgraph -v mg_etc:/etc/memgraph memgraph & cargo test
   
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
@@ -48,6 +44,11 @@ jobs:
     - run: cargo clippy
     - run: cargo fmt -- --check
     - run: cargo build --verbose
+
+    - name: Run Memgraph
+      run: |
+        docker run -p 7687:7687 -v mg_lib:/var/lib/memgraph -v mg_log:/var/log/memgraph -v mg_etc:/etc/memgraph memgraph & cargo test
+
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1.2
       with:
