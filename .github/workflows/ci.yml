@@ -36,10 +36,6 @@ jobs:
     - name: Load Memgraph Docker image
       run: |
         docker load -i ~/memgraph/memgraph-docker.tar.gz
-
-    - name: Run Memgraph
-      run: |
-        docker run -d -p 7687:7687 -v mg_lib:/var/lib/memgraph -v mg_log:/var/log/memgraph -v mg_etc:/etc/memgraph memgraph
   
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
@@ -51,7 +47,7 @@ jobs:
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1.2
       with:
-        args: '--out Html --ignore-tests'
+        args: '--out Html --ignore-tests & docker run -d -p 7687:7687 -v mg_lib:/var/lib/memgraph -v mg_log:/var/log/memgraph -v mg_etc:/etc/memgraph memgraph'
 
     - name: Archive code coverage results
       uses: actions/upload-artifact@v1
