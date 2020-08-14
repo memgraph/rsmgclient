@@ -34,7 +34,7 @@ fn main() {
     );
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    // let query = String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
+    //let query = String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
     let columns = match connection.execute(&query, Some(&params)) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),

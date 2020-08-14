@@ -22,6 +22,21 @@ jobs:
         cmake ..
         make
         sudo make install
+    
+     - name: Cache Memgraph Docker image
+      id: cache-memgraph-docker
+      uses: actions/cache@v1
+      with:
+        path: ~/memgraph
+        key: cache-memgraph-v1.1.0-docker-image
+    - name: Download Memgraph Docker image
+      if: steps.cache-memgraph-docker.outputs.cache-hit != 'true'
+      run: |
+        mkdir ~/memgraph
+        curl -L https://memgraph.com/download/memgraph/v1.1.0/docker/memgraph-1.1.0-community-docker.tar.gz > ~/memgraph/memgraph-docker.tar.gz
+    - name: Load Memgraph Docker image
+      run: |
+        docker load -i ~/memgraph/memgraph-docker.tar.gz
 
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
