@@ -22,8 +22,7 @@ jobs:
         cmake ..
         make
         sudo make install
-    
-     - name: Cache Memgraph Docker image
+    - name: Cache Memgraph Docker image
       id: cache-memgraph-docker
       uses: actions/cache@v1
       with:

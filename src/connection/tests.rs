@@ -23,7 +23,8 @@ pub fn initialize() {
         Err(err) => panic!("Fetching failed: {}", err),
     }
 
-    let query = String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
+    let query =
+        String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
     match connection.execute(&query, None) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
