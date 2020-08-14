@@ -1,5 +1,30 @@
-use crate::{Value, Node};
 use super::*;
+use crate::{Node, Value};
+use serial_test::serial;
+
+pub fn initialize() {
+        let connect_prms = ConnectParams {
+            host: Some(String::from("localhost")),
+            ..Default::default()
+        };
+        let mut connection = get_connection(connect_prms);
+    
+        let query = String::from("MATCH (n) DETACH DELETE n");
+        match connection.execute(&query, None) {
+            Ok(x) => x,
+            Err(err) => panic!("Query failed: {}", err),
+        };
+        match connection.fetchall() {
+            Ok(records) => {
+                for record in records {
+                    for val in &record.values {
+                        
+                    }
+                }
+            }
+            Err(err) => panic!("Fetching failed: {}", err),
+        }
+}
 
 fn get_connection(prms: ConnectParams) -> Connection {
     match Connection::connect(&prms) {
@@ -29,6 +54,7 @@ pub fn my_callback(
 }
 
 #[test]
+//#[serial]
 #[should_panic(expected = "both sslcert and sslkey should be provided")]
 fn from_connect_fetchone_panic_sslcert() {
     let connect_prms = ConnectParams {
@@ -39,9 +65,11 @@ fn from_connect_fetchone_panic_sslcert() {
         ..Default::default()
     };
     let _connection = get_connection(connect_prms);
+    initialize();
 }
 
 #[test]
+//#[serial]
 #[should_panic(expected = "both sslcert and sslkey should be provided")]
 fn from_connect_fetchone_panic_sslkey() {
     let connect_prms = ConnectParams {
@@ -52,10 +80,13 @@ fn from_connect_fetchone_panic_sslkey() {
         ..Default::default()
     };
     let _connection = get_connection(connect_prms);
+    initialize();
 }
 
 #[test]
+//#[serial]
 fn from_connect_fetchone() {
+    initialize();
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
         trust_callback: Some(&my_callback),
@@ -94,6 +125,7 @@ fn from_connect_fetchone() {
                             labels: values,
                             properties: mg_map,
                         });
+                        println!("tu sam");
                         assert_eq!(&node, val);
                     }
                 }
@@ -105,6 +137,7 @@ fn from_connect_fetchone() {
 }
 
 #[test]
+//#[serial]
 #[should_panic(expected = "Query failed: Parameter $name not provided.")]
 fn from_connect_fetchone_none_params() {
     let connect_prms = ConnectParams {
@@ -118,9 +151,11 @@ fn from_connect_fetchone_none_params() {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
+    initialize();
 }
 
 #[test]
+//#[serial]
 fn from_connect_fetchone_address() {
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
@@ -128,9 +163,11 @@ fn from_connect_fetchone_address() {
     };
     let connection = get_connection(connect_prms);
     assert_eq!(connection.lazy, true);
+    //initialize();
 }
 
 #[test]
+//#[serial]
 #[should_panic(expected = "explicit panic")]
 fn from_connect_fetchone_explicit_panic() {
     let connect_prms = ConnectParams {
@@ -150,12 +187,11 @@ fn from_connect_fetchone_explicit_panic() {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
-
+    connection.results_iter = None;
     loop {
         match connection.fetchone() {
             Ok(res) => match res {
                 Some(x) => {
-                    connection.results_iter = None;
                     for val in &x.values {
                         let values = vec![String::from("User")];
                         let mg_map = hashmap! {
@@ -178,9 +214,11 @@ fn from_connect_fetchone_explicit_panic() {
             Err(err) => panic!("Fetch failed: {}", err),
         }
     }
+    initialize();
 }
 
 #[test]
+//#[serial]
 #[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchone_closed_panic() {
     let connect_prms = ConnectParams {
@@ -207,9 +245,11 @@ fn from_connect_fetchone_closed_panic() {
             Err(err) => panic!("Fetch failed: {}", err),
         }
     }
+    initialize();
 }
 
 #[test]
+//#[serial]
 fn from_connect_fetchmany() {
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
@@ -254,9 +294,11 @@ fn from_connect_fetchmany() {
             Err(err) => panic!("Fetch failed: {}", err),
         }
     }
+    initialize();
 }
 
 #[test]
+//#[serial]
 fn from_connect_fetchmany_error() {
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
@@ -301,9 +343,11 @@ fn from_connect_fetchmany_error() {
             Err(err) => panic!("Fetch failed: {}", err),
         }
     }
+    initialize();
 }
 
 #[test]
+//#[serial]
 fn from_connect_fetchall() {
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
@@ -342,9 +386,11 @@ fn from_connect_fetchall() {
         }
         Err(err) => panic!("Fetching failed: {}", err),
     }
+    initialize();
 }
 
 #[test]
+//#[serial]
 #[should_panic(expected = "Fetching failed: Connection is not executing")]
 fn from_connect_fetchall_panic() {
     let connect_prms = ConnectParams {
@@ -376,9 +422,11 @@ fn from_connect_fetchall_panic() {
         }
         Err(err) => panic!("Fetching failed: {}", err),
     }
+    initialize();
 }
 
 #[test]
+//#[serial]
 #[should_panic(expected = "Connection is already executing")]
 fn from_connect_fetchall_executing_panic() {
     let connect_prms = ConnectParams {
@@ -394,9 +442,11 @@ fn from_connect_fetchall_executing_panic() {
         Ok(_x) => {}
         Err(err) => panic!("{}", err),
     }
+    initialize();
 }
 
 #[test]
+//#[serial]
 #[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchall_closed_panic() {
     let connect_prms = ConnectParams {
@@ -412,4 +462,5 @@ fn from_connect_fetchall_closed_panic() {
         Ok(_x) => {}
         Err(err) => panic!("{}", err),
     }
+    initialize();
 }
