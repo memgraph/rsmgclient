@@ -4,7 +4,7 @@ use serial_test::serial;
 
 pub fn initialize() {
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -72,7 +72,7 @@ pub fn my_callback(
 fn from_connect_fetchone_panic_sslcert() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
         lazy: false,
         sslcert: Some(String::from("test_sslcert")),
@@ -87,7 +87,7 @@ fn from_connect_fetchone_panic_sslcert() {
 fn from_connect_fetchone_panic_sslkey() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
         lazy: false,
         sslkey: Some(String::from("test_sslkey")),
@@ -101,7 +101,7 @@ fn from_connect_fetchone_panic_sslkey() {
 fn from_connect_fetchone() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
         lazy: false,
         username: Some(String::from("test_username")),
@@ -154,7 +154,7 @@ fn from_connect_fetchone() {
 fn from_connect_fetchone_none_params() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -184,7 +184,7 @@ fn from_connect_fetchone_address() {
 fn from_connect_fetchone_explicit_panic() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
         lazy: false,
         username: Some(String::from("test_username")),
@@ -235,7 +235,7 @@ fn from_connect_fetchone_explicit_panic() {
 fn from_connect_fetchone_closed_panic() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
         lazy: false,
         username: Some(String::from("test_username")),
@@ -266,7 +266,7 @@ fn from_connect_fetchone_closed_panic() {
 fn from_connect_fetchone_bad_panic() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
         lazy: false,
         username: Some(String::from("test_username")),
@@ -296,7 +296,7 @@ fn from_connect_fetchone_bad_panic() {
 fn from_connect_fetchmany() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: false,
         ..Default::default()
     };
@@ -345,7 +345,7 @@ fn from_connect_fetchmany() {
 fn from_connect_fetchmany_error() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: false,
         ..Default::default()
     };
@@ -394,7 +394,7 @@ fn from_connect_fetchmany_error() {
 fn from_connect_fetchall() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -438,7 +438,7 @@ fn from_connect_fetchall() {
 fn from_connect_fetchall_panic() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -474,7 +474,7 @@ fn from_connect_fetchall_panic() {
 fn from_connect_fetchall_executing_panic() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -494,7 +494,7 @@ fn from_connect_fetchall_executing_panic() {
 fn from_connect_fetchall_bad_panic() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -514,7 +514,7 @@ fn from_connect_fetchall_bad_panic() {
 fn from_connect_fetchall_closed_panic() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -533,7 +533,7 @@ fn from_connect_fetchall_closed_panic() {
 fn from_connect_fetchone_summary() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -566,7 +566,7 @@ fn from_connect_fetchone_summary() {
 fn from_connect_fetchall_commit() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -596,7 +596,7 @@ fn from_connect_fetchall_commit() {
 fn from_connect_fetchall_commit_panic_closed() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -626,7 +626,7 @@ fn from_connect_fetchall_commit_panic_closed() {
 fn from_connect_fetchall_commit_panic_executing() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -656,7 +656,7 @@ fn from_connect_fetchall_commit_panic_executing() {
 fn from_connect_fetchall_commit_panic_transaction() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -685,7 +685,7 @@ fn from_connect_fetchall_commit_panic_transaction() {
 fn from_connect_fetchall_rollback() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -715,7 +715,7 @@ fn from_connect_fetchall_rollback() {
 fn from_connect_fetchall_rollback_panic_closed() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -745,7 +745,7 @@ fn from_connect_fetchall_rollback_panic_closed() {
 fn from_connect_fetchall_rollback_panic_executing() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -775,7 +775,7 @@ fn from_connect_fetchall_rollback_panic_executing() {
 fn from_connect_fetchall_rollback_panic_bad() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -805,7 +805,7 @@ fn from_connect_fetchall_rollback_panic_bad() {
 fn from_connect_fetchall_rollback_panic_transaction() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -834,7 +834,7 @@ fn from_connect_fetchall_rollback_panic_transaction() {
 fn from_connect_fetchall_set_get_lazy() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -850,7 +850,7 @@ fn from_connect_fetchall_set_get_lazy() {
 fn from_connect_fetchall_set_get_lazy_panic_executing() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -867,7 +867,7 @@ fn from_connect_fetchall_set_get_lazy_panic_executing() {
 fn from_connect_fetchall_set_get_lazy_panic_bad() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -884,7 +884,7 @@ fn from_connect_fetchall_set_get_lazy_panic_bad() {
 fn from_connect_fetchall_set_get_lazy_panic_closed() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         lazy: true,
         ..Default::default()
     };
@@ -900,7 +900,7 @@ fn from_connect_fetchall_set_get_lazy_panic_closed() {
 fn from_connect_fetchall_set_get_autocommit() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -915,7 +915,7 @@ fn from_connect_fetchall_set_get_autocommit() {
 fn from_connect_fetchall_set_get_autocommit_panic_transaction() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -931,7 +931,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_transaction() {
 fn from_connect_fetchall_set_get_autocommit_panic_executing() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -947,7 +947,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_executing() {
 fn from_connect_fetchall_set_get_autocommit_panic_bad() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -963,7 +963,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_bad() {
 fn from_connect_fetchall_set_get_autocommit_panic_closed() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -978,7 +978,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_closed() {
 fn from_connect_fetchall_set_get_arraysize() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -992,7 +992,7 @@ fn from_connect_fetchall_set_get_arraysize() {
 fn from_connect_fetchall_get_lazy_transaction_status() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let connection = get_connection(connect_prms);
@@ -1007,7 +1007,7 @@ fn from_connect_fetchall_get_lazy_transaction_status() {
 fn from_connect_close() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
@@ -1022,7 +1022,7 @@ fn from_connect_close() {
 fn from_connect_close_panic() {
     initialize();
     let connect_prms = ConnectParams {
-        host: Some(String::from("localhost")),
+        address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
