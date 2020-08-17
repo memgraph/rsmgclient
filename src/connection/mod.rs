@@ -73,7 +73,7 @@ pub struct Connection {
     summary: Option<HashMap<String, Value>>,
 }
 
-#[derive(PartialEq,Debug)]
+#[derive(PartialEq, Debug)]
 pub enum ConnectionStatus {
     Ready,
     Executing,
