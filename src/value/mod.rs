@@ -49,7 +49,7 @@ impl QueryParam {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     pub id: i64,
     pub label_count: u32,
@@ -57,7 +57,7 @@ pub struct Node {
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Relationship {
     pub id: i64,
     pub start_id: i64,
@@ -66,14 +66,14 @@ pub struct Relationship {
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UnboundRelationship {
     pub id: i64,
     pub type_: String,
     pub properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Path {
     pub node_count: u32,
     pub relationship_count: u32,
@@ -81,7 +81,7 @@ pub struct Path {
     pub relationships: Vec<UnboundRelationship>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -141,7 +141,7 @@ pub(crate) fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     mg_string_to_string(c_str)
 }
 
-fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, Value> {
+pub(crate) fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, Value> {
     unsafe {
         let size = bindings::mg_map_size(mg_map);
         let mut hash_map: HashMap<String, Value> = HashMap::new();

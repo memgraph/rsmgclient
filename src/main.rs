@@ -18,7 +18,8 @@ use std::collections::HashMap;
 fn main() {
     let connect_prms = ConnectParams {
         host: Some(String::from("localhost")),
-        lazy: false,
+        lazy: true,
+        autocommit: false,
         ..Default::default()
     };
 
@@ -33,8 +34,9 @@ fn main() {
         QueryParam::String(String::from("Alice")),
     );
 
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    //let query = String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
+    let query = String::from(
+        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, m",
+    );
     let columns = match connection.execute(&query, Some(&params)) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
@@ -57,6 +59,11 @@ fn main() {
             },
             Err(err) => panic!("Fetch failed: {}", err),
         }
+    }
+
+    let summary = connection.summary().unwrap();
+    for (key, val) in summary {
+        println!("{}: {}", key, val);
     }
 
     match connection.execute(&query, Some(&params)) {
@@ -102,4 +109,6 @@ fn main() {
         }
         Err(err) => panic!("Fetching failed: {}", err),
     }
+
+    connection.commit();
 }
