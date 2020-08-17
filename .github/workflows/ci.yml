@@ -45,7 +45,7 @@ jobs:
 
     - name: Run Memgraph
       run: |
-        docker run -p 7687:7687 -v mg_lib:/var/lib/memgraph -v mg_log:/var/log/memgraph -v mg_etc:/etc/memgraph memgraph & RUST_BACKTRACE=1 cargo test
+        docker run -p 7687:7687 -v mg_lib:/var/lib/memgraph -v mg_log:/var/log/memgraph -v mg_etc:/etc/memgraph memgraph & RUST_BACKTRACE=full cargo test
 
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1.2
