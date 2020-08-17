@@ -262,6 +262,37 @@ fn from_connect_fetchone_closed_panic() {
 
 #[test]
 #[serial]
+#[should_panic(expected = "Bad connection")]
+fn from_connect_fetchone_bad_panic() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        trust_callback: Some(&my_callback),
+        lazy: false,
+        username: Some(String::from("test_username")),
+        password: Some(String::from("test_password")),
+        client_name: String::from("test_username test_password"),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);
+    let params = get_params("name".to_string(), "Alice".to_string());
+
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(x) => x,
+        Err(err) => panic!("Query failed: {}", err),
+    };
+    connection.status = ConnectionStatus::Bad;
+    loop {
+        match connection.fetchone() {
+            Ok(_res) => {}
+            Err(err) => panic!("Fetch failed: {}", err),
+        }
+    }
+}
+
+#[test]
+#[serial]
 fn from_connect_fetchmany() {
     initialize();
     let connect_prms = ConnectParams {
@@ -459,6 +490,26 @@ fn from_connect_fetchall_executing_panic() {
 
 #[test]
 #[serial]
+#[should_panic(expected = "Bad connection")]
+fn from_connect_fetchall_bad_panic() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    connection.status = ConnectionStatus::Bad;
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+}
+
+#[test]
+#[serial]
 #[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchall_closed_panic() {
     initialize();
@@ -475,4 +526,524 @@ fn from_connect_fetchall_closed_panic() {
         Ok(_x) => {}
         Err(err) => panic!("{}", err),
     }
+}
+
+#[test]
+#[serial]
+fn from_connect_fetchone_summary() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    loop {
+        match connection.fetchone() {
+            Ok(res) => match res {
+                Some(x) => {
+                    for val in &x.values {
+                    }
+                }
+                None => break,
+            },
+            Err(err) => panic!("Fetch failed: {}", err),
+        }
+    }
+
+    let summary = connection.summary().unwrap();
+    for (key, val) in summary {
+        println!("{}: {}", key, val);
+    }
+
+}
+
+#[test]
+#[serial]
+fn from_connect_fetchall_commit() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.status=ConnectionStatus::Ready;
+    match connection.commit(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Connection is closed")]
+fn from_connect_fetchall_commit_panic_closed() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.status=ConnectionStatus::Closed;
+    match connection.commit(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Can't commit while executing")]
+fn from_connect_fetchall_commit_panic_executing() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.status=ConnectionStatus::Executing;
+    match connection.commit(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Not in transaction")]
+fn from_connect_fetchall_commit_panic_transaction() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.in_transaction=false;
+    match connection.commit(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+
+
+#[test]
+#[serial]
+fn from_connect_fetchall_rollback() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.in_transaction=true;
+    match connection.rollback(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Connection is closed")]
+fn from_connect_fetchall_rollback_panic_closed() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.status=ConnectionStatus::Closed;
+    match connection.rollback(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Can't commit while executing")]
+fn from_connect_fetchall_rollback_panic_executing() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.status=ConnectionStatus::Executing;
+    match connection.rollback(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Bad connection")]
+fn from_connect_fetchall_rollback_panic_bad() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.status=ConnectionStatus::Bad;
+    match connection.rollback(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Not in transaction")]
+fn from_connect_fetchall_rollback_panic_transaction() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = get_connection(connect_prms);
+    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
+    match connection.execute(&query, Some(&params)) {
+        Ok(_x) => {}
+        Err(err) => panic!("{}", err),
+    }
+
+    match connection.fetchall() {
+        Ok(records) => {
+        }
+        Err(err) => panic!("Fetching failed: {}", err),
+    } 
+
+    connection.in_transaction=false;
+    match connection.rollback(){
+        Ok(x)=>{}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
+}
+
+#[test]
+#[serial]
+fn from_connect_fetchall_set_get_lazy() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+      
+    connection.set_lazy(false);
+    assert_eq!(false,connection.lazy);
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Can't set lazy while executing")]
+fn from_connect_fetchall_set_get_lazy_panic_executing() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+    
+    connection.status=ConnectionStatus::Executing;
+    connection.set_lazy(false);
+    assert_eq!(false,connection.lazy);
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Bad connection")]
+fn from_connect_fetchall_set_get_lazy_panic_bad() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+    
+    connection.status=ConnectionStatus::Bad;
+    connection.set_lazy(false);
+    assert_eq!(false,connection.lazy);
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Connection is closed")]
+fn from_connect_fetchall_set_get_lazy_panic_closed() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        lazy: true,
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+    
+    connection.status=ConnectionStatus::Closed;
+    connection.set_lazy(false);
+    assert_eq!(false,connection.lazy);
+}
+
+#[test]
+#[serial]
+fn from_connect_fetchall_set_get_autocommit() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+      
+    connection.set_autocommit(true);
+    assert_eq!(true,connection.autocommit());
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Can't set autocommit while in pending transaction")]
+fn from_connect_fetchall_set_get_autocommit_panic_transaction() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+      
+    connection.in_transaction=true;
+    connection.set_autocommit(true);
+    assert_eq!(true,connection.autocommit());
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Can't set autocommit while executing")]
+fn from_connect_fetchall_set_get_autocommit_panic_executing() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+      
+    connection.status=ConnectionStatus::Executing;
+    connection.set_autocommit(true);
+    assert_eq!(true,connection.autocommit());
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Bad connection")]
+fn from_connect_fetchall_set_get_autocommit_panic_bad() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+      
+    connection.status=ConnectionStatus::Bad;
+    connection.set_autocommit(true);
+    assert_eq!(true,connection.autocommit());
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Connection is closed")]
+fn from_connect_fetchall_set_get_autocommit_panic_closed() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+      
+    connection.status=ConnectionStatus::Closed;
+    connection.set_autocommit(true);
+    assert_eq!(true,connection.autocommit());
+}
+
+#[test]
+#[serial]
+fn from_connect_fetchall_set_get_arraysize() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+      
+    connection.set_arraysize(2);
+    assert_eq!(2,connection.arraysize());
+}
+
+#[test]
+#[serial]
+fn from_connect_fetchall_get_lazy_transaction_status() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let connection = get_connection(connect_prms);  
+      
+    assert_eq!(true,connection.lazy());
+    assert_eq!(false,connection.in_transaction());
+    assert_eq!(&ConnectionStatus::Ready,connection.status());
+}
+
+#[test]
+#[serial]
+fn from_connect_close() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+      
+    connection.close();
+    assert_eq!(&ConnectionStatus::Closed, connection.status());
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Connection is executing")]
+fn from_connect_close_panic() {
+    initialize();
+    let connect_prms = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);  
+    
+    connection.status=ConnectionStatus::Executing;
+    connection.close();
+    assert_eq!(&ConnectionStatus::Closed, connection.status());
 }
