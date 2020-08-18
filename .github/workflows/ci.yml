@@ -29,7 +29,6 @@ jobs:
         path: ~/memgraph
         key: cache-memgraph-v1.1.0-docker-image
     - name: Download and load Memgraph Docker image
-      if: steps.cache-memgraph-docker.outputs.cache-hit != 'true'
       run: |
         mkdir ~/memgraph
         curl -L https://memgraph.com/download/memgraph/v1.1.0/docker/memgraph-1.1.0-community-docker.tar.gz > ~/memgraph/memgraph-docker.tar.gz
