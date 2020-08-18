@@ -58,7 +58,7 @@ pub fn my_callback(
     assert_eq!(host, "localhost");
     assert_eq!(ip_address, "127.0.0.1");
     assert_eq!(key_type, "rsaEncryption");
-    assert_eq!(fingerprint.len(),128);
+    assert_eq!(fingerprint.len(), 128);
 
     0
 }
