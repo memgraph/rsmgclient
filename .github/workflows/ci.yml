@@ -43,10 +43,12 @@ jobs:
       run: cargo clippy
     - name: Run rust formatter
       run: cargo fmt -- --check
+    - name: Build the project
+      run: cargo build --verbose
 
-    - name: Run Memgraph and build the project
+    - name: Run Memgraph
       run: |
-        docker run -p 7687:7687 -v mg_lib:/var/lib/memgraph -v mg_log:/var/log/memgraph -v mg_etc:/etc/memgraph memgraph & cargo build
+        docker run -p 7687:7687 -v mg_lib:/var/lib/memgraph -v mg_log:/var/log/memgraph -v mg_etc:/etc/memgraph memgraph & cargo test
 
     - name: Run cargo-tarpaulin
       uses: actions-rs/tarpaulin@v0.1.2
