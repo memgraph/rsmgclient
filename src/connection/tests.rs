@@ -15,26 +15,23 @@ pub fn initialize() {
         Err(err) => panic!("Query failed: {}", err),
     };
     match connection.fetchall() {
-        Ok(records) => {
-            for record in records {
-                for _val in &record.values {}
-            }
-        }
+        Ok(_records) => {}
         Err(err) => panic!("Fetching failed: {}", err),
     }
+}
 
-    let query =
-        String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})");
+fn create_database(query: String){
+    let connect_prms = ConnectParams {
+        address: Some(String::from("127.0.0.1")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);
     match connection.execute(&query, None) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
     match connection.fetchall() {
-        Ok(records) => {
-            for record in records {
-                for _val in &record.values {}
-            }
-        }
+        Ok(_records) => {}
         Err(err) => panic!("Fetching failed: {}", err),
     }
 }
@@ -58,10 +55,10 @@ pub fn my_callback(
     key_type: &String,
     fingerprint: &String,
 ) -> i32 {
-    println!("host: {}", host);
-    println!("ip_address: {}", ip_address);
-    println!("key_type: {}", key_type);
-    println!("fingerprint: {}", fingerprint);
+    assert_eq!(host, "localhost");
+    assert_eq!(ip_address, "127.0.0.1");
+    assert_eq!(key_type, "rsaEncryption");
+    assert_eq!(fingerprint,"77f32ac3650f3a81b9be74638e89e31b849b1fbe688ab27eff77e20190f458354a56f1e2e9cc5f2370f9fd4bfe51adf30ef2d85db8a3206a43059c7c8934f103");
 
     0
 }
@@ -100,6 +97,7 @@ fn from_connect_fetchone_panic_sslkey() {
 #[serial]
 fn from_connect_fetchone() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
@@ -153,6 +151,7 @@ fn from_connect_fetchone() {
 #[should_panic(expected = "Query failed: Parameter $name not provided.")]
 fn from_connect_fetchone_none_params() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         ..Default::default()
@@ -183,6 +182,7 @@ fn from_connect_fetchone_address() {
 #[should_panic(expected = "explicit panic")]
 fn from_connect_fetchone_explicit_panic() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
@@ -234,6 +234,7 @@ fn from_connect_fetchone_explicit_panic() {
 #[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchone_closed_panic() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
@@ -265,6 +266,7 @@ fn from_connect_fetchone_closed_panic() {
 #[should_panic(expected = "Bad connection")]
 fn from_connect_fetchone_bad_panic() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
@@ -295,6 +297,7 @@ fn from_connect_fetchone_bad_panic() {
 #[serial]
 fn from_connect_fetchmany() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: false,
@@ -344,6 +347,7 @@ fn from_connect_fetchmany() {
 #[serial]
 fn from_connect_fetchmany_error() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: false,
@@ -393,6 +397,7 @@ fn from_connect_fetchmany_error() {
 #[serial]
 fn from_connect_fetchall() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -437,6 +442,7 @@ fn from_connect_fetchall() {
 #[should_panic(expected = "Fetching failed: Connection is not executing")]
 fn from_connect_fetchall_panic() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -473,6 +479,7 @@ fn from_connect_fetchall_panic() {
 #[should_panic(expected = "Connection is already executing")]
 fn from_connect_fetchall_executing_panic() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -493,6 +500,7 @@ fn from_connect_fetchall_executing_panic() {
 #[should_panic(expected = "Bad connection")]
 fn from_connect_fetchall_bad_panic() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -513,6 +521,7 @@ fn from_connect_fetchall_bad_panic() {
 #[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchall_closed_panic() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -532,6 +541,7 @@ fn from_connect_fetchall_closed_panic() {
 #[serial]
 fn from_connect_fetchone_summary() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -556,15 +566,14 @@ fn from_connect_fetchone_summary() {
     }
 
     let summary = connection.summary().unwrap();
-    for (key, val) in summary {
-        println!("{}: {}", key, val);
-    }
+    assert_eq!(5,summary.len());
 }
 
 #[test]
 #[serial]
 fn from_connect_fetchall_commit() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -595,6 +604,7 @@ fn from_connect_fetchall_commit() {
 #[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchall_commit_panic_closed() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -625,6 +635,7 @@ fn from_connect_fetchall_commit_panic_closed() {
 #[should_panic(expected = "Can't commit while executing")]
 fn from_connect_fetchall_commit_panic_executing() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -655,6 +666,7 @@ fn from_connect_fetchall_commit_panic_executing() {
 #[should_panic(expected = "Not in transaction")]
 fn from_connect_fetchall_commit_panic_transaction() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -684,6 +696,7 @@ fn from_connect_fetchall_commit_panic_transaction() {
 #[serial]
 fn from_connect_fetchall_rollback() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -714,6 +727,7 @@ fn from_connect_fetchall_rollback() {
 #[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchall_rollback_panic_closed() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -744,6 +758,7 @@ fn from_connect_fetchall_rollback_panic_closed() {
 #[should_panic(expected = "Can't commit while executing")]
 fn from_connect_fetchall_rollback_panic_executing() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -774,6 +789,7 @@ fn from_connect_fetchall_rollback_panic_executing() {
 #[should_panic(expected = "Bad connection")]
 fn from_connect_fetchall_rollback_panic_bad() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -804,6 +820,7 @@ fn from_connect_fetchall_rollback_panic_bad() {
 #[should_panic(expected = "Not in transaction")]
 fn from_connect_fetchall_rollback_panic_transaction() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -833,6 +850,7 @@ fn from_connect_fetchall_rollback_panic_transaction() {
 #[serial]
 fn from_connect_fetchall_set_get_lazy() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
@@ -849,6 +867,7 @@ fn from_connect_fetchall_set_get_lazy() {
 #[should_panic(expected = "Can't set lazy while executing")]
 fn from_connect_fetchall_set_get_lazy_panic_executing() {
     initialize();
+    create_database(String::from("CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})"));
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         lazy: true,
