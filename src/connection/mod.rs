@@ -12,16 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::bindings;
 use super::error::MgError;
 use super::value::{
     c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_map_to_hash_map, mg_value_string,
     str_to_c_str, QueryParam, Record, Value,
 };
+use crate::bindings::{
+    mg_list, mg_list_at, mg_list_size, mg_result, mg_result_summary, mg_session,
+    mg_session_destroy, mg_session_params_destroy, mg_session_params_set_address,
+    mg_session_params_set_client_name, mg_session_params_set_host, mg_session_params_set_password,
+    mg_session_params_set_port, mg_session_params_set_sslcert, mg_session_params_set_sslkey,
+    mg_session_params_set_sslmode, mg_session_params_set_trust_callback,
+    mg_session_params_set_trust_data, mg_session_params_set_username,
+    mg_sslmode_MG_SSLMODE_DISABLE, mg_sslmode_MG_SSLMODE_REQUIRE,
+};
+use cfg_if::cfg_if;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::vec::IntoIter;
-use cfg_if::cfg_if;
+cfg_if! {
+    if #[cfg(test)] {
+        use crate::bindings::mock_params_make::mg_session_params_make;
+        use crate::bindings::mock_connect::mg_connect;
+        use crate::bindings::mock_run::mg_session_run;
+        use crate::bindings::mock_pull::mg_session_pull;
+        use crate::bindings::mock_mg_session_error::mg_session_error;
+        use crate::bindings::mock_mg_result_row::mg_result_row;
+    } else {
+        use crate::bindings::{mg_session_params_make, mg_connect, mg_session_run, mg_session_pull, mg_session_error, mg_result_row};
+    }
+}
 
 pub struct ConnectParams {
     pub port: u16,
@@ -64,7 +84,7 @@ pub enum SSLMode {
 }
 
 pub struct Connection {
-    mg_session: *mut bindings::mg_session,
+    mg_session: *mut mg_session,
     lazy: bool,
     autocommit: bool,
     in_transaction: bool,
@@ -84,19 +104,19 @@ pub enum ConnectionStatus {
 
 fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
     match sslmode {
-        SSLMode::Disable => bindings::mg_sslmode_MG_SSLMODE_DISABLE,
-        SSLMode::Require => bindings::mg_sslmode_MG_SSLMODE_REQUIRE,
+        SSLMode::Disable => mg_sslmode_MG_SSLMODE_DISABLE,
+        SSLMode::Require => mg_sslmode_MG_SSLMODE_REQUIRE,
     }
 }
 
-fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
-    let c_error_message = unsafe { bindings::mg_session_error(mg_session) };
+fn read_error_message(mg_session: *mut mg_session) -> String {
+    let c_error_message = unsafe { mg_session_error(mg_session) };
     unsafe { c_string_to_string(c_error_message, None) }
 }
 
 impl Drop for Connection {
     fn drop(&mut self) {
-        unsafe { bindings::mg_session_destroy(self.mg_session) };
+        unsafe { mg_session_destroy(self.mg_session) };
     }
 }
 
@@ -155,67 +175,48 @@ impl Connection {
     }
 
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
-        cfg_if!{
-            if #[cfg(test)]{
-                let mg_session_params = unsafe { bindings::mock_params_make::mg_session_params_make() };
-            } else{
-                let mg_session_params = unsafe { bindings::mg_session_params_make() };
-            }
-        }
+        let mg_session_params = unsafe { mg_session_params_make() };
         let mut trust_callback_ptr = std::ptr::null_mut();
         unsafe {
             match &param_struct.host {
-                Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
+                Some(x) => mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
                 None => {}
             }
-            bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
+            mg_session_params_set_port(mg_session_params, param_struct.port);
             match &param_struct.address {
-                Some(x) => {
-                    bindings::mg_session_params_set_address(mg_session_params, str_to_c_str(x))
-                }
+                Some(x) => mg_session_params_set_address(mg_session_params, str_to_c_str(x)),
                 None => {}
             }
             match &param_struct.username {
-                Some(x) => {
-                    bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(x))
-                }
+                Some(x) => mg_session_params_set_username(mg_session_params, str_to_c_str(x)),
                 None => {}
             }
             match &param_struct.password {
-                Some(x) => {
-                    bindings::mg_session_params_set_password(mg_session_params, str_to_c_str(x))
-                }
+                Some(x) => mg_session_params_set_password(mg_session_params, str_to_c_str(x)),
                 None => {}
             }
-            bindings::mg_session_params_set_client_name(
+            mg_session_params_set_client_name(
                 mg_session_params,
                 str_to_c_str(&param_struct.client_name),
             );
-            bindings::mg_session_params_set_sslmode(
-                mg_session_params,
-                sslmode_to_c(&param_struct.sslmode),
-            );
+            mg_session_params_set_sslmode(mg_session_params, sslmode_to_c(&param_struct.sslmode));
             match &param_struct.sslcert {
-                Some(x) => {
-                    bindings::mg_session_params_set_sslcert(mg_session_params, str_to_c_str(x))
-                }
+                Some(x) => mg_session_params_set_sslcert(mg_session_params, str_to_c_str(x)),
                 None => {}
             }
             match &param_struct.sslkey {
-                Some(x) => {
-                    bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x))
-                }
+                Some(x) => mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x)),
                 None => {}
             }
             match &param_struct.trust_callback {
                 Some(x) => {
                     trust_callback_ptr = Box::into_raw(Box::new(*x));
 
-                    bindings::mg_session_params_set_trust_data(
+                    mg_session_params_set_trust_data(
                         mg_session_params,
                         trust_callback_ptr as *mut ::std::os::raw::c_void,
                     );
-                    bindings::mg_session_params_set_trust_callback(
+                    mg_session_params_set_trust_callback(
                         mg_session_params,
                         Some(trust_callback_wrapper),
                     );
@@ -224,16 +225,10 @@ impl Connection {
             }
         }
 
-        let mut mg_session: *mut bindings::mg_session = std::ptr::null_mut();
-        cfg_if!{
-            if #[cfg(test)]{
-                let status = unsafe { bindings::mock_connect::mg_connect(mg_session_params, &mut mg_session) };
-            } else{
-                let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
-            }
-        }
+        let mut mg_session: *mut mg_session = std::ptr::null_mut();
+        let status = unsafe { mg_connect(mg_session_params, &mut mg_session) };
         unsafe {
-            bindings::mg_session_params_destroy(mg_session_params);
+            mg_session_params_destroy(mg_session_params);
             if !trust_callback_ptr.is_null() {
                 Box::from_raw(trust_callback_ptr);
             }
@@ -256,53 +251,25 @@ impl Connection {
     }
 
     fn connection_run_without_results(&mut self, query: &str) -> Result<(), MgError> {
-        cfg_if!{
-            if #[cfg(test)]{
-                match unsafe {
-                    bindings::mock_run::mg_session_run(
-                        self.mg_session,
-                        str_to_c_str(query),
-                        std::ptr::null(),
-                        std::ptr::null_mut(),
-                    )
-                } {
-                    0 => {}
-                    _ => {
-                        self.status = ConnectionStatus::Bad;
-                        return Err(MgError::new(read_error_message(self.mg_session)));
-                    }
-                }
-            } else{
-                match unsafe {
-                    bindings::mg_session_run(
-                        self.mg_session,
-                        str_to_c_str(query),
-                        std::ptr::null(),
-                        std::ptr::null_mut(),
-                    )
-                } {
-                    0 => {}
-                    _ => {
-                        self.status = ConnectionStatus::Bad;
-                        return Err(MgError::new(read_error_message(self.mg_session)));
-                    }
-                }
+        match unsafe {
+            mg_session_run(
+                self.mg_session,
+                str_to_c_str(query),
+                std::ptr::null(),
+                std::ptr::null_mut(),
+            )
+        } {
+            0 => {}
+            _ => {
+                self.status = ConnectionStatus::Bad;
+                return Err(MgError::new(read_error_message(self.mg_session)));
             }
         }
 
         let mut result = std::ptr::null_mut();
-        cfg_if!{
-            if #[cfg(test)]{
-                match unsafe { bindings::mock_pull::mg_session_pull(self.mg_session, &mut result) } {
-                    0 => Ok(()),
-                    _ => Err(MgError::new(read_error_message(self.mg_session))),
-                }
-            } else{
-                match unsafe { bindings::mg_session_pull(self.mg_session, &mut result) } {
-                    0 => Ok(()),
-                    _ => Err(MgError::new(read_error_message(self.mg_session))),
-                }
-            }
+        match unsafe { mg_session_pull(self.mg_session, &mut result) } {
+            0 => Ok(()),
+            _ => Err(MgError::new(read_error_message(self.mg_session))),
         }
     }
 
@@ -339,9 +306,8 @@ impl Connection {
             None => std::ptr::null_mut(),
         };
         let mut columns = std::ptr::null();
-        let status = unsafe {
-            bindings::mg_session_run(self.mg_session, c_query.as_ptr(), mg_params, &mut columns)
-        };
+        let status =
+            unsafe { mg_session_run(self.mg_session, c_query.as_ptr(), mg_params, &mut columns) };
 
         if status != 0 {
             self.status = ConnectionStatus::Bad;
@@ -438,23 +404,16 @@ impl Connection {
     }
 
     fn pull(&mut self) -> Result<Option<Record>, MgError> {
-        let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
-        cfg_if!{
-            if #[cfg(test)]{
-                let status = unsafe { bindings::mock_pull::mg_session_pull(self.mg_session, &mut mg_result) };
-            } else{
-                let status = unsafe { bindings::mg_session_pull(self.mg_session, &mut mg_result) };
-            }
-        }
-        let row = unsafe { bindings::mg_result_row(mg_result) };
+        let mut mg_result: *mut mg_result = std::ptr::null_mut();
+        let status = unsafe { mg_session_pull(self.mg_session, &mut mg_result) };
+
+        let row = unsafe { mg_result_row(mg_result) };
         match status {
             1 => Ok(Some(Record {
                 values: unsafe { mg_list_to_vec(row) },
             })),
             0 => {
-                self.summary = Some(mg_map_to_hash_map(unsafe {
-                    bindings::mg_result_summary(mg_result)
-                }));
+                self.summary = Some(mg_map_to_hash_map(unsafe { mg_result_summary(mg_result) }));
                 Ok(None)
             }
             _ => Err(MgError::new(read_error_message(self.mg_session))),
@@ -534,11 +493,11 @@ impl Connection {
     }
 }
 
-fn parse_columns(mg_list: *const bindings::mg_list) -> Vec<String> {
-    let size = unsafe { bindings::mg_list_size(mg_list) };
+fn parse_columns(mg_list: *const mg_list) -> Vec<String> {
+    let size = unsafe { mg_list_size(mg_list) };
     let mut columns: Vec<String> = Vec::new();
     for i in 0..size {
-        let mg_value = unsafe { bindings::mg_list_at(mg_list, i) };
+        let mg_value = unsafe { mg_list_at(mg_list, i) };
         columns.push(mg_value_string(mg_value));
     }
     columns
