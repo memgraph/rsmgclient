@@ -1,6 +1,68 @@
 use super::*;
-use crate::{Node, Value};
+use crate::{bindings, Node, Value};
 use serial_test::serial;
+
+struct Mockery {
+    mg_session_params_make_ctx: bindings::mock_params_make::__mg_session_params_make::Context,
+    mg_connect_ctx: bindings::mock_connect::__mg_connect::Context,
+    mg_session_run_ctx: bindings::mock_run::__mg_session_run::Context,
+    mg_session_pull_ctx: bindings::mock_pull::__mg_session_pull::Context,
+    mg_session_error_ctx: bindings::mock_mg_session_error::__mg_session_error::Context,
+    mg_result_row_ctx: bindings::mock_mg_result_row::__mg_result_row::Context,
+}
+
+impl Default for Mockery {
+    fn default() -> Self {
+        Mockery {
+            mg_session_params_make_ctx: {
+                let ctx = bindings::mock_params_make::mg_session_params_make_context();
+                ctx.expect()
+                    .returning(|| unsafe { bindings::mg_session_params_make() });
+                ctx
+            },
+            mg_connect_ctx: {
+                let ctx = bindings::mock_connect::mg_connect_context();
+                ctx.expect()
+                    .returning(|arg1, arg2| unsafe { bindings::mg_connect(arg1, arg2) });
+                ctx
+            },
+            mg_session_run_ctx: {
+                let ctx = bindings::mock_run::mg_session_run_context();
+                ctx.expect().returning(|arg1, arg2, arg3, arg4| unsafe {
+                    bindings::mg_session_run(arg1, arg2, arg3, arg4)
+                });
+                ctx
+            },
+            mg_session_pull_ctx: {
+                let ctx = bindings::mock_pull::mg_session_pull_context();
+                ctx.expect()
+                    .returning(|arg1, arg2| unsafe { bindings::mg_session_pull(arg1, arg2) });
+                ctx
+            },
+            mg_session_error_ctx: {
+                let ctx = bindings::mock_mg_session_error::mg_session_error_context();
+                ctx.expect()
+                    .returning(|arg1| unsafe { bindings::mg_session_error(arg1) });
+                ctx
+            },
+            mg_result_row_ctx: {
+                let ctx = bindings::mock_mg_result_row::mg_result_row_context();
+                ctx.expect()
+                    .returning(|arg1| unsafe { bindings::mg_result_row(arg1) });
+                ctx
+            },
+        }
+    }
+}
+
+fn run_test(test: fn(mock: &mut Mockery)) {
+    let mut mock = Mockery {
+        ..Default::default()
+    };
+    initialize();
+    test(&mut mock);
+    // teardown if needed
+}
 
 pub fn initialize() {
     let connect_prms = ConnectParams {
@@ -68,30 +130,16 @@ pub fn my_callback(
 #[serial]
 #[should_panic(expected = "both sslcert and sslkey should be provided")]
 fn from_connect_fetchone_panic_sslcert() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        trust_callback: Some(&my_callback),
-        lazy: false,
-        sslcert: Some(String::from("test_sslcert")),
-        ..Default::default()
-    };
-    let _connection = get_connection(connect_prms);
-}
-
-#[test]
-#[serial]
-#[should_panic(expected = "both sslcert and sslkey should be provided")]
-fn from_connect_fetchone_panic_sslkey() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        trust_callback: Some(&my_callback),
-        lazy: false,
-        sslkey: Some(String::from("test_sslkey")),
-        ..Default::default()
-    };
-    let _connection = get_connection(connect_prms);
+    run_test(|mock| {
+        let connect_prms = ConnectParams {
+            address: Some(String::from("127.0.0.1")),
+            trust_callback: Some(&my_callback),
+            lazy: false,
+            sslcert: Some(String::from("test_sslcert")),
+            ..Default::default()
+        };
+        let _connection = get_connection(connect_prms);
+    });
 }
 
 #[test]
