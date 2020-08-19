@@ -2001,6 +2001,7 @@ extern "C" {
 extern "C" {
     pub fn mg_session_status(session: *const mg_session) -> ::std::os::raw::c_int;
 }
+#[automock(mod mock_mg_session_error;)]
 extern "C" {
     pub fn mg_session_error(session: *mut mg_session) -> *const ::std::os::raw::c_char;
 }
@@ -2027,6 +2028,7 @@ extern "C" {
 extern "C" {
     pub fn mg_result_columns(result: *const mg_result) -> *const mg_list;
 }
+#[automock(mod mock_mg_result_row;)]
 extern "C" {
     pub fn mg_result_row(result: *const mg_result) -> *const mg_list;
 }
