@@ -1,5 +1,5 @@
 use super::*;
-use crate::{bindings, Node, Value};
+use crate::bindings;
 use serial_test::serial;
 
 struct Mockery {
@@ -130,7 +130,7 @@ pub fn my_callback(
 #[serial]
 #[should_panic(expected = "both sslcert and sslkey should be provided")]
 fn from_connect_fetchone_panic_sslcert() {
-    run_test(|mock| {
+    run_test(|_mock| {
         let connect_prms = ConnectParams {
             address: Some(String::from("127.0.0.1")),
             trust_callback: Some(&my_callback),
@@ -144,57 +144,41 @@ fn from_connect_fetchone_panic_sslcert() {
 
 #[test]
 #[serial]
-fn from_connect_fetchone() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        trust_callback: Some(&my_callback),
-        lazy: false,
-        username: Some(String::from("test_username")),
-        password: Some(String::from("test_password")),
-        client_name: String::from("test_username test_password"),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(), "Alice".to_string());
+fn error_while_pulling() {
+    run_test(|mut mockery| {
+        let mut connection = get_connection(ConnectParams {
+            address: Some(String::from("127.0.0.1")),
+            ..Default::default()
+        });
 
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    let columns = match connection.execute(&query, Some(&params)) {
-        Ok(x) => x,
-        Err(err) => panic!("Query failed: {}", err),
-    };
-    assert_eq!(columns.join(", "), "n");
-    assert_eq!(connection.lazy, false);
+        let query =
+            "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, m";
+        let result = connection.execute(query, None);
+        assert!(result.is_ok());
 
-    loop {
-        match connection.fetchone() {
-            Ok(res) => match res {
-                Some(x) => {
-                    for val in &x.values {
-                        let values = vec![String::from("User")];
-                        let mg_map = hashmap! {
-                            String::from("name") => Value::String("Alice".to_string()),
-                        };
-                        let node = Value::Node(Node {
-                            id: match val {
-                                Value::Node(x) => x.id,
-                                _ => 1,
-                            },
-                            label_count: 1,
-                            labels: values,
-                            properties: mg_map,
-                        });
-                        assert_eq!(&node, val);
-                    }
-                }
-                None => break,
-            },
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
-    }
+        mockery.mg_session_pull_ctx = bindings::mock_pull::mg_session_pull_context();
+        mockery
+            .mg_session_pull_ctx
+            .expect()
+            .returning(|_arg1, _arg2| 4);
+
+        mockery.mg_result_row_ctx = bindings::mock_mg_result_row::mg_result_row_context();
+        mockery
+            .mg_result_row_ctx
+            .expect()
+            .returning(|_arg1| std::ptr::null_mut());
+
+        mockery.mg_session_error_ctx = bindings::mock_mg_session_error::mg_session_error_context();
+        mockery
+            .mg_session_error_ctx
+            .expect()
+            .returning(|_arg1| str_to_c_str("error"));
+
+        let result = connection.fetchall();
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().to_string(), String::from("error"));
+        assert_eq!(connection.status, ConnectionStatus::Bad);
+    });
 }
 
 // #[test]
