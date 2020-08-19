@@ -1870,6 +1870,9 @@ pub type mg_trust_callback_type = ::std::option::Option<
         arg5: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int,
 >;
+
+use mockall::automock;
+#[automock(mod mock_params_make;)]
 extern "C" {
     pub fn mg_session_params_make() -> *mut mg_session_params;
 }
@@ -1987,6 +1990,8 @@ extern "C" {
         arg1: *const mg_session_params,
     ) -> *mut ::std::os::raw::c_void;
 }
+
+#[automock(mod mock_connect;)]
 extern "C" {
     pub fn mg_connect(
         params: *const mg_session_params,
@@ -2002,6 +2007,8 @@ extern "C" {
 extern "C" {
     pub fn mg_session_destroy(session: *mut mg_session);
 }
+
+#[automock(mod mock_run;)]
 extern "C" {
     pub fn mg_session_run(
         session: *mut mg_session,
@@ -2010,6 +2017,7 @@ extern "C" {
         columns: *mut *const mg_list,
     ) -> ::std::os::raw::c_int;
 }
+#[automock(mod mock_pull;)]
 extern "C" {
     pub fn mg_session_pull(
         session: *mut mg_session,

@@ -6,6 +6,8 @@ edition = "2018"
 
 [dependencies]
 maplit = "1.0.2"
+mockall = "0.7.2"
+cfg-if = "0.1"
 
 [dev-dependencies]
 libc = "0.2"

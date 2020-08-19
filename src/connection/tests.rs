@@ -1140,7 +1140,7 @@ fn from_connect_close() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-
+    
     connection.close();
     assert_eq!(&ConnectionStatus::Closed, connection.status());
 }

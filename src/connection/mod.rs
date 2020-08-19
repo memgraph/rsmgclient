@@ -21,6 +21,7 @@ use super::value::{
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::vec::IntoIter;
+use cfg_if::cfg_if;
 
 pub struct ConnectParams {
     pub port: u16,
@@ -154,7 +155,13 @@ impl Connection {
     }
 
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
-        let mg_session_params = unsafe { bindings::mg_session_params_make() };
+        cfg_if!{
+            if #[cfg(test)]{
+                let mg_session_params = unsafe { bindings::mock_params_make::mg_session_params_make() };
+            } else{
+                let mg_session_params = unsafe { bindings::mg_session_params_make() };
+            }
+        }
         let mut trust_callback_ptr = std::ptr::null_mut();
         unsafe {
             match &param_struct.host {
@@ -218,7 +225,13 @@ impl Connection {
         }
 
         let mut mg_session: *mut bindings::mg_session = std::ptr::null_mut();
-        let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
+        cfg_if!{
+            if #[cfg(test)]{
+                let status = unsafe { bindings::mock_connect::mg_connect(mg_session_params, &mut mg_session) };
+            } else{
+                let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
+            }
+        }
         unsafe {
             bindings::mg_session_params_destroy(mg_session_params);
             if !trust_callback_ptr.is_null() {
@@ -243,25 +256,53 @@ impl Connection {
     }
 
     fn connection_run_without_results(&mut self, query: &str) -> Result<(), MgError> {
-        match unsafe {
-            bindings::mg_session_run(
-                self.mg_session,
-                str_to_c_str(query),
-                std::ptr::null(),
-                std::ptr::null_mut(),
-            )
-        } {
-            0 => {}
-            _ => {
-                self.status = ConnectionStatus::Bad;
-                return Err(MgError::new(read_error_message(self.mg_session)));
+        cfg_if!{
+            if #[cfg(test)]{
+                match unsafe {
+                    bindings::mock_run::mg_session_run(
+                        self.mg_session,
+                        str_to_c_str(query),
+                        std::ptr::null(),
+                        std::ptr::null_mut(),
+                    )
+                } {
+                    0 => {}
+                    _ => {
+                        self.status = ConnectionStatus::Bad;
+                        return Err(MgError::new(read_error_message(self.mg_session)));
+                    }
+                }
+            } else{
+                match unsafe {
+                    bindings::mg_session_run(
+                        self.mg_session,
+                        str_to_c_str(query),
+                        std::ptr::null(),
+                        std::ptr::null_mut(),
+                    )
+                } {
+                    0 => {}
+                    _ => {
+                        self.status = ConnectionStatus::Bad;
+                        return Err(MgError::new(read_error_message(self.mg_session)));
+                    }
+                }
             }
         }
 
         let mut result = std::ptr::null_mut();
-        match unsafe { bindings::mg_session_pull(self.mg_session, &mut result) } {
-            0 => Ok(()),
-            _ => Err(MgError::new(read_error_message(self.mg_session))),
+        cfg_if!{
+            if #[cfg(test)]{
+                match unsafe { bindings::mock_pull::mg_session_pull(self.mg_session, &mut result) } {
+                    0 => Ok(()),
+                    _ => Err(MgError::new(read_error_message(self.mg_session))),
+                }
+            } else{
+                match unsafe { bindings::mg_session_pull(self.mg_session, &mut result) } {
+                    0 => Ok(()),
+                    _ => Err(MgError::new(read_error_message(self.mg_session))),
+                }
+            }
         }
     }
 
@@ -398,7 +439,13 @@ impl Connection {
 
     fn pull(&mut self) -> Result<Option<Record>, MgError> {
         let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
-        let status = unsafe { bindings::mg_session_pull(self.mg_session, &mut mg_result) };
+        cfg_if!{
+            if #[cfg(test)]{
+                let status = unsafe { bindings::mock_pull::mg_session_pull(self.mg_session, &mut mg_result) };
+            } else{
+                let status = unsafe { bindings::mg_session_pull(self.mg_session, &mut mg_result) };
+            }
+        }
         let row = unsafe { bindings::mg_result_row(mg_result) };
         match status {
             1 => Ok(Some(Record {

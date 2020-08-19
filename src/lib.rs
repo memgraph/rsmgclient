@@ -15,6 +15,10 @@
 #[cfg_attr(test, macro_use)]
 extern crate maplit;
 
+extern crate mockall;
+
+extern crate cfg_if;
+
 #[allow(dead_code)]
 mod bindings;
 mod connection;
