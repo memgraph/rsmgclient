@@ -110,5 +110,8 @@ fn main() {
         Err(err) => panic!("Fetching failed: {}", err),
     }
 
-    connection.commit();
+    match connection.commit() {
+        Ok(_) => {}
+        Err(err) => panic!("Fetching failed: {}", err),
+    }
 }

@@ -49,6 +49,7 @@ fn get_params(str_value: String, qrp: String) -> HashMap<String, QueryParam> {
     params
 }
 
+#[allow(clippy::ptr_arg)]
 pub fn my_callback(
     host: &String,
     ip_address: &String,
