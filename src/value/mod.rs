@@ -119,6 +119,7 @@ fn mg_value_float(mg_value: *const bindings::mg_value) -> f64 {
     unsafe { bindings::mg_value_float(mg_value) }
 }
 
+/// # Safety
 pub unsafe fn c_string_to_string(c_str: *const i8, size: Option<u32>) -> String {
     // https://github.com/rust-lang/rust/blob/master/library/std/src/ffi/c_str.rs#L1230
     let c_str = match size {
@@ -264,6 +265,7 @@ fn mg_value_path(mg_value: *const bindings::mg_value) -> Path {
     }
 }
 
+/// # Safety
 pub unsafe fn mg_list_to_vec(mg_list: *const bindings::mg_list) -> Vec<Value> {
     let size = bindings::mg_list_size(mg_list);
     let mut mg_values: Vec<Value> = Vec::new();
@@ -288,11 +290,11 @@ pub fn hash_map_to_mg_map(hash_map: &HashMap<String, QueryParam>) -> *mut bindin
 
 // allocates memory and passes ownership, user is responsible for freeing object!
 pub fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
-    let c_str = unsafe { Box::into_raw(Box::new(CString::new(string).unwrap())) };
+    let c_str = Box::into_raw(Box::new(CString::new(string).unwrap()));
     unsafe { (*c_str).as_ptr() }
 }
 
-pub fn vector_to_mg_list(vector: &Vec<QueryParam>) -> *mut bindings::mg_list {
+pub fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
     let size = vector.len() as u32;
     let mg_list = unsafe { bindings::mg_list_make_empty(size) };
     for mg_val in vector {
@@ -304,6 +306,7 @@ pub fn vector_to_mg_list(vector: &Vec<QueryParam>) -> *mut bindings::mg_list {
 }
 
 impl Value {
+    /// # Safety
     pub unsafe fn from_mg_value(c_mg_value: *const bindings::mg_value) -> Value {
         match bindings::mg_value_get_type(c_mg_value) {
             bindings::mg_value_type_MG_VALUE_TYPE_NULL => Value::Null,
@@ -333,27 +336,25 @@ impl Value {
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        unsafe {
-            match self {
-                Value::Null => write!(f, "NULL"),
-                Value::Bool(x) => write!(f, "{}", x),
-                Value::Int(x) => write!(f, "{}", x),
-                Value::Float(x) => write!(f, "{}", x),
-                Value::String(x) => write!(f, "'{}'", x),
-                Value::List(x) => write!(
-                    f,
-                    "{}",
-                    x.iter()
-                        .map(|val| val.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                ),
-                Value::Map(x) => write!(f, "{}", mg_map_to_string(x)),
-                Value::Node(x) => write!(f, "{}", x),
-                Value::Relationship(x) => write!(f, "{}", x),
-                Value::UnboundRelationship(x) => write!(f, "{}", x),
-                Value::Path(x) => write!(f, "{}", x),
-            }
+        match self {
+            Value::Null => write!(f, "NULL"),
+            Value::Bool(x) => write!(f, "{}", x),
+            Value::Int(x) => write!(f, "{}", x),
+            Value::Float(x) => write!(f, "{}", x),
+            Value::String(x) => write!(f, "'{}'", x),
+            Value::List(x) => write!(
+                f,
+                "{}",
+                x.iter()
+                    .map(|val| val.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Value::Map(x) => write!(f, "{}", mg_map_to_string(x)),
+            Value::Node(x) => write!(f, "{}", x),
+            Value::Relationship(x) => write!(f, "{}", x),
+            Value::UnboundRelationship(x) => write!(f, "{}", x),
+            Value::Path(x) => write!(f, "{}", x),
         }
     }
 }

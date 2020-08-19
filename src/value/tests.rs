@@ -4,7 +4,7 @@ use std::mem;
 extern crate libc;
 
 unsafe fn to_c_pointer_array<T, S>(
-    vec: &Vec<T>,
+    vec: &[T],
     convert_fun: impl Fn(&T) -> *mut S,
 ) -> *mut *mut S {
     let size = vec.len() * mem::size_of::<*mut std::os::raw::c_void>();
@@ -15,13 +15,13 @@ unsafe fn to_c_pointer_array<T, S>(
     ptr
 }
 
-unsafe fn to_array_of_strings(vec: &Vec<String>) -> *mut *mut bindings::mg_string {
+unsafe fn to_array_of_strings(vec: &[String]) -> *mut *mut bindings::mg_string {
     to_c_pointer_array(vec, |el| {
         bindings::mg_string_make(str_to_c_str(el.as_str()))
     })
 }
 
-unsafe fn to_array_of_nodes(vec: &Vec<Node>) -> *mut *mut bindings::mg_node {
+unsafe fn to_array_of_nodes(vec: &[Node]) -> *mut *mut bindings::mg_node {
     to_c_pointer_array(vec, |el| {
         bindings::mg_node_copy(&bindings::mg_node {
             id: el.id,
@@ -33,7 +33,7 @@ unsafe fn to_array_of_nodes(vec: &Vec<Node>) -> *mut *mut bindings::mg_node {
 }
 
 unsafe fn to_array_of_unbound_relationships(
-    vec: &Vec<UnboundRelationship>,
+    vec: &[UnboundRelationship],
 ) -> *mut *mut bindings::mg_unbound_relationship {
     to_c_pointer_array(vec, |x| {
         bindings::mg_unbound_relationship_copy(&bindings::mg_unbound_relationship {
@@ -44,7 +44,7 @@ unsafe fn to_array_of_unbound_relationships(
     })
 }
 
-unsafe fn to_c_int_array(vec: &Vec<i64>) -> *mut i64 {
+unsafe fn to_c_int_array(vec: &[i64]) -> *mut i64 {
     let size = vec.len() * mem::size_of::<i64>();
     let ptr = libc::malloc(size) as *mut i64;
     for (i, el) in vec.iter().enumerate() {
@@ -81,7 +81,7 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
                 bindings::mg_value_make_node(bindings::mg_node_copy(&c_node))
             }
             Value::Relationship(x) => {
-                let c_type = unsafe { bindings::mg_string_make(str_to_c_str(&x.type_)) };
+                let c_type = bindings::mg_string_make(str_to_c_str(&x.type_));
                 let c_relationship2 = bindings::mg_relationship {
                     id: x.id,
                     start_id: x.start_id,
@@ -94,7 +94,7 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
                 ))
             }
             Value::UnboundRelationship(x) => {
-                let c_type = unsafe { bindings::mg_string_make(str_to_c_str(&x.type_)) };
+                let c_type = bindings::mg_string_make(str_to_c_str(&x.type_));
                 let c_unbound_relationship = bindings::mg_unbound_relationship {
                     id: x.id,
                     type_: c_type,
@@ -130,7 +130,7 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
         }
     }
 }
-fn vector_to_mg_list(vector: &Vec<Value>) -> *mut bindings::mg_list {
+fn vector_to_mg_list(vector: &[Value]) -> *mut bindings::mg_list {
     let size = vector.len() as u32;
     let mg_list = unsafe { bindings::mg_list_make_empty(size) };
     for mg_val in vector {
