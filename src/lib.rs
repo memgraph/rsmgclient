@@ -28,3 +28,4 @@ mod value;
 pub use connection::*;
 pub use error::*;
 pub use value::*;
+pub use bindings::*;
