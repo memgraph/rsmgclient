@@ -314,11 +314,11 @@ pub(crate) fn hash_map_to_mg_map(hash_map: &HashMap<String, QueryParam>) -> *mut
 
 // allocates memory and passes ownership, user is responsible for freeing object!
 pub(crate) fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
-    let c_str = unsafe { Box::into_raw(Box::new(CString::new(string).unwrap())) };
+    let c_str = Box::into_raw(Box::new(CString::new(string).unwrap()));
     unsafe { (*c_str).as_ptr() }
 }
 
-pub(crate) fn vector_to_mg_list(vector: &Vec<QueryParam>) -> *mut bindings::mg_list {
+pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
     let size = vector.len() as u32;
     let mg_list = unsafe { bindings::mg_list_make_empty(size) };
     for mg_val in vector {
@@ -359,27 +359,25 @@ impl Value {
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        unsafe {
-            match self {
-                Value::Null => write!(f, "NULL"),
-                Value::Bool(x) => write!(f, "{}", x),
-                Value::Int(x) => write!(f, "{}", x),
-                Value::Float(x) => write!(f, "{}", x),
-                Value::String(x) => write!(f, "'{}'", x),
-                Value::List(x) => write!(
-                    f,
-                    "{}",
-                    x.iter()
-                        .map(|val| val.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                ),
-                Value::Map(x) => write!(f, "{}", mg_map_to_string(x)),
-                Value::Node(x) => write!(f, "{}", x),
-                Value::Relationship(x) => write!(f, "{}", x),
-                Value::UnboundRelationship(x) => write!(f, "{}", x),
-                Value::Path(x) => write!(f, "{}", x),
-            }
+        match self {
+            Value::Null => write!(f, "NULL"),
+            Value::Bool(x) => write!(f, "{}", x),
+            Value::Int(x) => write!(f, "{}", x),
+            Value::Float(x) => write!(f, "{}", x),
+            Value::String(x) => write!(f, "'{}'", x),
+            Value::List(x) => write!(
+                f,
+                "{}",
+                x.iter()
+                    .map(|val| val.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Value::Map(x) => write!(f, "{}", mg_map_to_string(x)),
+            Value::Node(x) => write!(f, "{}", x),
+            Value::Relationship(x) => write!(f, "{}", x),
+            Value::UnboundRelationship(x) => write!(f, "{}", x),
+            Value::Path(x) => write!(f, "{}", x),
         }
     }
 }

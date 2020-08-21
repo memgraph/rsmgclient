@@ -160,7 +160,7 @@ pub struct Connection {
 }
 
 /// Representation of current connection status.
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum ConnectionStatus {
     /// Connection is ready to start executing.
     Ready,
@@ -695,8 +695,15 @@ extern "C" fn trust_callback_wrapper(
     fingerprint: *const ::std::os::raw::c_char,
     fun_raw: *mut ::std::os::raw::c_void,
 ) -> ::std::os::raw::c_int {
-    let fun: &mut &mut dyn Fn(&String, &String, &String, &String) -> i32 =
-        unsafe { std::mem::transmute(fun_raw) };
+    let fun: &mut &mut dyn Fn(&String, &String, &String, &String) -> i32 = unsafe {
+        &mut *(fun_raw
+            as *mut &mut dyn for<'r, 's, 't0, 't1> std::ops::Fn(
+                &'r std::string::String,
+                &'s std::string::String,
+                &'t0 std::string::String,
+                &'t1 std::string::String,
+            ) -> i32)
+    };
 
     unsafe {
         fun(
@@ -707,3 +714,6 @@ extern "C" fn trust_callback_wrapper(
         ) as std::os::raw::c_int
     }
 }
+
+#[cfg(test)]
+mod tests;

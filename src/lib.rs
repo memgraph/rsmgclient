@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[macro_use]
+#[cfg_attr(test, macro_use)]
 extern crate maplit;
 
 #[allow(dead_code)]
