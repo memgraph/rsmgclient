@@ -136,7 +136,7 @@ pub enum SSLMode {
 ///
 /// match connection.fetchall() {
 ///     Ok(records) => {
-///         for value in records[0].values {
+///         for value in &records[0].values {
 ///             println!("{}", value);
 ///         }
 ///     },
@@ -293,7 +293,7 @@ impl Connection {
     ///
     /// let connect_params = ConnectParams {
     ///     host: Some(String::from("localhost")),
-    ///     ..Default.default()
+    ///     ..Default::default()
     /// };
     ///
     /// let connection = match Connection::connect(&connect_params) {
