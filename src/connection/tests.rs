@@ -5,7 +5,8 @@ use serial_test::serial;
 
 struct Mockery {
     mg_connect_ctx: bindings::mock_connect::__mg_connect::Context,
-    mg_session_params_destroy_ctx: bindings::mock_params_destroy::__mg_session_params_destroy::Context,
+    mg_session_params_destroy_ctx:
+        bindings::mock_params_destroy::__mg_session_params_destroy::Context,
     mg_session_run_ctx: bindings::mock_run::__mg_session_run::Context,
     mg_session_pull_ctx: bindings::mock_pull::__mg_session_pull::Context,
     mg_session_error_ctx: bindings::mock_mg_session_error::__mg_session_error::Context,
@@ -185,7 +186,6 @@ fn error_while_pulling_fetchall() {
 #[serial]
 fn error_while_connecting_fetchall() {
     run_test(|mut mockery| {
-        
         let mut connection = get_connection(ConnectParams {
             address: Some(String::from("127.0.0.1")),
             ..Default::default()
@@ -197,12 +197,10 @@ fn error_while_connecting_fetchall() {
         assert!(result.is_ok());
 
         mockery.mg_connect_ctx = bindings::mock_connect::mg_connect_context();
-        mockery
-            .mg_connect_ctx
-            .expect()
-            .returning(|_arg1, _arg2| 4);
+        mockery.mg_connect_ctx.expect().returning(|_arg1, _arg2| 4);
 
-        mockery.mg_session_params_destroy_ctx = bindings::mock_params_destroy::mg_session_params_destroy_context();
+        mockery.mg_session_params_destroy_ctx =
+            bindings::mock_params_destroy::mg_session_params_destroy_context();
         mockery
             .mg_session_params_destroy_ctx
             .expect()
