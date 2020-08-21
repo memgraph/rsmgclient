@@ -144,7 +144,7 @@ fn from_connect_fetchone_panic_sslcert() {
 
 #[test]
 #[serial]
-fn error_while_pulling() {
+fn error_while_pulling_fetchall() {
     run_test(|mut mockery| {
         let mut connection = get_connection(ConnectParams {
             address: Some(String::from("127.0.0.1")),
@@ -177,6 +177,97 @@ fn error_while_pulling() {
         let result = connection.fetchall();
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().to_string(), String::from("error"));
+        assert_eq!(connection.status, ConnectionStatus::Bad);
+    });
+}
+
+#[test]
+#[serial]
+fn error_while_pulling_fetchmany() {
+    run_test(|mut mockery| {
+        let mut connection = get_connection(ConnectParams {
+            address: Some(String::from("127.0.0.1")),
+            ..Default::default()
+        });
+
+        let query =
+            "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, m";
+        let result = connection.execute(query, None);
+        assert!(result.is_ok());
+
+        mockery.mg_session_pull_ctx = bindings::mock_pull::mg_session_pull_context();
+        mockery
+            .mg_session_pull_ctx
+            .expect()
+            .returning(|_arg1, _arg2| 4);
+
+        mockery.mg_result_row_ctx = bindings::mock_mg_result_row::mg_result_row_context();
+        mockery
+            .mg_result_row_ctx
+            .expect()
+            .returning(|_arg1| std::ptr::null_mut());
+
+        mockery.mg_session_error_ctx = bindings::mock_mg_session_error::mg_session_error_context();
+        mockery
+            .mg_session_error_ctx
+            .expect()
+            .returning(|_arg1| str_to_c_str("error"));
+
+        let result = connection.fetchmany(Some(3));
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().to_string(), String::from("error"));
+        assert_eq!(connection.status, ConnectionStatus::Bad);
+    });
+}
+
+#[test]
+#[serial]
+fn error_while_connecting() {
+    run_test(|mut mockery| {
+        let mut connection = get_connection(ConnectParams {
+            address: Some(String::from("127.0.0.1")),
+            ..Default::default()
+        });
+
+        let query =
+            "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, m";
+        let result = connection.execute(query, None);
+        assert!(result.is_ok());
+
+        mockery.mg_session_run_ctx = bindings::mock_run::mg_session_run_context();
+        mockery
+            .mg_session_run_ctx
+            .expect()
+            .returning(|_arg1, _arg2, _arg3, _arg4| 4);
+
+        mockery.mg_session_pull_ctx = bindings::mock_pull::mg_session_pull_context();
+        mockery
+            .mg_session_pull_ctx
+            .expect()
+            .returning(|_arg1, _arg2| 4);
+
+        mockery.mg_result_row_ctx = bindings::mock_mg_result_row::mg_result_row_context();
+        mockery
+            .mg_result_row_ctx
+            .expect()
+            .returning(|_arg1| std::ptr::null_mut());
+
+        mockery.mg_session_error_ctx = bindings::mock_mg_session_error::mg_session_error_context();
+        mockery
+            .mg_session_error_ctx
+            .expect()
+            .returning(|_arg1| str_to_c_str("error"));
+
+        let result = connection.fetchone();
+        connection.status=ConnectionStatus::Ready;
+        let commit = connection.commit();
+        connection.status=ConnectionStatus::Ready;
+        let rollback = connection.rollback();
+        assert!(rollback.is_err());
+        assert!(commit.is_err());
+        assert!(result.is_err());
+        assert_eq!(commit.err().unwrap().to_string(), String::from("error"));
+        assert_eq!(rollback.err().unwrap().to_string(), String::from("error"));
         assert_eq!(connection.status, ConnectionStatus::Bad);
     });
 }
@@ -368,7 +459,7 @@ fn from_connect_fetchone_closed_panic() {
             Ok(x) => x,
             Err(err) => panic!("Query failed: {}", err),
         };
-        connection.status = ConnectionStatus::Closed;
+        connection.status=ConnectionStatus::Closed;
         loop {
             match connection.fetchone() {
                 Ok(_res) => {}
@@ -717,7 +808,7 @@ fn from_connect_fetchall_closed_panic() {
         };
         let params = get_params("name".to_string(), "Alice".to_string());
         let mut connection = get_connection(connect_prms);
-        connection.status = ConnectionStatus::Closed;
+        connection.close();
         let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
         match connection.execute(&query, Some(&params)) {
             Ok(_x) => {}
@@ -835,7 +926,7 @@ fn from_connect_fetchall_commit_panic_closed() {
             Err(err) => panic!("Fetching failed: {}", err),
         }
 
-        connection.status = ConnectionStatus::Closed;
+        connection.close();
         match connection.commit() {
             Ok(_x) => {}
             Err(err) => panic!("Fetching failed: {}", err),
@@ -970,7 +1061,7 @@ fn from_connect_fetchall_rollback_panic_closed() {
             Err(err) => panic!("Fetching failed: {}", err),
         }
 
-        connection.status = ConnectionStatus::Closed;
+        connection.close();
         match connection.rollback() {
             Ok(_x) => {}
             Err(err) => panic!("Fetching failed: {}", err),
@@ -1005,40 +1096,6 @@ fn from_connect_fetchall_rollback_panic_executing() {
         }
 
         connection.status = ConnectionStatus::Executing;
-        match connection.rollback() {
-            Ok(_x) => {}
-            Err(err) => panic!("Fetching failed: {}", err),
-        }
-    });
-}
-
-#[test]
-#[serial]
-#[should_panic(expected = "Bad connection")]
-fn from_connect_fetchall_rollback_panic_bad() {
-    run_test(|_mock| {
-        execute_query(String::from(
-            "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-        ));
-        let connect_prms = ConnectParams {
-            address: Some(String::from("127.0.0.1")),
-            lazy: true,
-            ..Default::default()
-        };
-        let params = get_params("name".to_string(), "Alice".to_string());
-        let mut connection = get_connection(connect_prms);
-        let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-        match connection.execute(&query, Some(&params)) {
-            Ok(_x) => {}
-            Err(err) => panic!("{}", err),
-        }
-
-        match connection.fetchall() {
-            Ok(_records) => {}
-            Err(err) => panic!("Fetching failed: {}", err),
-        }
-
-        connection.status = ConnectionStatus::Bad;
         match connection.rollback() {
             Ok(_x) => {}
             Err(err) => panic!("Fetching failed: {}", err),
@@ -1150,7 +1207,7 @@ fn from_connect_fetchall_set_get_lazy_panic_closed() {
         };
         let mut connection = get_connection(connect_prms);
 
-        connection.status = ConnectionStatus::Closed;
+        connection.close();
         connection.set_lazy(false);
         assert_eq!(false, connection.lazy);
     });
@@ -1233,7 +1290,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_closed() {
         };
         let mut connection = get_connection(connect_prms);
 
-        connection.status = ConnectionStatus::Closed;
+        connection.close();
         connection.set_autocommit(true);
         assert_eq!(true, connection.autocommit());
     });
