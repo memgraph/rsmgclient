@@ -61,7 +61,7 @@ pub struct ConnectParams {
     /// "MemgraphBolt/0.1".
     pub client_name: String,
     /// Determines whether a secure SSL TCP/IP connection will be negotiated with
-    /// the server.
+    /// the server. Default value is `SSLMode::Require`.
     pub sslmode: SSLMode,
     /// This parameter specifies the file name of the client SSL certificate.
     /// It is ignored in case an SSL connection is not made.
