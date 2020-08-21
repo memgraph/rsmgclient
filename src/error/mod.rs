@@ -14,6 +14,7 @@
 
 use std::fmt;
 
+/// Error returned by using connection.
 pub struct MgError {
     message: String,
 }
