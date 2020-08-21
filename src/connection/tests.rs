@@ -4,8 +4,8 @@ use crate::value::Node;
 use serial_test::serial;
 
 struct Mockery {
-    mg_session_params_make_ctx: bindings::mock_params_make::__mg_session_params_make::Context,
     mg_connect_ctx: bindings::mock_connect::__mg_connect::Context,
+    mg_session_params_destroy_ctx: bindings::mock_params_destroy::__mg_session_params_destroy::Context,
     mg_session_run_ctx: bindings::mock_run::__mg_session_run::Context,
     mg_session_pull_ctx: bindings::mock_pull::__mg_session_pull::Context,
     mg_session_error_ctx: bindings::mock_mg_session_error::__mg_session_error::Context,
@@ -15,12 +15,6 @@ struct Mockery {
 impl Default for Mockery {
     fn default() -> Self {
         Mockery {
-            mg_session_params_make_ctx: {
-                let ctx = bindings::mock_params_make::mg_session_params_make_context();
-                ctx.expect()
-                    .returning(|| unsafe { bindings::mg_session_params_make() });
-                ctx
-            },
             mg_connect_ctx: {
                 let ctx = bindings::mock_connect::mg_connect_context();
                 ctx.expect()
@@ -50,6 +44,12 @@ impl Default for Mockery {
                 let ctx = bindings::mock_mg_result_row::mg_result_row_context();
                 ctx.expect()
                     .returning(|arg1| unsafe { bindings::mg_result_row(arg1) });
+                ctx
+            },
+            mg_session_params_destroy_ctx: {
+                let ctx = bindings::mock_params_destroy::mg_session_params_destroy_context();
+                ctx.expect()
+                    .returning(|arg1| unsafe { bindings::mg_session_params_destroy(arg1) });
                 ctx
             },
         }
@@ -183,6 +183,58 @@ fn error_while_pulling_fetchall() {
 
 #[test]
 #[serial]
+fn error_while_connecting_fetchall() {
+    run_test(|mut mockery| {
+        
+        let mut connection = get_connection(ConnectParams {
+            address: Some(String::from("127.0.0.1")),
+            ..Default::default()
+        });
+
+        let query =
+            "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, m";
+        let result = connection.execute(query, None);
+        assert!(result.is_ok());
+
+        mockery.mg_connect_ctx = bindings::mock_connect::mg_connect_context();
+        mockery
+            .mg_connect_ctx
+            .expect()
+            .returning(|_arg1, _arg2| 4);
+
+        mockery.mg_session_params_destroy_ctx = bindings::mock_params_destroy::mg_session_params_destroy_context();
+        mockery
+            .mg_session_params_destroy_ctx
+            .expect()
+            .returning(|_arg1| ());
+
+        mockery.mg_session_pull_ctx = bindings::mock_pull::mg_session_pull_context();
+        mockery
+            .mg_session_pull_ctx
+            .expect()
+            .returning(|_arg1, _arg2| 4);
+
+        mockery.mg_result_row_ctx = bindings::mock_mg_result_row::mg_result_row_context();
+        mockery
+            .mg_result_row_ctx
+            .expect()
+            .returning(|_arg1| std::ptr::null_mut());
+
+        mockery.mg_session_error_ctx = bindings::mock_mg_session_error::mg_session_error_context();
+        mockery
+            .mg_session_error_ctx
+            .expect()
+            .returning(|_arg1| str_to_c_str("error"));
+
+        let result = connection.fetchall();
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().to_string(), String::from("error"));
+        assert_eq!(connection.status, ConnectionStatus::Bad);
+    });
+}
+
+#[test]
+#[serial]
 fn error_while_pulling_fetchmany() {
     run_test(|mut mockery| {
         let mut connection = get_connection(ConnectParams {
@@ -259,9 +311,9 @@ fn error_while_connecting() {
             .returning(|_arg1| str_to_c_str("error"));
 
         let result = connection.fetchone();
-        connection.status=ConnectionStatus::Ready;
+        connection.status = ConnectionStatus::Ready;
         let commit = connection.commit();
-        connection.status=ConnectionStatus::Ready;
+        connection.status = ConnectionStatus::Ready;
         let rollback = connection.rollback();
         assert!(rollback.is_err());
         assert!(commit.is_err());
@@ -459,7 +511,7 @@ fn from_connect_fetchone_closed_panic() {
             Ok(x) => x,
             Err(err) => panic!("Query failed: {}", err),
         };
-        connection.status=ConnectionStatus::Closed;
+        connection.status = ConnectionStatus::Closed;
         loop {
             match connection.fetchone() {
                 Ok(_res) => {}

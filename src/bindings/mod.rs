@@ -1179,6 +1179,7 @@ extern "C" {
 extern "C" {
     pub fn mg_value_copy(val: *const mg_value) -> *mut mg_value;
 }
+
 extern "C" {
     pub fn mg_value_destroy(val: *mut mg_value);
 }
@@ -1872,10 +1873,10 @@ pub type mg_trust_callback_type = ::std::option::Option<
 >;
 
 use mockall::automock;
-#[automock(mod mock_params_make;)]
 extern "C" {
     pub fn mg_session_params_make() -> *mut mg_session_params;
 }
+#[automock(mod mock_params_destroy;)]
 extern "C" {
     pub fn mg_session_params_destroy(arg1: *mut mg_session_params);
 }

@@ -19,7 +19,7 @@ use super::value::{
 };
 use crate::bindings::{
     mg_list, mg_list_at, mg_list_size, mg_result, mg_result_summary, mg_session,
-    mg_session_destroy, mg_session_params_destroy, mg_session_params_set_address,
+    mg_session_destroy, mg_session_params_make, mg_session_params_set_address,
     mg_session_params_set_client_name, mg_session_params_set_host, mg_session_params_set_password,
     mg_session_params_set_port, mg_session_params_set_sslcert, mg_session_params_set_sslkey,
     mg_session_params_set_sslmode, mg_session_params_set_trust_callback,
@@ -32,14 +32,14 @@ use std::ffi::CString;
 use std::vec::IntoIter;
 cfg_if! {
     if #[cfg(test)] {
-        use crate::bindings::mock_params_make::mg_session_params_make;
         use crate::bindings::mock_connect::mg_connect;
         use crate::bindings::mock_run::mg_session_run;
         use crate::bindings::mock_pull::mg_session_pull;
         use crate::bindings::mock_mg_session_error::mg_session_error;
         use crate::bindings::mock_mg_result_row::mg_result_row;
+        use crate::bindings::mock_params_destroy::mg_session_params_destroy;
     } else {
-        use crate::bindings::{mg_session_params_make, mg_connect, mg_session_run, mg_session_pull, mg_session_error, mg_result_row};
+        use crate::bindings::{mg_connect, mg_session_run, mg_session_pull, mg_session_error, mg_result_row, mg_session_params_destroy};
     }
 }
 
