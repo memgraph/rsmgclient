@@ -2,8 +2,6 @@
 
 [![](https://github.com/memgraph/rsmgclient/workflows/CI/badge.svg)](https://github.com/memgraph/rsmgclient/actions)
 
-`rsmgclient` is a Rust binding for [mgclient](https://github.com/memgraph/mgclient) used to interact with [Memgraph](https://memgraph.com/).
-
 `rsmgclient` is a Memgraph database adapter for Rust programming language.
 
 mgclient module is the current implementation of the adapter. It is implementedin C as a wrapper around [mgclient](https://github.com/memgraph/mgclient),
