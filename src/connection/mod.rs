@@ -22,18 +22,63 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::vec::IntoIter;
 
+/// Parameters for connecting to database.
+///
+/// Validation of parameters is performed while calling `Connection::connect`.
+///
+/// # Examples
+///
+/// Connecting to localhost database, running on default port 7687.
+/// ```
+/// use rsmgclient::{ConnectParams, Connection};
+///
+/// let connect_params = ConnectParams {
+///     host: Some(String::from("localhost")),
+///     ..Default::default()
+/// };
+///
+/// let mut connection = match Connection::connect(&connect_params) {
+///     Ok(c) => c,
+///     Err(err) => panic!("{}", err)
+/// };
+/// ```
 pub struct ConnectParams {
+    /// Port number to connect to at the server host. Default port is 7687.
     pub port: u16,
+    /// DNS resolvable name of host to connect to. Exactly one of host and
+    /// address parameters must be specified.
     pub host: Option<String>,
+    /// Numeric IP address of host to connect to. This should be in the
+    /// standard IPv4 address format. You can also use IPv6 if your machine
+    /// supports it. Exactly one of host and address parameters must be
+    /// specified.
     pub address: Option<String>,
+    /// Username to connect as.
     pub username: Option<String>,
+    /// Password to be used if the server demands password authentication.
     pub password: Option<String>,
+    /// Alternate name and version of the client to send to server. Default is
+    /// "MemgraphBolt/0.1".
     pub client_name: String,
+    /// Determines whether a secure SSL TCP/IP connection will be negotiated with
+    /// the server. Default value is `SSLMode::Require`.
     pub sslmode: SSLMode,
+    /// This parameter specifies the file name of the client SSL certificate.
+    /// It is ignored in case an SSL connection is not made.
     pub sslcert: Option<String>,
+    /// This parameter specifies the location of the secret key used for the
+    /// client certificate. This parameter is ignored in case an SSL connection
+    /// is not made.
     pub sslkey: Option<String>,
+    /// After performing the SSL handshake, `Connection::connect` will call this
+    /// function providing the hostname, IP address, public key type and
+    /// fingerprint and user provided data. If the function returns a non-zero
+    /// value, SSL connection will be immediately terminated. This can be used
+    /// to implement TOFU (trust on first use) mechanism.
     pub trust_callback: Option<*const dyn Fn(&String, &String, &String, &String) -> i32>,
+    /// Initial value of `lazy` field, defaults to true, Can be changed using `Connection::set_lazy`.
     pub lazy: bool,
+    /// Initial value of `autocommit` field, defaults to false. Can be changed using `Connection::set_autocommit`.
     pub autocommit: bool,
 }
 
@@ -56,12 +101,53 @@ impl Default for ConnectParams {
     }
 }
 
+/// Determines whether a secure SSL TCP/IP connection will be negotiated
+/// with the server.
 #[derive(PartialEq)]
 pub enum SSLMode {
+    /// Only try a non-SSL connection.
     Disable,
+    /// Only try a SSL connection.
     Require,
 }
 
+/// Encapsulates a database connection.
+///
+/// # Examples
+///
+/// ```
+/// use rsmgclient::{ConnectParams, Connection};
+///
+/// let connect_params = ConnectParams {
+///     host: Some(String::from("localhost")),
+///     ..Default::default()
+/// };
+///
+/// let mut connection = match Connection::connect(&connect_params) {
+///     Ok(c) => c,
+///     Err(err) => panic!("{}", err)
+/// };
+///
+/// let query = "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, m";
+/// match connection.execute(query, None) {
+///     Ok(columns) => println!("Columns: {}", columns.join(", ")),
+///     Err(err) => panic!("{}", err)
+/// };
+///
+/// match connection.fetchall() {
+///     Ok(records) => {
+///         for value in &records[0].values {
+///             println!("{}", value);
+///         }
+///     },
+///     Err(err) => panic!("{}", err)
+/// };
+///
+/// match connection.commit() {
+///     Ok(()) => {},
+///     Err(err) => panic!("{}", err)
+/// };
+/// ```
 pub struct Connection {
     mg_session: *mut bindings::mg_session,
     lazy: bool,
@@ -73,11 +159,16 @@ pub struct Connection {
     summary: Option<HashMap<String, Value>>,
 }
 
+/// Representation of current connection status.
 #[derive(PartialEq, Debug)]
 pub enum ConnectionStatus {
+    /// Connection is ready to start executing.
     Ready,
+    /// Connection has executed query and is ready to fetch records.
     Executing,
+    /// Connection is closed and can no longer be used.
     Closed,
+    /// There was an error with current session and connection is no longer usable.
     Bad,
 }
 
@@ -100,26 +191,51 @@ impl Drop for Connection {
 }
 
 impl Connection {
+    /// Returns whether connection is executing lazily.
+    ///
+    /// If false, queries are not executed lazily. After running `execute`, records
+    /// are immediately pulled.
+    ///
+    /// If true queries are executed lazily. After running `execute`, records
+    /// will only get pulled until fetch functions are called.
     pub fn lazy(&self) -> bool {
         self.lazy
     }
 
+    /// Getter for `autocommit` field.
+    ///
+    /// If true all queries are automatically committed.
+    ///
+    /// If false queries are executed inside a transaction. Before executing first query,
+    /// `execute` runs `begin` on database. After that user needs to commit or roll back manually, using
+    /// `commit` and `rollback` functions.
     pub fn autocommit(&self) -> bool {
         self.autocommit
     }
 
+    /// Getter for `arraysize` field.
+    ///
+    /// Default amount of rows to get fetched when calling `fetchmany`.
+    /// Initial value is `1`.
     pub fn arraysize(&self) -> u32 {
         self.arraysize
     }
 
+    /// Returns whether a connection is currently inside a transaction.
     pub fn in_transaction(&self) -> bool {
         self.in_transaction
     }
 
+    /// Returns current connection status.
     pub fn status(&self) -> &ConnectionStatus {
         &self.status
     }
 
+    /// Returns query summary if it is present.
+    ///
+    /// Query summary is present after query has completed execution(
+    /// all records have been fetched). Executing new query will remove
+    /// previous query summary.
     pub fn summary(&self) -> Option<HashMap<String, Value>> {
         match &self.summary {
             Some(x) => Some((*x).clone()),
@@ -127,6 +243,11 @@ impl Connection {
         }
     }
 
+    /// Setter for `lazy` field.
+    ///
+    /// # Panics
+    ///
+    /// Panics if connection is not in a `Ready` status.
     pub fn set_lazy(&mut self, lazy: bool) {
         match self.status {
             ConnectionStatus::Ready => self.lazy = lazy,
@@ -136,6 +257,12 @@ impl Connection {
         }
     }
 
+    /// Setter for `autocommit` field.
+    ///
+    /// # Panics
+    ///
+    /// Panics if connection has pending transaction or connection
+    /// is not ready.
     pub fn set_autocommit(&mut self, autocommit: bool) {
         if self.in_transaction {
             panic!("Can't set autocommit while in pending transaction");
@@ -149,10 +276,31 @@ impl Connection {
         }
     }
 
+    /// Setter for `arraysize` field.
     pub fn set_arraysize(&mut self, arraysize: u32) {
         self.arraysize = arraysize;
     }
 
+    /// Creates a connection to database using provided connection parameters.
+    ///
+    /// Returns `Connection` if connection to database is successfully established,
+    /// otherwise returns error with explanation what went wrong.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rsmgclient::{ConnectParams, Connection};
+    ///
+    /// let connect_params = ConnectParams {
+    ///     host: Some(String::from("localhost")),
+    ///     ..Default::default()
+    /// };
+    ///
+    /// let connection = match Connection::connect(&connect_params) {
+    ///     Ok(c) => c,
+    ///     Err(err) => panic!("{}", err)
+    /// };
+    /// ```
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
         let mg_session_params = unsafe { bindings::mg_session_params_make() };
         let mut trust_callback_ptr = std::ptr::null_mut();
@@ -265,6 +413,16 @@ impl Connection {
         }
     }
 
+    /// Executes provided query using parameters(if provided) and returns names of columns.
+    ///
+    /// After execution records need to get fetched using fetch methods.
+    /// Connection needs to be in status `Ready`.
+    /// Error is returned if connection is not ready, query is invalid
+    /// or there was an error in communication with server.
+    ///
+    /// If connection is not lazy will also fetch and store all records.
+    /// If connection has autocommit set to false and is not in a transaction will
+    /// also start a transaction.
     pub fn execute(
         &mut self,
         query: &str,
@@ -322,6 +480,11 @@ impl Connection {
         Ok(parse_columns(columns))
     }
 
+    /// Returns next row of query results or None if there is no more data
+    /// available.
+    ///
+    /// Returns error if connection is not in `Executing` status or
+    /// if there was an error while pulling record from database.
     pub fn fetchone(&mut self) -> Result<Option<Record>, MgError> {
         match self.status {
             ConnectionStatus::Closed => {
@@ -361,6 +524,13 @@ impl Connection {
         }
     }
 
+    /// Returns next rows of query results.
+    ///
+    /// The number of rows to fetch is specified either by `size` or
+    /// `arraysize` attribute, `size`(if provided) overrides `arraysize`.
+    ///
+    /// Returns error if connection is not in `Executing` status or
+    /// if there was an error while pulling record from database.
     pub fn fetchmany(&mut self, size: Option<u32>) -> Result<Vec<Record>, MgError> {
         let size = match size {
             Some(x) => x,
@@ -381,6 +551,10 @@ impl Connection {
         Ok(vec)
     }
 
+    /// Returns all(remaining) rows of query results.
+    ///
+    /// Returns error if connection is not in `Executing` status or
+    /// if there was an error while pulling record from database.
     pub fn fetchall(&mut self) -> Result<Vec<Record>, MgError> {
         let mut vec = Vec::new();
         loop {
@@ -428,6 +602,13 @@ impl Connection {
         Ok(res)
     }
 
+    /// Commit any pending transaction to the database.
+    ///
+    /// Returns error if there are queries that didn't finish
+    /// executing.
+    ///
+    /// If `autocommit` is set to true or there is no pending transaction
+    /// this method does nothing.
     pub fn commit(&mut self) -> Result<(), MgError> {
         match self.status {
             ConnectionStatus::Closed => {
@@ -439,9 +620,8 @@ impl Connection {
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             ConnectionStatus::Ready => {}
         }
-
-        if !self.in_transaction {
-            return Err(MgError::new(String::from("Not in transaction")));
+        if self.autocommit || !self.in_transaction {
+            return Ok(());
         }
 
         match self.connection_run_without_results("COMMIT") {
@@ -453,6 +633,13 @@ impl Connection {
         }
     }
 
+    /// Rollback any pending transaction to the database.
+    ///
+    /// Returns error if there are queries that didn't finish
+    /// executing.
+    ///
+    /// If `autocommit` is set to true or there is no pending transaction
+    /// this method does nothing.
     pub fn rollback(&mut self) -> Result<(), MgError> {
         match self.status {
             ConnectionStatus::Closed => {
@@ -465,8 +652,8 @@ impl Connection {
             ConnectionStatus::Ready => {}
         }
 
-        if !self.in_transaction {
-            return Err(MgError::new(String::from("Not in transaction")));
+        if self.autocommit || !self.in_transaction {
+            return Ok(());
         }
 
         match self.connection_run_without_results("ROLLBACK") {
@@ -478,6 +665,10 @@ impl Connection {
         }
     }
 
+    /// Closes the connection.
+    ///
+    /// The connection will be unusable from this point forward. Any operation
+    /// on connection will return error.
     pub fn close(&mut self) {
         match self.status {
             ConnectionStatus::Ready => self.status = ConnectionStatus::Closed,

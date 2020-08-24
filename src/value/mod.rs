@@ -20,6 +20,7 @@ use std::fmt::Formatter;
 
 use std::slice;
 
+/// Representation of parameter value used in query.
 pub enum QueryParam {
     Null,
     Bool(bool),
@@ -49,6 +50,12 @@ impl QueryParam {
     }
 }
 
+/// Representation of node value from a labeled property graph.
+///
+/// Consists of a unique identifier(within the scope of its origin graph), a list
+/// of labels and a map of properties.
+///
+/// Maximum possible number of labels allowed by Bolt protocol is UINT32_MAX
 #[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     pub id: i64,
@@ -57,6 +64,11 @@ pub struct Node {
     pub properties: HashMap<String, Value>,
 }
 
+/// Representation of relationship value from a labeled property graph.
+///
+/// Consists of a unique identifier(within the scope of its origin graph),
+/// identifiers for the start and end nodes of that relationship, a type and
+/// a map of properties.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Relationship {
     pub id: i64,
@@ -66,6 +78,10 @@ pub struct Relationship {
     pub properties: HashMap<String, Value>,
 }
 
+/// Representation of relationship from a labeled property graph.
+///
+/// Relationship without start and end nodes. Mainly used as a supporting type
+/// for Path.
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnboundRelationship {
     pub id: i64,
@@ -73,6 +89,12 @@ pub struct UnboundRelationship {
     pub properties: HashMap<String, Value>,
 }
 
+/// Representation of sequence of alternating nodes and relationships corresponding
+/// to a walk in a labeled property graph.
+///
+/// Path always begins and ends with a node. It consists of a list of distinct
+/// nodes, a list of distinct relationships and a sequence of integers
+/// describing the path traversal.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Path {
     pub node_count: u32,
@@ -81,6 +103,9 @@ pub struct Path {
     pub relationships: Vec<UnboundRelationship>,
 }
 
+/// Representation of Bolt value returned by database.
+///
+/// Value is can be any of the types specified by Bolt protocol.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Null,
@@ -96,6 +121,7 @@ pub enum Value {
     Path(Path),
 }
 
+/// Representation of a single row returned by database.
 pub struct Record {
     pub values: Vec<Value>,
 }
@@ -119,8 +145,7 @@ fn mg_value_float(mg_value: *const bindings::mg_value) -> f64 {
     unsafe { bindings::mg_value_float(mg_value) }
 }
 
-/// # Safety
-pub unsafe fn c_string_to_string(c_str: *const i8, size: Option<u32>) -> String {
+pub(crate) unsafe fn c_string_to_string(c_str: *const i8, size: Option<u32>) -> String {
     // https://github.com/rust-lang/rust/blob/master/library/std/src/ffi/c_str.rs#L1230
     let c_str = match size {
         Some(x) => CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
@@ -265,8 +290,7 @@ fn mg_value_path(mg_value: *const bindings::mg_value) -> Path {
     }
 }
 
-/// # Safety
-pub unsafe fn mg_list_to_vec(mg_list: *const bindings::mg_list) -> Vec<Value> {
+pub(crate) unsafe fn mg_list_to_vec(mg_list: *const bindings::mg_list) -> Vec<Value> {
     let size = bindings::mg_list_size(mg_list);
     let mut mg_values: Vec<Value> = Vec::new();
     for i in 0..size {
@@ -277,7 +301,7 @@ pub unsafe fn mg_list_to_vec(mg_list: *const bindings::mg_list) -> Vec<Value> {
     mg_values
 }
 
-pub fn hash_map_to_mg_map(hash_map: &HashMap<String, QueryParam>) -> *mut bindings::mg_map {
+pub(crate) fn hash_map_to_mg_map(hash_map: &HashMap<String, QueryParam>) -> *mut bindings::mg_map {
     let size = hash_map.len() as u32;
     let mg_map = unsafe { bindings::mg_map_make_empty(size) };
     for (key, val) in hash_map {
@@ -289,12 +313,12 @@ pub fn hash_map_to_mg_map(hash_map: &HashMap<String, QueryParam>) -> *mut bindin
 }
 
 // allocates memory and passes ownership, user is responsible for freeing object!
-pub fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
+pub(crate) fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
     let c_str = Box::into_raw(Box::new(CString::new(string).unwrap()));
     unsafe { (*c_str).as_ptr() }
 }
 
-pub fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
+pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
     let size = vector.len() as u32;
     let mg_list = unsafe { bindings::mg_list_make_empty(size) };
     for mg_val in vector {
@@ -306,8 +330,7 @@ pub fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
 }
 
 impl Value {
-    /// # Safety
-    pub unsafe fn from_mg_value(c_mg_value: *const bindings::mg_value) -> Value {
+    pub(crate) unsafe fn from_mg_value(c_mg_value: *const bindings::mg_value) -> Value {
         match bindings::mg_value_get_type(c_mg_value) {
             bindings::mg_value_type_MG_VALUE_TYPE_NULL => Value::Null,
             bindings::mg_value_type_MG_VALUE_TYPE_BOOL => Value::Bool(mg_value_bool(c_mg_value)),

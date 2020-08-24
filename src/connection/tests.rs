@@ -757,39 +757,6 @@ fn from_connect_fetchall_commit_panic_executing() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Not in transaction")]
-fn from_connect_fetchall_commit_panic_transaction() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
-    connection.in_transaction = false;
-    match connection.commit() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-}
-
-#[test]
-#[serial]
 fn from_connect_fetchall_rollback() {
     initialize();
     execute_query(String::from(
@@ -913,39 +880,6 @@ fn from_connect_fetchall_rollback_panic_bad() {
     }
 
     connection.status = ConnectionStatus::Bad;
-    match connection.rollback() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-}
-
-#[test]
-#[serial]
-#[should_panic(expected = "Not in transaction")]
-fn from_connect_fetchall_rollback_panic_transaction() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
-    connection.in_transaction = false;
     match connection.rollback() {
         Ok(_x) => {}
         Err(err) => panic!("Fetching failed: {}", err),
