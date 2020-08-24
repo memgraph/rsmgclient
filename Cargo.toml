@@ -11,6 +11,10 @@ documentation = "https://docs.rs/rsmgclient"
 edition = "2018"
 keywords = ["memgraph", "client", "driver", "database-adapter"]
 categories = ["database", "api-bindings"]
+exclude = [
+    ".vscode/*",
+    ".github/*",
+]
 
 [dependencies]
 maplit = "1.0.2"
