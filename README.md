@@ -27,7 +27,7 @@ $ cargo install rsmgclient
 ### Building from source
 
 To use `rsmgclient` for contributing or just looking closely how it is made, you will need:
-   - clone [rsmgclient](https://github.com/memgraph/rsmgclient) repository
+   - Cloned [rsmgclient](https://github.com/memgraph/rsmgclient) repository
    - [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html) - 1.42.0-nightly or above
    - A C compiler supporting C11 standard
    - [mgclient](https://github.com/memgraph/mgclient)
