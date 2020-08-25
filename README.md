@@ -74,7 +74,7 @@ match connection.execute(query, None) {
 // Fetch all query results.
 match connection.fetchall() {
     Ok(records) => {
-        for value in records[0].values {
+        for value in &record.values {
             println!("{}", value);
         }
     },
