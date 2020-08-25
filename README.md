@@ -43,8 +43,7 @@ $ cargo test
 
 ## Documentation
 
-Online documentation can be found on [docs.rs
-pages](https://docs.rs/rsmgclient/).
+Online documentation can be found on [docs.rs pages](https://docs.rs/rsmgclient/).
 
 ## Code sample
 
