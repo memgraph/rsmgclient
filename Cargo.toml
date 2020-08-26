@@ -1,6 +1,6 @@
 [package]
 name = "rsmgclient"
-version = "0.1.0"
+version = "0.1.1"
 description = "Memgraph database adapter for Rust programming language."
 authors = ["Memgraph Contributors <tech@memgraph.com>"]
 license = "Apache-2.0"
