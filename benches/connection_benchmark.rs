@@ -1,6 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use maplit::hashmap;
 use rsmgclient::{ConnectParams, Connection, QueryParam};
+use std::time::{Duration, Instant};
+use std::{thread, time};
+use std::process::Command;
 
 fn create_default_connection() -> Connection {
     let connect_params = ConnectParams {
@@ -15,16 +18,28 @@ fn create_default_connection() -> Connection {
     connection
 }
 
+fn clear_and_restart_memgraph(mut connection: Connection){
+    connection.execute("MATCH (n) DETACH DELETE n", None);
+    connection.fetchall();
+
+    //Change the parameter after echo into your password
+    let output = Command::new("sh")
+            .arg("-c")
+            .arg("echo 0909 | sudo -S systemctl restart memgraph")
+            .output()
+            .expect("failed to execute process");
+
+    let wait = time::Duration::from_millis(1000);
+    let now = time::Instant::now();
+    thread::sleep(wait);
+}
+
 fn insert_benchmark(c: &mut Criterion) {
     let insert_query = "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})";
     let mut connection = create_default_connection();
-
     c.bench_function("insert benchmark", |b| {
         b.iter(|| {
-            match connection.execute(insert_query, None) {
-                Ok(cols) => cols,
-                Err(_err) => panic!(),
-            };
+            connection.execute(insert_query,None);
             match connection.fetchall() {
                 Ok(vals) => vals,
                 Err(_err) => panic!(),
@@ -32,8 +47,7 @@ fn insert_benchmark(c: &mut Criterion) {
         })
     });
 
-    connection.execute("MATCH (n) DETACH DELETE n", None);
-    connection.fetchall();
+    clear_and_restart_memgraph(connection);
 }
 
 fn query_benchmark_small(c: &mut Criterion) {
@@ -68,6 +82,7 @@ fn query_benchmark_small(c: &mut Criterion) {
 
 fn query_benchmark_large(c: &mut Criterion) {
     let mut connection = create_default_connection();
+    let large_query = "MATCH (u:User) RETURN u";
 
     for i in 0..100 {
         connection.execute(
@@ -81,7 +96,6 @@ fn query_benchmark_large(c: &mut Criterion) {
         connection.fetchall();
     }
 
-    let large_query = "MATCH (u:User) RETURN u";
     c.bench_function("large query benchmark", |b| {
         b.iter(|| {
             match connection.execute(large_query, None) {
@@ -95,8 +109,7 @@ fn query_benchmark_large(c: &mut Criterion) {
         })
     });
 
-    connection.execute("MATCH (n) DETACH DELETE n", None);
-    connection.fetchall();
+    clear_and_restart_memgraph(connection);
 }
 
 criterion_group!(
