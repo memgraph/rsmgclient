@@ -12,106 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{ConnectParams, Connection, QueryParam};
-use std::collections::HashMap;
+use rsmgclient::{ConnectParams, Connection, MgError};
 
-fn main() {
-    let connect_prms = ConnectParams {
+fn execute_query() -> Result<(), MgError> {
+    let connect_params = ConnectParams {
         host: Some(String::from("localhost")),
-        lazy: true,
-        autocommit: false,
         ..Default::default()
     };
+    let mut connection = Connection::connect(&connect_params)?;
 
-    let mut connection = match Connection::connect(&connect_prms) {
-        Ok(c) => c,
-        Err(err) => panic!("{}", err),
-    };
-
-    let mut params: HashMap<String, QueryParam> = HashMap::new();
-    params.insert(
-        String::from("name"),
-        QueryParam::String(String::from("Alice")),
-    );
-
-    let query = String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, m",
-    );
-    let columns = match connection.execute(&query, Some(&params)) {
-        Ok(x) => x,
-        Err(err) => panic!("Query failed: {}", err),
-    };
-
+    let query =
+        "CREATE (u:User {name: 'Alice'})-[l:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, l, m";
+    let columns = connection.execute(query, None)?;
     println!("Columns: {}", columns.join(", "));
 
-    loop {
-        match connection.fetchone() {
-            Ok(res) => match res {
-                Some(x) => {
-                    println!("Number of rows: 1");
-                    print!("Row: ");
-                    for val in &x.values {
-                        print!("val: {}    ", val);
-                    }
-                    println!();
-                }
-                None => break,
-            },
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
+    let records = connection.fetchall()?;
+    for value in &records[0].values {
+        println!("{}", value);
     }
 
-    let summary = connection.summary().unwrap();
-    for (key, val) in summary {
-        println!("{}: {}", key, val);
-    }
+    connection.commit()?;
+    Ok(())
+}
 
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("Query failed: {}", err),
-    };
-
-    loop {
-        let size = 3;
-        match connection.fetchmany(Some(size)) {
-            Ok(res) => {
-                println!("Number of rows: {}", res.len());
-                for record in &res {
-                    print!("Row: ");
-                    for val in &record.values {
-                        print!("val: {}  ", val);
-                    }
-                    println!();
-                }
-                if res.len() != size as usize {
-                    break;
-                }
-            }
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
-    }
-
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(records) => {
-            println!("Number of rows: {}", records.len());
-            for record in records {
-                print!("Row: ");
-                for val in &record.values {
-                    print!("val: {}    ", val);
-                }
-                println!();
-            }
-        }
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
-    match connection.commit() {
-        Ok(_) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
+fn main() {
+    if let Err(error) = execute_query() {
+        panic!("{}", error)
     }
 }

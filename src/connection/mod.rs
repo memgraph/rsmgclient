@@ -31,16 +31,16 @@ use std::vec::IntoIter;
 /// Connecting to localhost database, running on default port 7687.
 /// ```
 /// use rsmgclient::{ConnectParams, Connection};
+/// # use rsmgclient::{MgError};
+/// # fn connect() -> Result<(), MgError> {
 ///
 /// let connect_params = ConnectParams {
 ///     host: Some(String::from("localhost")),
 ///     ..Default::default()
 /// };
 ///
-/// let mut connection = match Connection::connect(&connect_params) {
-///     Ok(c) => c,
-///     Err(err) => panic!("{}", err)
-/// };
+/// let mut connection = Connection::connect(&connect_params)?;
+/// # Ok(()) }
 /// ```
 pub struct ConnectParams {
     /// Port number to connect to at the server host. Default port is 7687.
@@ -117,36 +117,25 @@ pub enum SSLMode {
 ///
 /// ```
 /// use rsmgclient::{ConnectParams, Connection};
+/// # use rsmgclient::{MgError};
+/// # fn execute_query() -> Result<(), MgError> {
 ///
 /// let connect_params = ConnectParams {
 ///     host: Some(String::from("localhost")),
 ///     ..Default::default()
 /// };
+/// let mut connection = Connection::connect(&connect_params)?;
 ///
-/// let mut connection = match Connection::connect(&connect_params) {
-///     Ok(c) => c,
-///     Err(err) => panic!("{}", err)
-/// };
+/// let query = "CREATE (u:User {name: 'Alice'})-[l:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, l, m";
+/// connection.execute(query, None)?;
 ///
-/// let query = "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, m";
-/// match connection.execute(query, None) {
-///     Ok(columns) => println!("Columns: {}", columns.join(", ")),
-///     Err(err) => panic!("{}", err)
-/// };
+/// let records = connection.fetchall()?;
+/// for value in &records[0].values {
+///     println!("{}", value);
+/// }
 ///
-/// match connection.fetchall() {
-///     Ok(records) => {
-///         for value in &records[0].values {
-///             println!("{}", value);
-///         }
-///     },
-///     Err(err) => panic!("{}", err)
-/// };
-///
-/// match connection.commit() {
-///     Ok(()) => {},
-///     Err(err) => panic!("{}", err)
-/// };
+/// connection.commit()?;
+/// # Ok(()) }
 /// ```
 pub struct Connection {
     mg_session: *mut bindings::mg_session,
@@ -290,16 +279,16 @@ impl Connection {
     ///
     /// ```
     /// use rsmgclient::{ConnectParams, Connection};
+    /// # use rsmgclient::{MgError};
+    /// # fn connect() -> Result<(), MgError> {
     ///
     /// let connect_params = ConnectParams {
     ///     host: Some(String::from("localhost")),
     ///     ..Default::default()
     /// };
     ///
-    /// let connection = match Connection::connect(&connect_params) {
-    ///     Ok(c) => c,
-    ///     Err(err) => panic!("{}", err)
-    /// };
+    /// let mut connection = Connection::connect(&connect_params)?;
+    /// # Ok(()) }
     /// ```
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
         let mg_session_params = unsafe { bindings::mg_session_params_make() };
