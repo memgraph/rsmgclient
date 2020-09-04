@@ -21,8 +21,14 @@ maplit = "1.0.2"
 [dev-dependencies]
 libc = "0.2"
 serial_test = "0.4.0"
+serde_json = "1.0.57"
 
 [dev-dependencies.cargo-husky]
 version = "1"
 default-features = false
 features = ["user-hooks"]
+
+[[bench]]
+harness = false
+name = "connection-benchmark"
+path = "benches/connection.rs"
