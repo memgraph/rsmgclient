@@ -36,7 +36,7 @@ fn main() {
 }
 
 fn start_server() -> Connection {
-    // delete container from before if present
+    // Delete container from before if present.
     let _ = Command::new("sh")
         .arg("-c")
         .arg(format!("docker rm {}", CONTAINER_NAME))
@@ -49,7 +49,7 @@ fn start_server() -> Connection {
         .output()
         .expect("failed to start server");
 
-    // wait until server has started
+    // Wait until server has started.
     loop {
         match Connection::connect(&ConnectParams {
             host: Some(String::from("localhost")),
@@ -93,7 +93,7 @@ fn benchmark_query(
             Ok(vals) => vals,
             Err(err) => panic!("{}", err),
         };
-        // convert to ms
+        // Convert to ms.
         samples.push(start.elapsed().as_nanos() as f64 / 1e6_f64);
     }
 
