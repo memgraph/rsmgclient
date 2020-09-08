@@ -1,5 +1,5 @@
 use maplit::hashmap;
-use rsmgclient::{ConnectParams, Connection, QueryParam};
+use rsmgclient::{ConnectParams, Connection, MgError, QueryParam};
 
 use std::process::Command;
 use std::time::Instant;
@@ -18,18 +18,26 @@ const FILE_PATH: &str = "./target/benchmark-summary.json";
 fn main() {
     let insert_samples = insert_query_benchmark();
     let small_query_samples = small_query_with_query_params_benchmark();
+    let small_query_2_samples = small_query_with_query_params_2_benchmark();
     let large_query_samples = large_query_benchmark();
+    let large_query_2_samples = large_query_2_benchmark();
 
     let summary = json!({
         "insert_query": {
             "samples": insert_samples,
         },
         "small_query": {
-            "samples": small_query_samples
+            "samples": small_query_samples,
+        },
+        "small_query_2": {
+            "samples": small_query_2_samples,
         },
         "large_query": {
             "samples": large_query_samples,
         },
+        "large_query_2": {
+            "samples": large_query_2_samples,
+        }
     });
 
     write_to_file(FILE_PATH, summary.to_string().as_bytes());
@@ -53,6 +61,7 @@ fn start_server() -> Connection {
     loop {
         match Connection::connect(&ConnectParams {
             host: Some(String::from("localhost")),
+            autocommit: true,
             ..Default::default()
         }) {
             Ok(connection) => {
@@ -76,11 +85,14 @@ fn stop_server() {
 fn benchmark_query(
     query: &str,
     query_params: Option<&HashMap<String, QueryParam>>,
-    setup: &dyn Fn(&mut Connection),
+    setup: &dyn Fn(&mut Connection) -> Result<(), MgError>,
 ) -> Vec<f64> {
     let mut connection = start_server();
 
-    setup(&mut connection);
+    match setup(&mut connection) {
+        Err(err) => panic!("{}", err),
+        _ => {}
+    }
 
     let mut samples = Vec::with_capacity(NUMBER_OF_REPS as usize);
     for _ in 0..NUMBER_OF_REPS {
@@ -117,27 +129,48 @@ fn write_to_file(file_name: &str, data: &[u8]) {
 }
 
 fn insert_query_benchmark() -> Vec<f64> {
-    benchmark_query(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-        None,
-        &|_| {},
-    )
+    benchmark_query("CREATE (u:User)", None, &|_| Ok(()))
+}
+
+fn create_index(connection: &mut Connection, index: &str) -> Result<(), MgError> {
+    connection.execute(format!("CREATE INDEX ON {}", index).as_str(), None)?;
+    connection.fetchall()?;
+    Ok(())
 }
 
 fn small_query_with_query_params_benchmark() -> Vec<f64> {
     benchmark_query(
         "MATCH (u:User) WHERE u.name = $name RETURN u",
         Some(&hashmap! {
-            String::from("name") => QueryParam::String(String::from("Alice")),
+            String::from("name") => QueryParam::String(String::from("u")),
         }),
         &|connection| {
-            connection
-                .execute(
-                    "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-                    None,
-                )
-                .expect("could not setup small query");
-            connection.fetchall().expect("could not setup small query");
+            connection.execute("CREATE (u:User {name: 'u'})", None)?;
+            connection.fetchall()?;
+
+            create_index(connection, ":User(name)")
+        },
+    )
+}
+
+fn small_query_with_query_params_2_benchmark() -> Vec<f64> {
+    benchmark_query(
+        "MATCH (u:User) WHERE u.id = $id RETURN u",
+        Some(&hashmap! {
+            String::from("id") => QueryParam::Int(1),
+        }),
+        &|connection| {
+            let mut str = String::new();
+            for _ in 0..100 {
+                str.push('a');
+            }
+            connection.execute(
+                format!("CREATE (u:User {{id: 1, name: '{}'}})", str).as_str(),
+                None,
+            )?;
+            connection.fetchall()?;
+
+            create_index(connection, ":User(id)")
         },
     )
 }
@@ -145,15 +178,26 @@ fn small_query_with_query_params_benchmark() -> Vec<f64> {
 fn large_query_benchmark() -> Vec<f64> {
     benchmark_query("MATCH (u:User) RETURN u", None, &|connection| {
         for i in 0..1000 {
-            connection.execute(
-                    format!(
-                        "CREATE (u:User {{name: 'Alice{}'}})-[:Likes]->(m:Software {{name: 'Memgraph{}'}})",
-                        i, i,
-                    )
-                        .as_str(),
-                    None,
-                ).expect("could not setup large query");
-            connection.fetchall().expect("could not setup large query");
+            connection.execute(format!("CREATE (u:User {{id: {}}})", i,).as_str(), None)?;
+            connection.fetchall()?;
         }
+        Ok(())
+    })
+}
+
+fn large_query_2_benchmark() -> Vec<f64> {
+    benchmark_query("MATCH (u:User) RETURN u", None, &|connection| {
+        let mut name = String::new();
+        for _ in 0..100 {
+            name.push('a');
+        }
+        for i in 0..100 {
+            connection.execute(
+                format!("CREATE (u:User {{id: {}, name: '{}'}})", i, name).as_str(),
+                None,
+            )?;
+            connection.fetchall()?;
+        }
+        Ok(())
     })
 }
