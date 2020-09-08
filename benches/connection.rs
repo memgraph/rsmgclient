@@ -11,7 +11,7 @@ use std::fs::{create_dir_all, OpenOptions};
 use std::io::prelude::*;
 use std::path::Path;
 
-const NUMBER_OF_REPS: u32 = 1000;
+const NUMBER_OF_REPS: u32 = 100;
 const CONTAINER_NAME: &str = "memgraph-rsmgclient-benchmark";
 const FILE_PATH: &str = "./target/benchmark-summary.json";
 
