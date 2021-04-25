@@ -12,8 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate bindgen;
+
+use std::env;
+use std::path::PathBuf;
+
 fn main() {
-    // Tell cargo to tell rustc to link the system mgclient
-    // shared library.
+    let mgclient_h = "./mgclient/build/output/include/mgclient.h";
+    let mgclient_export_h = "./mgclient/build/output/include/mgclient-export.h";
+    // Required because of tests that rely on the struct fields.
+    let mgclient_mgvalue_h = "./mgclient/src/mgvalue.h";
+
+    println!("{}", format!("{}{}", "cargo:rerun-if-changed=", mgclient_h));
+    println!(
+        "{}",
+        format!("{}{}", "cargo:rerun-if-changed=", mgclient_export_h)
+    );
+
+    let bindings = bindgen::Builder::default()
+        .header(mgclient_h)
+        .header(mgclient_export_h)
+        .header(mgclient_mgvalue_h)
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .generate()
+        .expect("Unable to generate bindings");
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings!");
+
+    println!(
+        "cargo:rustc-link-search=native={}",
+        "./mgclient/build/output/lib"
+    );
     println!("cargo:rustc-link-lib=mgclient");
+    // Required for cargo run/test.
+    println!(
+        "cargo:rustc-env=LD_LIBRARY_PATH={}",
+        "./mgclient/build/output/lib"
+    );
 }

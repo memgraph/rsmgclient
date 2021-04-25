@@ -1,3 +1,5 @@
+// TODO(gitbuda): Testing based on bindgen internals is NOT nice. Replace it.
+
 use super::*;
 use std::ffi::CString;
 use std::mem;

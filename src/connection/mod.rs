@@ -18,6 +18,7 @@ use super::value::{
     c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_map_to_hash_map, mg_value_string,
     str_to_c_str, QueryParam, Record, Value,
 };
+use maplit::hashmap;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::vec::IntoIter;
@@ -90,8 +91,8 @@ impl Default for ConnectParams {
             address: None,
             username: None,
             password: None,
-            client_name: String::from("MemgraphBolt/0.1"),
-            sslmode: SSLMode::Require,
+            client_name: String::from("rsmgclient/0.1"),
+            sslmode: SSLMode::Disable,
             sslcert: None,
             sslkey: None,
             trust_callback: None,
@@ -226,10 +227,7 @@ impl Connection {
     /// all records have been fetched). Executing new query will remove
     /// previous query summary.
     pub fn summary(&self) -> Option<HashMap<String, Value>> {
-        match &self.summary {
-            Some(x) => Some((*x).clone()),
-            None => None,
-        }
+        self.summary.as_ref().map(|x| (*x).clone())
     }
 
     /// Setter for `lazy` field.
@@ -317,7 +315,7 @@ impl Connection {
                 }
                 None => {}
             }
-            bindings::mg_session_params_set_client_name(
+            bindings::mg_session_params_set_user_agent(
                 mg_session_params,
                 str_to_c_str(&param_struct.client_name),
             );
@@ -386,6 +384,8 @@ impl Connection {
                 str_to_c_str(query),
                 std::ptr::null(),
                 std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
             )
         } {
             0 => {}
@@ -395,8 +395,16 @@ impl Connection {
             }
         }
 
+        match unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) } {
+            0 => {}
+            _ => {
+                self.status = ConnectionStatus::Bad;
+                return Err(MgError::new(read_error_message(self.mg_session)));
+            }
+        }
+
         let mut result = std::ptr::null_mut();
-        match unsafe { bindings::mg_session_pull(self.mg_session, &mut result) } {
+        match unsafe { bindings::mg_session_fetch(self.mg_session, &mut result) } {
             0 => Ok(()),
             _ => Err(MgError::new(read_error_message(self.mg_session))),
         }
@@ -446,7 +454,14 @@ impl Connection {
         };
         let mut columns = std::ptr::null();
         let status = unsafe {
-            bindings::mg_session_run(self.mg_session, c_query.as_ptr(), mg_params, &mut columns)
+            bindings::mg_session_run(
+                self.mg_session,
+                c_query.as_ptr(),
+                mg_params,
+                std::ptr::null_mut(),
+                &mut columns,
+                std::ptr::null_mut(),
+            )
         };
 
         if status != 0 {
@@ -560,10 +575,21 @@ impl Connection {
     }
 
     fn pull(&mut self) -> Result<Option<Record>, MgError> {
+        // TODO(gitbuda): Hacks! Memory. Errors. Replace QueryParam.
+        let mg_map = hashmap! {
+            String::from("n") => QueryParam::Int(1),
+        };
+        let c_mg_map = hash_map_to_mg_map(&mg_map);
+        match unsafe { bindings::mg_session_pull(self.mg_session, c_mg_map) } {
+            0 => {}
+            _ => {
+                return Err(MgError::new(read_error_message(self.mg_session)));
+            }
+        }
         let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
-        let status = unsafe { bindings::mg_session_pull(self.mg_session, &mut mg_result) };
+        let fetch_status = unsafe { bindings::mg_session_fetch(self.mg_session, &mut mg_result) };
         let row = unsafe { bindings::mg_result_row(mg_result) };
-        match status {
+        match fetch_status {
             1 => Ok(Some(Record {
                 values: unsafe { mg_list_to_vec(row) },
             })),
