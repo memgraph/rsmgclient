@@ -500,16 +500,21 @@ impl Connection {
                     Err(err)
                 }
             },
-            false => match &mut self.results_iter {
-                Some(it) => match it.next() {
-                    Some(x) => Ok(Some(x)),
-                    None => {
-                        self.status = ConnectionStatus::Ready;
-                        Ok(None)
-                    }
-                },
-                None => panic!(),
-            },
+            false => match self.next_record() {
+                Some(x) => Ok(Some(x)),
+                None => {
+                    self.status = ConnectionStatus::Ready;
+                    Ok(None)
+                }
+            }
+        }
+    }
+
+    fn next_record(&mut self) -> Option<Record> {
+        if let Some(iter) = self.results_iter.as_mut() {
+            iter.next()
+        } else {
+            None
         }
     }
 
