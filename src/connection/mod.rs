@@ -506,7 +506,7 @@ impl Connection {
                     self.status = ConnectionStatus::Ready;
                     Ok(None)
                 }
-            }
+            },
         }
     }
 
