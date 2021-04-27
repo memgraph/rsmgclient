@@ -184,8 +184,7 @@ fn from_connect_fetchone_address() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "explicit panic")]
-fn from_connect_fetchone_explicit_panic() {
+fn from_connect_fetchone_no_data() {
     initialize();
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
@@ -200,39 +199,19 @@ fn from_connect_fetchone_explicit_panic() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(), "Alice".to_string());
+    let params = get_params("name".to_string(), "Something".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
-    connection.results_iter = None;
-    loop {
-        match connection.fetchone() {
-            Ok(res) => match res {
-                Some(x) => {
-                    for val in &x.values {
-                        let values = vec![String::from("User")];
-                        let mg_map = hashmap! {
-                            String::from("name") => Value::String("Alice".to_string()),
-                        };
-                        let node = Value::Node(Node {
-                            id: match val {
-                                Value::Node(x) => x.id,
-                                _ => 1,
-                            },
-                            label_count: 1,
-                            labels: values,
-                            properties: mg_map,
-                        });
-                        assert_eq!(&node, val);
-                    }
-                }
-                None => break,
-            },
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
+
+    let first = connection.fetchone();
+    if let Ok(rec) = first {
+        assert!(rec.is_none());
+    } else {
+        panic!("First fetched record should be None")
     }
 }
 
