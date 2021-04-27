@@ -210,8 +210,7 @@ fn from_connect_fetchone_no_data() {
     let first = connection.fetchone();
     if let Ok(rec) = first {
         assert!(rec.is_none());
-    }
-    else {
+    } else {
         panic!("First fetched record should be None")
     }
 }
