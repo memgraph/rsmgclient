@@ -640,7 +640,7 @@ fn from_connect_fetchone_summary() {
     }
 
     let summary = connection.summary().unwrap();
-    assert_eq!(5, summary.len());
+    assert_eq!(6, summary.len());
 }
 
 #[test]
