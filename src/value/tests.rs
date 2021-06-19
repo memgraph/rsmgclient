@@ -9,7 +9,7 @@ unsafe fn to_c_pointer_array<T, S>(vec: &[T], convert_fun: impl Fn(&T) -> *mut S
     let size = vec.len() * mem::size_of::<*mut std::os::raw::c_void>();
     let ptr = libc::malloc(size) as *mut *mut S;
     for (i, el) in vec.iter().enumerate() {
-        *ptr.add(i) = convert_fun(&el);
+        *ptr.add(i) = convert_fun(el);
     }
     ptr
 }

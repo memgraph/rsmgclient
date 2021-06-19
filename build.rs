@@ -41,14 +41,8 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
-    println!(
-        "cargo:rustc-link-search=native={}",
-        "./mgclient/build/output/lib"
-    );
+    println!("cargo:rustc-link-search=native=./mgclient/build/output/lib");
     println!("cargo:rustc-link-lib=mgclient");
     // Required for cargo run/test.
-    println!(
-        "cargo:rustc-env=LD_LIBRARY_PATH={}",
-        "./mgclient/build/output/lib"
-    );
+    println!("cargo:rustc-env=LD_LIBRARY_PATH=./mgclient/build/output/lib");
 }
