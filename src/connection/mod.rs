@@ -156,6 +156,8 @@ pub enum ConnectionStatus {
     Ready,
     /// Connection has executed query and is ready to fetch records.
     Executing,
+    /// Connection is in the fetching phase.
+    Fetching,
     /// Connection is closed and can no longer be used.
     Closed,
     /// There was an error with current session and connection is no longer usable.
@@ -239,6 +241,7 @@ impl Connection {
         match self.status {
             ConnectionStatus::Ready => self.lazy = lazy,
             ConnectionStatus::Executing => panic!("Can't set lazy while executing"),
+            ConnectionStatus::Fetching => panic!("Can't set lazy while fetching"),
             ConnectionStatus::Bad => panic!("Bad connection"),
             ConnectionStatus::Closed => panic!("Connection is closed"),
         }
@@ -258,6 +261,7 @@ impl Connection {
         match self.status {
             ConnectionStatus::Ready => self.autocommit = autocommit,
             ConnectionStatus::Executing => panic!("Can't set autocommit while executing"),
+            ConnectionStatus::Fetching => panic!("Can't set autocommit while fetching"),
             ConnectionStatus::Bad => panic!("Bad connection"),
             ConnectionStatus::Closed => panic!("Connection is closed"),
         }
@@ -502,12 +506,14 @@ impl Connection {
         }
 
         match self.lazy {
-            true => match self.pull() {
-                Ok(res) => match res {
-                    Some(x) => Ok(Some(x)),
-                    None => {
-                        self.status = ConnectionStatus::Ready;
-                        Ok(None)
+            true => match self.pull(1) {
+                Ok(_) => {
+                    match self.fetch()? {
+                        Some(x) => Ok(Some(x)),
+                        None => {
+                            self.status = ConnectionStatus::Ready;
+                            Ok(None)
+                        }
                     }
                 },
                 Err(err) => {
@@ -574,18 +580,44 @@ impl Connection {
         Ok(vec)
     }
 
-    fn pull(&mut self) -> Result<Option<Record>, MgError> {
+    fn pull(&mut self, n: i64) -> Result<(), MgError> {
         // TODO(gitbuda): Hacks! Memory. Errors. Replace QueryParam.
-        let mg_map = hashmap! {
-            String::from("n") => QueryParam::Int(1),
-        };
-        let c_mg_map = hash_map_to_mg_map(&mg_map);
-        match unsafe { bindings::mg_session_pull(self.mg_session, c_mg_map) } {
-            0 => {}
+        let pull_status;
+        if n == 0 {
+            pull_status = unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) };
+        } else {
+            let mg_map = hashmap! {
+                String::from("n") => QueryParam::Int(n),
+            };
+            let c_mg_map = hash_map_to_mg_map(&mg_map);
+            pull_status = unsafe { bindings::mg_session_pull(self.mg_session, c_mg_map) };
+        }
+        match pull_status {
+            0 => {
+                self.status = ConnectionStatus::Fetching;
+                return Ok(());
+            },
             _ => {
                 return Err(MgError::new(read_error_message(self.mg_session)));
             }
         }
+    }
+
+    fn fetch(&mut self) -> Result<Option<Record>, MgError> {
+        match self.status {
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
+            ConnectionStatus::Ready => {
+                return Err(MgError::new(String::from("Connection is not fetching")))
+            }
+            ConnectionStatus::Executing => {
+                return Err(MgError::new(String::from("Connection is not fetching")))
+            }
+            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
+            _ => {}
+        }
+
         let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
         let fetch_status = unsafe { bindings::mg_session_fetch(self.mg_session, &mut mg_result) };
         let row = unsafe { bindings::mg_result_row(mg_result) };
@@ -605,14 +637,17 @@ impl Connection {
 
     fn pull_all(&mut self) -> Result<Vec<Record>, MgError> {
         let mut res = Vec::new();
-        loop {
-            match self.pull() {
-                Ok(x) => match x {
-                    Some(x) => res.push(x),
-                    None => break,
-                },
-                Err(err) => return Err(err),
-            }
+        match self.pull(0) {
+            Ok(_) => {
+                loop {
+                    let x = self.fetch()?;
+                    match x {
+                        Some(x) => res.push(x),
+                        None => break,
+                    }
+                }
+            },
+            Err(err) => return Err(err),
         }
         Ok(res)
     }
@@ -631,6 +666,9 @@ impl Connection {
             }
             ConnectionStatus::Executing => {
                 return Err(MgError::new(String::from("Can't commit while executing")))
+            }
+            ConnectionStatus::Fetching => {
+                return Err(MgError::new(String::from("Can't commit while fetching")))
             }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             ConnectionStatus::Ready => {}
@@ -661,7 +699,10 @@ impl Connection {
                 return Err(MgError::new(String::from("Connection is closed")))
             }
             ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from("Can't commit while executing")))
+                return Err(MgError::new(String::from("Can't rollback while executing")))
+            }
+            ConnectionStatus::Fetching => {
+                return Err(MgError::new(String::from("Can't rollback while fetching")))
             }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             ConnectionStatus::Ready => {}
