@@ -507,13 +507,11 @@ impl Connection {
 
         match self.lazy {
             true => match self.pull(1) {
-                Ok(_) => {
-                    match self.fetch()? {
-                        Some(x) => Ok(Some(x)),
-                        None => {
-                            self.status = ConnectionStatus::Ready;
-                            Ok(None)
-                        }
+                Ok(_) => match self.fetch()? {
+                    Some(x) => Ok(Some(x)),
+                    None => {
+                        self.status = ConnectionStatus::Ready;
+                        Ok(None)
                     }
                 },
                 Err(err) => {
@@ -584,7 +582,8 @@ impl Connection {
         // TODO(gitbuda): Hacks! Memory. Errors. Replace QueryParam.
         let pull_status;
         if n == 0 {
-            pull_status = unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) };
+            pull_status =
+                unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) };
         } else {
             let mg_map = hashmap! {
                 String::from("n") => QueryParam::Int(n),
@@ -595,11 +594,9 @@ impl Connection {
         match pull_status {
             0 => {
                 self.status = ConnectionStatus::Fetching;
-                return Ok(());
-            },
-            _ => {
-                return Err(MgError::new(read_error_message(self.mg_session)));
+                Ok(())
             }
+            _ => Err(MgError::new(read_error_message(self.mg_session))),
         }
     }
 
@@ -638,13 +635,11 @@ impl Connection {
     fn pull_all(&mut self) -> Result<Vec<Record>, MgError> {
         let mut res = Vec::new();
         match self.pull(0) {
-            Ok(_) => {
-                loop {
-                    let x = self.fetch()?;
-                    match x {
-                        Some(x) => res.push(x),
-                        None => break,
-                    }
+            Ok(_) => loop {
+                let x = self.fetch()?;
+                match x {
+                    Some(x) => res.push(x),
+                    None => break,
                 }
             },
             Err(err) => return Err(err),
