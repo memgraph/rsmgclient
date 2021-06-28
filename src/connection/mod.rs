@@ -613,7 +613,10 @@ impl Connection {
                 self.status = ConnectionStatus::Fetching;
                 Ok(())
             }
-            _ => Err(MgError::new(read_error_message(self.mg_session))),
+            _ => {
+                self.status = ConnectionStatus::Bad;
+                Err(MgError::new(read_error_message(self.mg_session)))
+            }
         }
     }
 
