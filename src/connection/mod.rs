@@ -147,6 +147,7 @@ pub struct Connection {
     results_iter: Option<IntoIter<Record>>,
     arraysize: u32,
     summary: Option<HashMap<String, Value>>,
+    has_more: bool,
 }
 
 /// Representation of current connection status.
@@ -378,6 +379,7 @@ impl Connection {
             results_iter: None,
             arraysize: 1,
             summary: None,
+            has_more: false,
         })
     }
 
@@ -506,19 +508,34 @@ impl Connection {
         }
 
         match self.lazy {
-            true => match self.pull(1) {
-                Ok(_) => match self.fetch()? {
-                    Some(x) => Ok(Some(x)),
+            true => {
+                if self.status == ConnectionStatus::Ready {
+                    return Ok(None);
+                }
+                if self.status == ConnectionStatus::Executing {
+                    match self.pull(1) {
+                        Ok(_) => {
+                            // The state update is alredy done in the pull.
+                        }
+                        Err(err) => {
+                            self.status = ConnectionStatus::Bad;
+                            return Err(err);
+                        }
+                    }
+                }
+                match self.fetch()? {
+                    Some(x) => {
+                        if self.has_more {
+                            self.status = ConnectionStatus::Executing;
+                        }
+                        Ok(Some(x))
+                    }
                     None => {
                         self.status = ConnectionStatus::Ready;
                         Ok(None)
                     }
-                },
-                Err(err) => {
-                    self.status = ConnectionStatus::Bad;
-                    Err(err)
                 }
-            },
+            }
             false => match &mut self.results_iter {
                 Some(it) => match it.next() {
                     Some(x) => Ok(Some(x)),
@@ -616,7 +633,15 @@ impl Connection {
         }
 
         let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
+        self.has_more = false;
         let fetch_status = unsafe { bindings::mg_session_fetch(self.mg_session, &mut mg_result) };
+        unsafe {
+            if fetch_status == 0 {
+                let mg_summary = bindings::mg_result_summary(mg_result);
+                let mg_has_more = bindings::mg_map_at(mg_summary, str_to_c_str("has_more"));
+                self.has_more = bindings::mg_value_bool(mg_has_more) != 0;
+            }
+        }
         let row = unsafe { bindings::mg_result_row(mg_result) };
         match fetch_status {
             1 => Ok(Some(Record {
