@@ -31,6 +31,7 @@ jobs:
     - name: "Set environment variables"
       run: |
         echo "C_INCLUDE_PATH=$C_INCLUDE_PATH:$GITHUB_WORKSPACE/mgclient/build/output/include" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GITHUB_WORKSPACE/mgclient/build/output/lib" >> $GITHUB_ENV
 
     - name: Cache Memgraph Docker image
       id: cache-memgraph-docker
