@@ -27,6 +27,11 @@ jobs:
         make
         make install
 
+    # https://brandur.org/fragments/github-actions-env-vars-in-env-vars
+    - name: "Set environment variables"
+      run: |
+        echo "C_INCLUDE_PATH=$C_INCLUDE_PATH:$GITHUB_WORKSPACE/mgclient/build/output/include" >> $GITHUB_ENV
+
     - name: Cache Memgraph Docker image
       id: cache-memgraph-docker
       uses: actions/cache@v1
