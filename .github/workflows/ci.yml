@@ -62,7 +62,7 @@ jobs:
         docker run -d -p 7687:7687 memgraph --telemetry-enabled=False
 
     - name: Run cargo-tarpaulin
-      uses: actions-rs/tarpaulin@v0.1.2
+      uses: actions-rs/tarpaulin@v0.1.3
       with:
         args: '--out Html --ignore-tests'
 
