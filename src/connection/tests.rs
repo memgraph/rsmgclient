@@ -822,7 +822,7 @@ fn from_connect_fetchall_rollback_panic_closed() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't commit while executing")]
+#[should_panic(expected = "Fetching failed: Can't rollback while executing")]
 fn from_connect_fetchall_rollback_panic_executing() {
     initialize();
     execute_query(String::from(
