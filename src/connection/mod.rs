@@ -18,7 +18,7 @@ use super::value::{
     c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_map_to_hash_map, mg_value_string,
     str_to_c_str, QueryParam, Record, Value,
 };
-use maplit::hashmap;
+
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::vec::IntoIter;
@@ -410,6 +410,7 @@ impl Connection {
         }
 
         let mut result = std::ptr::null_mut();
+        // TODO(gitbuda): Check if fetch should be called multiple times.
         match unsafe { bindings::mg_session_fetch(self.mg_session, &mut result) } {
             0 => Ok(()),
             _ => Err(MgError::new(read_error_message(self.mg_session))),
@@ -596,18 +597,31 @@ impl Connection {
     }
 
     fn pull(&mut self, n: i64) -> Result<(), MgError> {
-        // TODO(gitbuda): Hacks! Memory. Errors. Replace QueryParam.
-        let pull_status;
-        if n == 0 {
-            pull_status =
-                unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) };
-        } else {
-            let mg_map = hashmap! {
-                String::from("n") => QueryParam::Int(n),
-            };
-            let c_mg_map = hash_map_to_mg_map(&mg_map);
-            pull_status = unsafe { bindings::mg_session_pull(self.mg_session, c_mg_map) };
-        }
+        let pull_status = match n {
+            0 => unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) },
+            _ => unsafe {
+                let mg_map = bindings::mg_map_make_empty(1);
+                if mg_map.is_null() {
+                    self.status = ConnectionStatus::Bad;
+                    return Err(MgError::new(String::from("Unable to make pull map.")));
+                }
+                let mg_int = bindings::mg_value_make_integer(n);
+                if mg_int.is_null() {
+                    self.status = ConnectionStatus::Bad;
+                    return Err(MgError::new(String::from(
+                        "Unable to make pull map integer value.",
+                    )));
+                }
+                if bindings::mg_map_insert(mg_map, "n".as_ptr() as *const i8, mg_int) != 0 {
+                    self.status = ConnectionStatus::Bad;
+                    return Err(MgError::new(String::from(
+                        "Unable to insert into pull map.",
+                    )));
+                }
+                bindings::mg_session_pull(self.mg_session, mg_map)
+            },
+        };
+
         match pull_status {
             0 => {
                 self.status = ConnectionStatus::Fetching;
