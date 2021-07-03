@@ -18,6 +18,17 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
+    if cfg!(windows) {
+        println!("this is windows");
+    } else if cfg!(unix) {
+        println!("this is unix alike");
+        if cfg!(target_os = "linux") {
+            println!("this is linux");
+        } else if cfg!(target_os = "macos") {
+            println!("this is macos");
+        }
+    }
+
     let mgclient = PathBuf::new().join("mgclient");
     let mgclient_out = cmake::build("mgclient");
 
