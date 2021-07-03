@@ -18,21 +18,32 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let mgclient_h = "./mgclient/build/output/include/mgclient.h";
-    let mgclient_export_h = "./mgclient/build/output/include/mgclient-export.h";
-    // Required because of tests that rely on the struct fields.
-    let mgclient_mgvalue_h = "./mgclient/src/mgvalue.h";
+    let mgclient = PathBuf::new().join("mgclient");
+    let mgclient_out = cmake::build("mgclient");
 
-    println!("{}", format!("{}{}", "cargo:rerun-if-changed=", mgclient_h));
+    let mgclient_h = mgclient_out.join("include").join("mgclient.h");
+    let mgclient_export_h = mgclient_out.join("include").join("mgclient-export.h");
+    // Required because of tests that rely on the C struct fields.
+    let mgclient_mgvalue_h = mgclient.join("src").join("mgvalue.h");
+
     println!(
         "{}",
-        format!("{}{}", "cargo:rerun-if-changed=", mgclient_export_h)
+        format!("{}{}", "cargo:rerun-if-changed=", mgclient_h.display())
+    );
+    println!(
+        "{}",
+        format!(
+            "{}{}",
+            "cargo:rerun-if-changed=",
+            mgclient_export_h.display()
+        )
     );
 
     let bindings = bindgen::Builder::default()
-        .header(mgclient_h)
-        .header(mgclient_export_h)
-        .header(mgclient_mgvalue_h)
+        .header(format!("{}", mgclient_h.display()))
+        .header(format!("{}", mgclient_export_h.display()))
+        .header(format!("{}", mgclient_mgvalue_h.display()))
+        .clang_arg(format!("-I{}", mgclient_out.join("include").display()))
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .generate()
         .expect("Unable to generate bindings");
@@ -41,8 +52,11 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
-    println!("cargo:rustc-link-search=native=./mgclient/build/output/lib");
-    println!("cargo:rustc-link-lib=mgclient");
-    // Required for cargo run/test.
-    println!("cargo:rustc-env=LD_LIBRARY_PATH=./mgclient/build/output/lib");
+    println!(
+        "cargo:rustc-link-search=native={}",
+        mgclient_out.join("lib").display()
+    );
+    println!("cargo:rustc-link-lib=static=mgclient");
+    println!("cargo:rustc-link-lib=dylib=crypto");
+    println!("cargo:rustc-link-lib=dylib=ssl");
 }

@@ -14,24 +14,9 @@ jobs:
     steps:
     - name: Install system dependencies
       run: sudo apt-get install -y git cmake make gcc g++ libssl-dev
-
     - uses: actions/checkout@v2
       with:
         submodules: true
-
-    - name: Install mgclient
-      run: |
-        cd mgclient
-        mkdir build && cd build
-        cmake -DCMAKE_INSTALL_PREFIX=output ..
-        make
-        make install
-
-    # https://brandur.org/fragments/github-actions-env-vars-in-env-vars
-    - name: "Set environment variables"
-      run: |
-        echo "C_INCLUDE_PATH=$C_INCLUDE_PATH:$GITHUB_WORKSPACE/mgclient/build/output/include" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GITHUB_WORKSPACE/mgclient/build/output/lib" >> $GITHUB_ENV
 
     - name: Cache Memgraph Docker image
       id: cache-memgraph-docker
@@ -65,7 +50,6 @@ jobs:
       uses: actions-rs/tarpaulin@v0.1.3
       with:
         args: '--out Html --ignore-tests'
-
     - name: Archive code coverage results
       uses: actions/upload-artifact@v1
       with:
