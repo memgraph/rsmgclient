@@ -123,7 +123,7 @@ fn from_connect_fetchone() {
         Err(err) => panic!("Query failed: {}", err),
     };
     assert_eq!(columns.join(", "), "n");
-    assert_eq!(connection.lazy, false);
+    assert!(!connection.lazy);
 
     loop {
         match connection.fetchone() {
@@ -183,7 +183,7 @@ fn from_connect_fetchone_address() {
         ..Default::default()
     };
     let connection = get_connection(connect_prms);
-    assert_eq!(connection.lazy, true);
+    assert!(connection.lazy);
 }
 
 #[test]
@@ -658,7 +658,7 @@ fn from_connect_fetchone_summary_none() {
     };
     let connection = get_connection(connect_prms);
     let summary = connection.summary();
-    assert_eq!(true, summary.is_none());
+    assert!(summary.is_none());
 }
 
 #[test]
@@ -905,7 +905,7 @@ fn from_connect_fetchall_set_get_lazy() {
     let mut connection = get_connection(connect_prms);
 
     connection.set_lazy(false);
-    assert_eq!(false, connection.lazy);
+    assert!(!connection.lazy);
 }
 
 #[test]
@@ -925,7 +925,7 @@ fn from_connect_fetchall_set_get_lazy_panic_executing() {
 
     connection.status = ConnectionStatus::Executing;
     connection.set_lazy(false);
-    assert_eq!(false, connection.lazy);
+    assert!(!connection.lazy);
 }
 
 #[test]
@@ -942,7 +942,7 @@ fn from_connect_fetchall_set_get_lazy_panic_bad() {
 
     connection.status = ConnectionStatus::Bad;
     connection.set_lazy(false);
-    assert_eq!(false, connection.lazy);
+    assert!(!connection.lazy);
 }
 
 #[test]
@@ -959,7 +959,7 @@ fn from_connect_fetchall_set_get_lazy_panic_closed() {
 
     connection.status = ConnectionStatus::Closed;
     connection.set_lazy(false);
-    assert_eq!(false, connection.lazy);
+    assert!(!connection.lazy);
 }
 
 #[test]
@@ -973,7 +973,7 @@ fn from_connect_fetchall_set_get_autocommit() {
     let mut connection = get_connection(connect_prms);
 
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -989,7 +989,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_transaction() {
 
     connection.in_transaction = true;
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -1005,7 +1005,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_executing() {
 
     connection.status = ConnectionStatus::Executing;
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -1021,7 +1021,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_bad() {
 
     connection.status = ConnectionStatus::Bad;
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -1037,7 +1037,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_closed() {
 
     connection.status = ConnectionStatus::Closed;
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -1064,8 +1064,8 @@ fn from_connect_fetchall_get_lazy_transaction_status() {
     };
     let connection = get_connection(connect_prms);
 
-    assert_eq!(true, connection.lazy());
-    assert_eq!(false, connection.in_transaction());
+    assert!(connection.lazy());
+    assert!(!connection.in_transaction());
     assert_eq!(&ConnectionStatus::Ready, connection.status());
 }
 
