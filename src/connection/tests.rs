@@ -18,6 +18,10 @@ pub fn initialize() {
         Ok(_records) => {}
         Err(err) => panic!("Fetching failed: {}", err),
     }
+    match connection.commit() {
+        Ok(_) => {}
+        Err(err) => panic!("Commit failed: {}", err),
+    }
 }
 
 fn execute_query(query: String) {
@@ -1093,4 +1097,29 @@ fn from_connect_close_panic() {
     connection.status = ConnectionStatus::Executing;
     connection.close();
     assert_eq!(&ConnectionStatus::Closed, connection.status());
+}
+
+#[test]
+#[serial]
+fn from_connect_execute_without_results() {
+    initialize();
+    let connect_prms = ConnectParams {
+        address: Some(String::from("127.0.0.1")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);
+    assert_eq!(&ConnectionStatus::Ready, connection.status());
+
+    assert!(connection
+        .execute_without_results("CREATE (n1) CREATE (n2) RETURN n1, n2;")
+        .is_ok());
+    assert_eq!(&ConnectionStatus::Ready, connection.status());
+
+    assert!(connection.execute("MATCH (n) RETURN n;", None).is_ok());
+    assert_eq!(&ConnectionStatus::Executing, connection.status());
+    match connection.fetchall() {
+        Ok(records) => assert_eq!(records.len(), 2),
+        Err(_) => panic!("Failed to get data after execute without results."),
+    }
+    assert_eq!(&ConnectionStatus::Ready, connection.status());
 }

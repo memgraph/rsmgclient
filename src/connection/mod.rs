@@ -383,7 +383,8 @@ impl Connection {
         })
     }
 
-    fn connection_run_without_results(&mut self, query: &str) -> Result<(), MgError> {
+    /// Fully Executes provided query but doesn't return any results even if they exist.
+    pub fn execute_without_results(&mut self, query: &str) -> Result<(), MgError> {
         match unsafe {
             bindings::mg_session_run(
                 self.mg_session,
@@ -394,7 +395,9 @@ impl Connection {
                 std::ptr::null_mut(),
             )
         } {
-            0 => {}
+            0 => {
+                self.status = ConnectionStatus::Executing;
+            }
             _ => {
                 self.status = ConnectionStatus::Bad;
                 return Err(MgError::new(read_error_message(self.mg_session)));
@@ -402,18 +405,30 @@ impl Connection {
         }
 
         match unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) } {
-            0 => {}
+            0 => {
+                self.status = ConnectionStatus::Fetching;
+            }
             _ => {
                 self.status = ConnectionStatus::Bad;
                 return Err(MgError::new(read_error_message(self.mg_session)));
             }
         }
 
-        let mut result = std::ptr::null_mut();
-        // TODO(gitbuda): Check if fetch should be called multiple times.
-        match unsafe { bindings::mg_session_fetch(self.mg_session, &mut result) } {
-            0 => Ok(()),
-            _ => Err(MgError::new(read_error_message(self.mg_session))),
+        loop {
+            let mut result = std::ptr::null_mut();
+            match unsafe { bindings::mg_session_fetch(self.mg_session, &mut result) } {
+                1 => {
+                    continue;
+                }
+                0 => {
+                    self.status = ConnectionStatus::Ready;
+                    return Ok(());
+                }
+                _ => {
+                    self.status = ConnectionStatus::Bad;
+                    return Err(MgError::new(read_error_message(self.mg_session)));
+                }
+            };
         }
     }
 
@@ -446,7 +461,7 @@ impl Connection {
         }
 
         if !self.autocommit && !self.in_transaction {
-            match self.connection_run_without_results("BEGIN") {
+            match self.execute_without_results("BEGIN") {
                 Ok(()) => self.in_transaction = true,
                 Err(err) => return Err(err),
             }
@@ -714,7 +729,7 @@ impl Connection {
             return Ok(());
         }
 
-        match self.connection_run_without_results("COMMIT") {
+        match self.execute_without_results("COMMIT") {
             Ok(()) => {
                 self.in_transaction = false;
                 Ok(())
@@ -749,7 +764,7 @@ impl Connection {
             return Ok(());
         }
 
-        match self.connection_run_without_results("ROLLBACK") {
+        match self.execute_without_results("ROLLBACK") {
             Ok(()) => {
                 self.in_transaction = false;
                 Ok(())
