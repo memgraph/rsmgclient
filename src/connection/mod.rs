@@ -551,7 +551,7 @@ impl Connection {
                         Ok(None)
                     }
                 }
-            },
+            }
             false => match self.next_record() {
                 Some(x) => Ok(Some(x)),
                 None => {
