@@ -18,6 +18,7 @@ use cmake::Config;
 use std::env;
 use std::path::PathBuf;
 
+#[derive(PartialEq)]
 enum HostType {
     Linux,
     MacOS,
@@ -46,6 +47,42 @@ fn main() {
             .target("windows-gnu")
             .generator("MinGW Makefiles")
             .build(),
+
+        HostType::MacOS => {
+            let mut openssl_dirs =
+                std::fs::read_dir(PathBuf::new().join("/usr/local/Cellar/openssl@1.1"))
+                    .unwrap()
+                    .map(|r| r.unwrap().path())
+                    .collect::<Vec<PathBuf>>();
+            openssl_dirs.sort_by(|a, b| {
+                let a_time = a.metadata().unwrap().modified().unwrap();
+                let b_time = b.metadata().unwrap().modified().unwrap();
+                b_time.cmp(&a_time)
+            });
+            let openssl_root = openssl_dirs[0].clone();
+            println!(
+                "cargo:rustc-link-search=native={}",
+                openssl_root.join("lib").display()
+            );
+            Config::new("mgclient")
+                .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
+                .define(
+                    "OPENSSL_CRYPTO_LIBRARY",
+                    format!(
+                        "{}",
+                        openssl_root.join("lib").join("libcrypto.dylib").display()
+                    ),
+                )
+                .define(
+                    "OPENSSL_SSL_LIBRARY",
+                    format!(
+                        "{}",
+                        openssl_root.join("lib").join("libssl.dylib").display()
+                    ),
+                )
+                .build()
+        }
+
         _ => cmake::build("mgclient"),
     };
 
