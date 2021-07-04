@@ -165,13 +165,6 @@ pub enum ConnectionStatus {
     Bad,
 }
 
-fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
-    match sslmode {
-        SSLMode::Disable => bindings::mg_sslmode_MG_SSLMODE_DISABLE,
-        SSLMode::Require => bindings::mg_sslmode_MG_SSLMODE_REQUIRE,
-    }
-}
-
 fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
     let c_error_message = unsafe { bindings::mg_session_error(mg_session) };
     unsafe { c_string_to_string(c_error_message, None) }
@@ -184,6 +177,22 @@ impl Drop for Connection {
 }
 
 impl Connection {
+    /// Initializes underlying mgclient.
+    /// Should be called at the beginning of each process using the client.
+    pub fn init() {
+        unsafe {
+            bindings::mg_init();
+        }
+    }
+
+    /// Finalizes underlying mgclient.
+    /// Should be called at the end of each process using the client.
+    pub fn finalize() {
+        unsafe {
+            bindings::mg_finalize();
+        }
+    }
+
     /// Returns whether connection is executing lazily.
     ///
     /// If false, queries are not executed lazily. After running `execute`, records
@@ -294,6 +303,7 @@ impl Connection {
     /// # Ok(()) }
     /// ```
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
+        Connection::init();
         let mg_session_params = unsafe { bindings::mg_session_params_make() };
         let mut trust_callback_ptr = std::ptr::null_mut();
         unsafe {
@@ -326,7 +336,12 @@ impl Connection {
             );
             bindings::mg_session_params_set_sslmode(
                 mg_session_params,
-                sslmode_to_c(&param_struct.sslmode),
+                // Bindings struct is not used because on Linux bindgen
+                // generates u32, while on Windows i32 type is generated.
+                match param_struct.sslmode {
+                    SSLMode::Disable => 0,
+                    SSLMode::Require => 1,
+                },
             );
             match &param_struct.sslcert {
                 Some(x) => {

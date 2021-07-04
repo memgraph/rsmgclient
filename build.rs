@@ -14,23 +14,40 @@
 
 extern crate bindgen;
 
+use cmake::Config;
 use std::env;
 use std::path::PathBuf;
 
+enum HostType {
+    Linux,
+    MacOS,
+    Windows,
+    Unknown,
+}
+
 fn main() {
-    if cfg!(windows) {
-        println!("this is windows");
-    } else if cfg!(unix) {
-        println!("this is unix alike");
-        if cfg!(target_os = "linux") {
-            println!("this is linux");
-        } else if cfg!(target_os = "macos") {
-            println!("this is macos");
-        }
-    }
+    let host_type = if cfg!(target_os = "linux") {
+        HostType::Linux
+    } else if cfg!(windows) {
+        HostType::Windows
+    } else if cfg!(target_os = "macos") {
+        HostType::MacOS
+    } else {
+        HostType::Unknown
+    };
 
     let mgclient = PathBuf::new().join("mgclient");
-    let mgclient_out = cmake::build("mgclient");
+    let mgclient_out = match host_type {
+        // Please checkout what are Windows requirements to compile
+        // https://github.com/memgraph/mgclient.
+        // While installing Rust please select x86_64-pc-windows-gnu
+        // as the host triplet (custom installation step is required).
+        HostType::Windows => Config::new("mgclient")
+            .target("windows-gnu")
+            .generator("MinGW Makefiles")
+            .build(),
+        _ => cmake::build("mgclient"),
+    };
 
     let mgclient_h = mgclient_out.join("include").join("mgclient.h");
     let mgclient_export_h = mgclient_out.join("include").join("mgclient-export.h");
