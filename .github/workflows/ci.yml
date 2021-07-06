@@ -81,6 +81,8 @@ jobs:
       matrix:
         platform: [windows-2019]
         target: [x86_64-pc-windows-gnu]
+        arch:
+          - { mingw: "64", msys: x86_64 }
         mgversion: [1.5]
     runs-on: ${{ matrix.platform }}
 
@@ -94,6 +96,16 @@ jobs:
         del rustup-init.exe
         rustup target add ${{ matrix.target }}
       shell: powershell
+
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW${{ matrix.arch.mingw }}
+        update: true
+        install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
+
+    - name: Add mingw${{ matrix.arch.mingw }} to PATH
+      run: |
+        echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
 
     - uses: actions/checkout@v2
       with:
