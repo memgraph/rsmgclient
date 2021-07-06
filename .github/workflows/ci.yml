@@ -58,7 +58,7 @@ jobs:
   build_macos:
     strategy:
       matrix:
-        platform: [macos-10.15, macos-11]
+        platform: []
         target: [x86_64-apple-darwin]
     runs-on: ${{ matrix.platform }}
 
@@ -74,7 +74,7 @@ jobs:
           submodules: true
 
     - name: Build the client
-      run: cargo build --release --verbose
+      run: cargo build --release
 
   build_windows:
     strategy:
@@ -112,4 +112,4 @@ jobs:
 
     - name: Build the client
       run: |
-        cargo build --release --verbose --target=${{ matrix.target }}
+        cargo build --release --target=${{ matrix.target }}
