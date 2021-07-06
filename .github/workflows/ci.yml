@@ -93,8 +93,8 @@ jobs:
         $ProgressPreference = "SilentlyContinue"
         Invoke-WebRequest https://win.rustup.rs/ -OutFile rustup-init.exe
         .\rustup-init.exe -y --default-host=x86_64-pc-windows-msvc --default-toolchain=none
+        rustup target add ${{ matrix.target }}
         del rustup-init.exe
-      shell: powershell
 
     - uses: msys2/setup-msys2@v2
       with:
@@ -112,6 +112,4 @@ jobs:
 
     - name: Build the client
       run: |
-        rustup target add ${{ matrix.target }}
-        cargo build --release --verbose
-      shell: cmd
+        cargo build --release --verbose --target=${{ matrix.target }}
