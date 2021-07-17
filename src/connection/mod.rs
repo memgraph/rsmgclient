@@ -147,7 +147,6 @@ pub struct Connection {
     results_iter: Option<IntoIter<Record>>,
     arraysize: u32,
     summary: Option<HashMap<String, Value>>,
-    has_more: bool,
 }
 
 /// Representation of current connection status.
@@ -173,6 +172,7 @@ fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
 impl Drop for Connection {
     fn drop(&mut self) {
         unsafe { bindings::mg_session_destroy(self.mg_session) };
+        Connection::finalize();
     }
 }
 
@@ -394,7 +394,6 @@ impl Connection {
             results_iter: None,
             arraysize: 1,
             summary: None,
-            has_more: false,
         })
     }
 
@@ -540,9 +539,6 @@ impl Connection {
 
         match self.lazy {
             true => {
-                if self.status == ConnectionStatus::Ready {
-                    return Ok(None);
-                }
                 if self.status == ConnectionStatus::Executing {
                     match self.pull(1) {
                         Ok(_) => {
@@ -555,13 +551,14 @@ impl Connection {
                     }
                 }
                 match self.fetch()? {
-                    Some(x) => {
-                        if self.has_more {
+                    (Some(x), None) => Ok(Some(x)),
+                    (Some(x), Some(has_more)) => {
+                        if has_more {
                             self.status = ConnectionStatus::Executing;
                         }
                         Ok(Some(x))
                     }
-                    None => {
+                    (None, _) => {
                         self.status = ConnectionStatus::Ready;
                         Ok(None)
                     }
@@ -643,17 +640,22 @@ impl Connection {
                 let mg_int = bindings::mg_value_make_integer(n);
                 if mg_int.is_null() {
                     self.status = ConnectionStatus::Bad;
+                    bindings::mg_map_destroy(mg_map);
                     return Err(MgError::new(String::from(
                         "Unable to make pull map integer value.",
                     )));
                 }
                 if bindings::mg_map_insert(mg_map, "n".as_ptr() as *const i8, mg_int) != 0 {
                     self.status = ConnectionStatus::Bad;
+                    bindings::mg_map_destroy(mg_map);
+                    bindings::mg_value_destroy(mg_int);
                     return Err(MgError::new(String::from(
                         "Unable to insert into pull map.",
                     )));
                 }
-                bindings::mg_session_pull(self.mg_session, mg_map)
+                let status = bindings::mg_session_pull(self.mg_session, mg_map);
+                bindings::mg_map_destroy(mg_map);
+                status
             },
         };
 
@@ -669,42 +671,32 @@ impl Connection {
         }
     }
 
-    fn fetch(&mut self) -> Result<Option<Record>, MgError> {
+    /// Maybe returns Record and has_more flag.
+    fn fetch(&mut self) -> Result<(Option<Record>, Option<bool>), MgError> {
         match self.status {
-            ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Connection is closed")))
-            }
-            ConnectionStatus::Ready => {
-                return Err(MgError::new(String::from("Connection is not fetching")))
-            }
-            ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from("Connection is not fetching")))
-            }
-            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
-            _ => {}
+            ConnectionStatus::Fetching => {}
+            _ => return Err(MgError::new(String::from("Connection is not fetching"))),
         }
 
         let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
-        self.has_more = false;
         let fetch_status = unsafe { bindings::mg_session_fetch(self.mg_session, &mut mg_result) };
-        unsafe {
-            if fetch_status == 0 {
+        match fetch_status {
+            1 => unsafe {
+                let row = bindings::mg_result_row(mg_result);
+                Ok((
+                    Some(Record {
+                        values: mg_list_to_vec(row),
+                    }),
+                    None,
+                ))
+            },
+            0 => unsafe {
                 let mg_summary = bindings::mg_result_summary(mg_result);
                 let mg_has_more = bindings::mg_map_at(mg_summary, str_to_c_str("has_more"));
-                self.has_more = bindings::mg_value_bool(mg_has_more) != 0;
-            }
-        }
-        let row = unsafe { bindings::mg_result_row(mg_result) };
-        match fetch_status {
-            1 => Ok(Some(Record {
-                values: unsafe { mg_list_to_vec(row) },
-            })),
-            0 => {
-                self.summary = Some(mg_map_to_hash_map(unsafe {
-                    bindings::mg_result_summary(mg_result)
-                }));
-                Ok(None)
-            }
+                let has_more = bindings::mg_value_bool(mg_has_more) != 0;
+                self.summary = Some(mg_map_to_hash_map(mg_summary));
+                Ok((None, Some(has_more)))
+            },
             _ => Err(MgError::new(read_error_message(self.mg_session))),
         }
     }
@@ -715,8 +707,8 @@ impl Connection {
             Ok(_) => loop {
                 let x = self.fetch()?;
                 match x {
-                    Some(x) => res.push(x),
-                    None => break,
+                    (Some(x), _) => res.push(x),
+                    (None, _) => break,
                 }
             },
             Err(err) => return Err(err),

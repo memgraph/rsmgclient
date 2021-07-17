@@ -624,6 +624,16 @@ fn from_connect_fetchone_summary() {
 
     let summary = connection.summary().unwrap();
     assert_eq!(6, summary.len());
+    for key in &[
+        "cost_estimate",
+        "has_more",
+        "parsing_time",
+        "type",
+        "planning_time",
+        "plan_execution_time",
+    ] {
+        assert!(summary.contains_key(&key as &str));
+    }
 }
 
 #[test]
@@ -772,7 +782,6 @@ fn from_connect_fetchall_rollback() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchall_rollback_panic_closed() {
     initialize();
     execute_query(String::from(
@@ -798,8 +807,12 @@ fn from_connect_fetchall_rollback_panic_closed() {
 
     connection.status = ConnectionStatus::Closed;
     match connection.rollback() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
+        Ok(_) => {
+            panic!("Rollback should not pass");
+        }
+        Err(err) => {
+            assert!(format!("{}", err).contains("is closed"));
+        }
     }
 }
 
@@ -904,7 +917,6 @@ fn from_connect_fetchall_set_get_lazy_panic_executing() {
 
     connection.status = ConnectionStatus::Executing;
     connection.set_lazy(false);
-    assert!(!connection.lazy);
 }
 
 #[test]
@@ -921,7 +933,6 @@ fn from_connect_fetchall_set_get_lazy_panic_bad() {
 
     connection.status = ConnectionStatus::Bad;
     connection.set_lazy(false);
-    assert!(!connection.lazy);
 }
 
 #[test]
@@ -938,7 +949,6 @@ fn from_connect_fetchall_set_get_lazy_panic_closed() {
 
     connection.status = ConnectionStatus::Closed;
     connection.set_lazy(false);
-    assert!(!connection.lazy);
 }
 
 #[test]
@@ -1098,7 +1108,7 @@ fn from_connect_execute_without_results() {
     assert_eq!(&ConnectionStatus::Executing, connection.status());
     match connection.fetchall() {
         Ok(records) => assert_eq!(records.len(), 2),
-        Err(_) => panic!("Failed to get data after execute without results."),
+        Err(err) => panic!("Failed to get data after execute without results {}.", err),
     }
     assert_eq!(&ConnectionStatus::Ready, connection.status());
 }

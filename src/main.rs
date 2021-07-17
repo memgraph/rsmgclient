@@ -22,9 +22,6 @@ fn execute_query() -> Result<(), MgError> {
     };
     let mut connection = Connection::connect(&connect_params)?;
 
-    // Clean existing graph.
-    connection.execute_without_results("MATCH (n) DETACH DELETE n;")?;
-
     // Create simple graph.
     connection.execute_without_results(
         "CREATE (p1:Person {name: 'Alice'})-[l1:Likes]->(m:Software {name: 'Memgraph'}) \

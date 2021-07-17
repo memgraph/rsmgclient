@@ -82,7 +82,7 @@ jobs:
         platform: [windows-2019]
         target: [x86_64-pc-windows-gnu]
         arch:
-          - { mingw: "64", msys: x86_64 }
+          - { mingw: 64, msys: x86_64 }
         mgversion: [1.5]
     runs-on: ${{ matrix.platform }}
 

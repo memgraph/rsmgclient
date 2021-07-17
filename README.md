@@ -20,8 +20,6 @@ install it from sources you will need:
 - [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
   1.42.0 or above
 - A C compiler supporting C11 standard
-- [mgclient](https://github.com/memgraph/mgclient) has to be installed
-  because `rsmgclient` statically links `mgclient`
 - [Memgraph](https://docs.memgraph.com/memgraph/quick-start)
 
 Once prerequisites are met, if you want to use it as library for your own Rust
@@ -41,10 +39,9 @@ you will need:
 - [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
   1.42.0-nightly or above
 - A C compiler supporting C11 standard
-- [mgclient](https://github.com/memgraph/mgclient)
 - [Memgraph](https://docs.memgraph.com/memgraph/quick-start)
 
-Once rsmgclient is installed, you will need to build it and then you can run
+Once rsmgclient is cloned, you will need to build it and then you can run
 the test suite to verify it is working correctly.
 
 ```bash
@@ -71,9 +68,6 @@ fn execute_query() -> Result<(), MgError> {
         ..Default::default()
     };
     let mut connection = Connection::connect(&connect_params)?;
-
-    // Clean existing graph.
-    connection.execute_without_results("MATCH (n) DETACH DELETE n;")?;
 
     // Create simple graph.
     connection.execute_without_results(

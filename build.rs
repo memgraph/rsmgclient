@@ -91,18 +91,8 @@ fn main() {
     // Required because of tests that rely on the C struct fields.
     let mgclient_mgvalue_h = mgclient.join("src").join("mgvalue.h");
 
-    println!(
-        "{}",
-        format!("{}{}", "cargo:rerun-if-changed=", mgclient_h.display())
-    );
-    println!(
-        "{}",
-        format!(
-            "{}{}",
-            "cargo:rerun-if-changed=",
-            mgclient_export_h.display()
-        )
-    );
+    println!("cargo:rerun-if-changed={}", mgclient_h.display());
+    println!("cargo:rerun-if-changed={}", mgclient_export_h.display());
 
     let bindings = bindgen::Builder::default()
         .header(format!("{}", mgclient_h.display()))
