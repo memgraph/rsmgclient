@@ -806,14 +806,9 @@ fn from_connect_fetchall_rollback_panic_closed() {
     }
 
     connection.status = ConnectionStatus::Closed;
-    match connection.rollback() {
-        Ok(_) => {
-            panic!("Rollback should not pass");
-        }
-        Err(err) => {
-            assert!(format!("{}", err).contains("is closed"));
-        }
-    }
+    let rollback_res = connection.rollback();
+    assert!(rollback_res.is_err());
+    assert!(format!("{}", rollback_res.err().unwrap()).contains("is closed"));
 }
 
 #[test]
