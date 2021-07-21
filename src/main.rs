@@ -12,26 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rsmgclient::{ConnectParams, Connection, MgError};
+use rsmgclient::{ConnectParams, Connection, MgError, Value};
 
 fn execute_query() -> Result<(), MgError> {
+    // Connect to Memgraph.
     let connect_params = ConnectParams {
         host: Some(String::from("localhost")),
         ..Default::default()
     };
     let mut connection = Connection::connect(&connect_params)?;
 
-    let query =
-        "CREATE (u:User {name: 'Alice'})-[l:Likes]->(m:Software {name: 'Memgraph'}) RETURN u, l, m";
-    let columns = connection.execute(query, None)?;
+    // Create simple graph.
+    connection.execute_without_results(
+        "CREATE (p1:Person {name: 'Alice'})-[l1:Likes]->(m:Software {name: 'Memgraph'}) \
+         CREATE (p2:Person {name: 'John'})-[l2:Likes]->(m);",
+    )?;
+
+    // Fetch the graph.
+    let columns = connection.execute("MATCH (n)-[r]->(m) RETURN n, r, m;", None)?;
     println!("Columns: {}", columns.join(", "));
-
-    let records = connection.fetchall()?;
-    for value in &records[0].values {
-        println!("{}", value);
+    for record in connection.fetchall()? {
+        for value in record.values {
+            match value {
+                Value::Node(node) => print!("{}", node),
+                Value::Relationship(edge) => print!("-{}-", edge),
+                value => print!("{}", value),
+            }
+        }
+        println!();
     }
-
     connection.commit()?;
+
     Ok(())
 }
 
