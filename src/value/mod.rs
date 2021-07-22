@@ -385,7 +385,7 @@ impl fmt::Display for Value {
 fn mg_map_to_string(mg_map: &HashMap<String, Value>) -> String {
     let mut properties: Vec<String> = Vec::new();
     let mut sorted: Vec<_> = mg_map.iter().collect();
-    sorted.sort_by(|x, y| x.0.cmp(&y.0));
+    sorted.sort_by(|x, y| x.0.cmp(y.0));
     for (key, value) in sorted {
         properties.push(format!("'{}': {}", key, value));
     }

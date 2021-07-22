@@ -7,7 +7,7 @@ unsafe fn to_c_pointer_array<T, S>(vec: &[T], convert_fun: impl Fn(&T) -> *mut S
     let size = vec.len() * mem::size_of::<*mut std::os::raw::c_void>();
     let ptr = libc::malloc(size) as *mut *mut S;
     for (i, el) in vec.iter().enumerate() {
-        *ptr.add(i) = convert_fun(&el);
+        *ptr.add(i) = convert_fun(el);
     }
     ptr
 }
@@ -614,11 +614,12 @@ fn from_to_c_mg_value_string() {
 
 #[test]
 fn from_to_c_mg_value_list() {
-    let mut vec: Vec<QueryParam> = Vec::new();
-    vec.push(QueryParam::Null);
-    vec.push(QueryParam::Bool(true));
-    vec.push(QueryParam::Int(20));
-    vec.push(QueryParam::Float(3.15));
+    let vec: Vec<QueryParam> = vec![
+        QueryParam::Null,
+        QueryParam::Bool(true),
+        QueryParam::Int(20),
+        QueryParam::Float(3.15),
+    ];
     let query_param_list = QueryParam::List(vec);
     let c_mg_value = unsafe { *(query_param_list.to_c_mg_value()) };
     let mg_value = unsafe { Value::from_mg_value(&c_mg_value) };

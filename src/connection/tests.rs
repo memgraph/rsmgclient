@@ -18,6 +18,10 @@ pub fn initialize() {
         Ok(_records) => {}
         Err(err) => panic!("Fetching failed: {}", err),
     }
+    match connection.commit() {
+        Ok(_) => {}
+        Err(err) => panic!("Commit failed: {}", err),
+    }
 }
 
 fn execute_query(query: String) {
@@ -119,7 +123,7 @@ fn from_connect_fetchone() {
         Err(err) => panic!("Query failed: {}", err),
     };
     assert_eq!(columns.join(", "), "n");
-    assert_eq!(connection.lazy, false);
+    assert!(!connection.lazy);
 
     loop {
         match connection.fetchone() {
@@ -179,13 +183,12 @@ fn from_connect_fetchone_address() {
         ..Default::default()
     };
     let connection = get_connection(connect_prms);
-    assert_eq!(connection.lazy, true);
+    assert!(connection.lazy);
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "explicit panic")]
-fn from_connect_fetchone_explicit_panic() {
+fn from_connect_fetchone_no_data() {
     initialize();
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
@@ -200,39 +203,19 @@ fn from_connect_fetchone_explicit_panic() {
         ..Default::default()
     };
     let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(), "Alice".to_string());
+    let params = get_params("name".to_string(), "Something".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
-    connection.results_iter = None;
-    loop {
-        match connection.fetchone() {
-            Ok(res) => match res {
-                Some(x) => {
-                    for val in &x.values {
-                        let values = vec![String::from("User")];
-                        let mg_map = hashmap! {
-                            String::from("name") => Value::String("Alice".to_string()),
-                        };
-                        let node = Value::Node(Node {
-                            id: match val {
-                                Value::Node(x) => x.id,
-                                _ => 1,
-                            },
-                            label_count: 1,
-                            labels: values,
-                            properties: mg_map,
-                        });
-                        assert_eq!(&node, val);
-                    }
-                }
-                None => break,
-            },
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
+
+    let first = connection.fetchone();
+    if let Ok(rec) = first {
+        assert!(rec.is_none());
+    } else {
+        panic!("First fetched record should be None")
     }
 }
 
@@ -640,7 +623,17 @@ fn from_connect_fetchone_summary() {
     }
 
     let summary = connection.summary().unwrap();
-    assert_eq!(5, summary.len());
+    assert_eq!(6, summary.len());
+    for key in &[
+        "cost_estimate",
+        "has_more",
+        "parsing_time",
+        "type",
+        "planning_time",
+        "plan_execution_time",
+    ] {
+        assert!(summary.contains_key(&key as &str));
+    }
 }
 
 #[test]
@@ -654,7 +647,7 @@ fn from_connect_fetchone_summary_none() {
     };
     let connection = get_connection(connect_prms);
     let summary = connection.summary();
-    assert_eq!(true, summary.is_none());
+    assert!(summary.is_none());
 }
 
 #[test]
@@ -789,7 +782,6 @@ fn from_connect_fetchall_rollback() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchall_rollback_panic_closed() {
     initialize();
     execute_query(String::from(
@@ -814,15 +806,14 @@ fn from_connect_fetchall_rollback_panic_closed() {
     }
 
     connection.status = ConnectionStatus::Closed;
-    match connection.rollback() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
+    let rollback_res = connection.rollback();
+    assert!(rollback_res.is_err());
+    assert!(format!("{}", rollback_res.err().unwrap()).contains("is closed"));
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't commit while executing")]
+#[should_panic(expected = "Fetching failed: Can't rollback while executing")]
 fn from_connect_fetchall_rollback_panic_executing() {
     initialize();
     execute_query(String::from(
@@ -901,7 +892,7 @@ fn from_connect_fetchall_set_get_lazy() {
     let mut connection = get_connection(connect_prms);
 
     connection.set_lazy(false);
-    assert_eq!(false, connection.lazy);
+    assert!(!connection.lazy);
 }
 
 #[test]
@@ -921,7 +912,6 @@ fn from_connect_fetchall_set_get_lazy_panic_executing() {
 
     connection.status = ConnectionStatus::Executing;
     connection.set_lazy(false);
-    assert_eq!(false, connection.lazy);
 }
 
 #[test]
@@ -938,7 +928,6 @@ fn from_connect_fetchall_set_get_lazy_panic_bad() {
 
     connection.status = ConnectionStatus::Bad;
     connection.set_lazy(false);
-    assert_eq!(false, connection.lazy);
 }
 
 #[test]
@@ -955,7 +944,6 @@ fn from_connect_fetchall_set_get_lazy_panic_closed() {
 
     connection.status = ConnectionStatus::Closed;
     connection.set_lazy(false);
-    assert_eq!(false, connection.lazy);
 }
 
 #[test]
@@ -969,7 +957,7 @@ fn from_connect_fetchall_set_get_autocommit() {
     let mut connection = get_connection(connect_prms);
 
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -985,7 +973,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_transaction() {
 
     connection.in_transaction = true;
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -1001,7 +989,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_executing() {
 
     connection.status = ConnectionStatus::Executing;
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -1017,7 +1005,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_bad() {
 
     connection.status = ConnectionStatus::Bad;
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -1033,7 +1021,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_closed() {
 
     connection.status = ConnectionStatus::Closed;
     connection.set_autocommit(true);
-    assert_eq!(true, connection.autocommit());
+    assert!(connection.autocommit());
 }
 
 #[test]
@@ -1060,8 +1048,8 @@ fn from_connect_fetchall_get_lazy_transaction_status() {
     };
     let connection = get_connection(connect_prms);
 
-    assert_eq!(true, connection.lazy());
-    assert_eq!(false, connection.in_transaction());
+    assert!(connection.lazy());
+    assert!(!connection.in_transaction());
     assert_eq!(&ConnectionStatus::Ready, connection.status());
 }
 
@@ -1093,4 +1081,29 @@ fn from_connect_close_panic() {
     connection.status = ConnectionStatus::Executing;
     connection.close();
     assert_eq!(&ConnectionStatus::Closed, connection.status());
+}
+
+#[test]
+#[serial]
+fn from_connect_execute_without_results() {
+    initialize();
+    let connect_prms = ConnectParams {
+        address: Some(String::from("127.0.0.1")),
+        ..Default::default()
+    };
+    let mut connection = get_connection(connect_prms);
+    assert_eq!(&ConnectionStatus::Ready, connection.status());
+
+    assert!(connection
+        .execute_without_results("CREATE (n1) CREATE (n2) RETURN n1, n2;")
+        .is_ok());
+    assert_eq!(&ConnectionStatus::Ready, connection.status());
+
+    assert!(connection.execute("MATCH (n) RETURN n;", None).is_ok());
+    assert_eq!(&ConnectionStatus::Executing, connection.status());
+    match connection.fetchall() {
+        Ok(records) => assert_eq!(records.len(), 2),
+        Err(err) => panic!("Failed to get data after execute without results {}.", err),
+    }
+    assert_eq!(&ConnectionStatus::Ready, connection.status());
 }

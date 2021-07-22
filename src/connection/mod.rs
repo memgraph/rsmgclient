@@ -18,6 +18,7 @@ use super::value::{
     c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_map_to_hash_map, mg_value_string,
     str_to_c_str, QueryParam, Record, Value,
 };
+
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::vec::IntoIter;
@@ -90,8 +91,8 @@ impl Default for ConnectParams {
             address: None,
             username: None,
             password: None,
-            client_name: String::from("MemgraphBolt/0.1"),
-            sslmode: SSLMode::Require,
+            client_name: String::from("rsmgclient/0.1"),
+            sslmode: SSLMode::Disable,
             sslcert: None,
             sslkey: None,
             trust_callback: None,
@@ -155,17 +156,12 @@ pub enum ConnectionStatus {
     Ready,
     /// Connection has executed query and is ready to fetch records.
     Executing,
+    /// Connection is in the fetching phase.
+    Fetching,
     /// Connection is closed and can no longer be used.
     Closed,
     /// There was an error with current session and connection is no longer usable.
     Bad,
-}
-
-fn sslmode_to_c(sslmode: &SSLMode) -> u32 {
-    match sslmode {
-        SSLMode::Disable => bindings::mg_sslmode_MG_SSLMODE_DISABLE,
-        SSLMode::Require => bindings::mg_sslmode_MG_SSLMODE_REQUIRE,
-    }
 }
 
 fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
@@ -176,10 +172,27 @@ fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
 impl Drop for Connection {
     fn drop(&mut self) {
         unsafe { bindings::mg_session_destroy(self.mg_session) };
+        Connection::finalize();
     }
 }
 
 impl Connection {
+    /// Initializes underlying mgclient.
+    /// Should be called at the beginning of each process using the client.
+    pub fn init() {
+        unsafe {
+            bindings::mg_init();
+        }
+    }
+
+    /// Finalizes underlying mgclient.
+    /// Should be called at the end of each process using the client.
+    pub fn finalize() {
+        unsafe {
+            bindings::mg_finalize();
+        }
+    }
+
     /// Returns whether connection is executing lazily.
     ///
     /// If false, queries are not executed lazily. After running `execute`, records
@@ -226,10 +239,7 @@ impl Connection {
     /// all records have been fetched). Executing new query will remove
     /// previous query summary.
     pub fn summary(&self) -> Option<HashMap<String, Value>> {
-        match &self.summary {
-            Some(x) => Some((*x).clone()),
-            None => None,
-        }
+        self.summary.as_ref().map(|x| (*x).clone())
     }
 
     /// Setter for `lazy` field.
@@ -241,6 +251,7 @@ impl Connection {
         match self.status {
             ConnectionStatus::Ready => self.lazy = lazy,
             ConnectionStatus::Executing => panic!("Can't set lazy while executing"),
+            ConnectionStatus::Fetching => panic!("Can't set lazy while fetching"),
             ConnectionStatus::Bad => panic!("Bad connection"),
             ConnectionStatus::Closed => panic!("Connection is closed"),
         }
@@ -260,6 +271,7 @@ impl Connection {
         match self.status {
             ConnectionStatus::Ready => self.autocommit = autocommit,
             ConnectionStatus::Executing => panic!("Can't set autocommit while executing"),
+            ConnectionStatus::Fetching => panic!("Can't set autocommit while fetching"),
             ConnectionStatus::Bad => panic!("Bad connection"),
             ConnectionStatus::Closed => panic!("Connection is closed"),
         }
@@ -291,6 +303,7 @@ impl Connection {
     /// # Ok(()) }
     /// ```
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
+        Connection::init();
         let mg_session_params = unsafe { bindings::mg_session_params_make() };
         let mut trust_callback_ptr = std::ptr::null_mut();
         unsafe {
@@ -317,13 +330,18 @@ impl Connection {
                 }
                 None => {}
             }
-            bindings::mg_session_params_set_client_name(
+            bindings::mg_session_params_set_user_agent(
                 mg_session_params,
                 str_to_c_str(&param_struct.client_name),
             );
             bindings::mg_session_params_set_sslmode(
                 mg_session_params,
-                sslmode_to_c(&param_struct.sslmode),
+                // Bindings struct is not used because on Linux bindgen
+                // generates u32, while on Windows i32 type is generated.
+                match param_struct.sslmode {
+                    SSLMode::Disable => 0,
+                    SSLMode::Require => 1,
+                },
             );
             match &param_struct.sslcert {
                 Some(x) => {
@@ -379,26 +397,52 @@ impl Connection {
         })
     }
 
-    fn connection_run_without_results(&mut self, query: &str) -> Result<(), MgError> {
+    /// Fully Executes provided query but doesn't return any results even if they exist.
+    pub fn execute_without_results(&mut self, query: &str) -> Result<(), MgError> {
         match unsafe {
             bindings::mg_session_run(
                 self.mg_session,
                 str_to_c_str(query),
                 std::ptr::null(),
                 std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
             )
         } {
-            0 => {}
+            0 => {
+                self.status = ConnectionStatus::Executing;
+            }
             _ => {
                 self.status = ConnectionStatus::Bad;
                 return Err(MgError::new(read_error_message(self.mg_session)));
             }
         }
 
-        let mut result = std::ptr::null_mut();
-        match unsafe { bindings::mg_session_pull(self.mg_session, &mut result) } {
-            0 => Ok(()),
-            _ => Err(MgError::new(read_error_message(self.mg_session))),
+        match unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) } {
+            0 => {
+                self.status = ConnectionStatus::Fetching;
+            }
+            _ => {
+                self.status = ConnectionStatus::Bad;
+                return Err(MgError::new(read_error_message(self.mg_session)));
+            }
+        }
+
+        loop {
+            let mut result = std::ptr::null_mut();
+            match unsafe { bindings::mg_session_fetch(self.mg_session, &mut result) } {
+                1 => {
+                    continue;
+                }
+                0 => {
+                    self.status = ConnectionStatus::Ready;
+                    return Ok(());
+                }
+                _ => {
+                    self.status = ConnectionStatus::Bad;
+                    return Err(MgError::new(read_error_message(self.mg_session)));
+                }
+            };
         }
     }
 
@@ -431,7 +475,7 @@ impl Connection {
         }
 
         if !self.autocommit && !self.in_transaction {
-            match self.connection_run_without_results("BEGIN") {
+            match self.execute_without_results("BEGIN") {
                 Ok(()) => self.in_transaction = true,
                 Err(err) => return Err(err),
             }
@@ -446,7 +490,14 @@ impl Connection {
         };
         let mut columns = std::ptr::null();
         let status = unsafe {
-            bindings::mg_session_run(self.mg_session, c_query.as_ptr(), mg_params, &mut columns)
+            bindings::mg_session_run(
+                self.mg_session,
+                c_query.as_ptr(),
+                mg_params,
+                std::ptr::null_mut(),
+                &mut columns,
+                std::ptr::null_mut(),
+            )
         };
 
         if status != 0 {
@@ -487,29 +538,47 @@ impl Connection {
         }
 
         match self.lazy {
-            true => match self.pull() {
-                Ok(res) => match res {
-                    Some(x) => Ok(Some(x)),
-                    None => {
+            true => {
+                if self.status == ConnectionStatus::Executing {
+                    match self.pull(1) {
+                        Ok(_) => {
+                            // The state update is alredy done in the pull.
+                        }
+                        Err(err) => {
+                            self.status = ConnectionStatus::Bad;
+                            return Err(err);
+                        }
+                    }
+                }
+                match self.fetch()? {
+                    (Some(x), None) => Ok(Some(x)),
+                    (Some(x), Some(has_more)) => {
+                        if has_more {
+                            self.status = ConnectionStatus::Executing;
+                        }
+                        Ok(Some(x))
+                    }
+                    (None, _) => {
                         self.status = ConnectionStatus::Ready;
                         Ok(None)
                     }
-                },
-                Err(err) => {
-                    self.status = ConnectionStatus::Bad;
-                    Err(err)
+                }
+            }
+            false => match self.next_record() {
+                Some(x) => Ok(Some(x)),
+                None => {
+                    self.status = ConnectionStatus::Ready;
+                    Ok(None)
                 }
             },
-            false => match &mut self.results_iter {
-                Some(it) => match it.next() {
-                    Some(x) => Ok(Some(x)),
-                    None => {
-                        self.status = ConnectionStatus::Ready;
-                        Ok(None)
-                    }
-                },
-                None => panic!(),
-            },
+        }
+    }
+
+    fn next_record(&mut self) -> Option<Record> {
+        if let Some(iter) = self.results_iter.as_mut() {
+            iter.next()
+        } else {
+            None
         }
     }
 
@@ -559,34 +628,90 @@ impl Connection {
         Ok(vec)
     }
 
-    fn pull(&mut self) -> Result<Option<Record>, MgError> {
-        let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
-        let status = unsafe { bindings::mg_session_pull(self.mg_session, &mut mg_result) };
-        let row = unsafe { bindings::mg_result_row(mg_result) };
-        match status {
-            1 => Ok(Some(Record {
-                values: unsafe { mg_list_to_vec(row) },
-            })),
+    fn pull(&mut self, n: i64) -> Result<(), MgError> {
+        let pull_status = match n {
+            0 => unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) },
+            _ => unsafe {
+                let mg_map = bindings::mg_map_make_empty(1);
+                if mg_map.is_null() {
+                    self.status = ConnectionStatus::Bad;
+                    return Err(MgError::new(String::from("Unable to make pull map.")));
+                }
+                let mg_int = bindings::mg_value_make_integer(n);
+                if mg_int.is_null() {
+                    self.status = ConnectionStatus::Bad;
+                    bindings::mg_map_destroy(mg_map);
+                    return Err(MgError::new(String::from(
+                        "Unable to make pull map integer value.",
+                    )));
+                }
+                if bindings::mg_map_insert(mg_map, "n".as_ptr() as *const i8, mg_int) != 0 {
+                    self.status = ConnectionStatus::Bad;
+                    bindings::mg_map_destroy(mg_map);
+                    bindings::mg_value_destroy(mg_int);
+                    return Err(MgError::new(String::from(
+                        "Unable to insert into pull map.",
+                    )));
+                }
+                let status = bindings::mg_session_pull(self.mg_session, mg_map);
+                bindings::mg_map_destroy(mg_map);
+                status
+            },
+        };
+
+        match pull_status {
             0 => {
-                self.summary = Some(mg_map_to_hash_map(unsafe {
-                    bindings::mg_result_summary(mg_result)
-                }));
-                Ok(None)
+                self.status = ConnectionStatus::Fetching;
+                Ok(())
             }
+            _ => {
+                self.status = ConnectionStatus::Bad;
+                Err(MgError::new(read_error_message(self.mg_session)))
+            }
+        }
+    }
+
+    /// Maybe returns Record and has_more flag.
+    fn fetch(&mut self) -> Result<(Option<Record>, Option<bool>), MgError> {
+        match self.status {
+            ConnectionStatus::Fetching => {}
+            _ => return Err(MgError::new(String::from("Connection is not fetching"))),
+        }
+
+        let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
+        let fetch_status = unsafe { bindings::mg_session_fetch(self.mg_session, &mut mg_result) };
+        match fetch_status {
+            1 => unsafe {
+                let row = bindings::mg_result_row(mg_result);
+                Ok((
+                    Some(Record {
+                        values: mg_list_to_vec(row),
+                    }),
+                    None,
+                ))
+            },
+            0 => unsafe {
+                let mg_summary = bindings::mg_result_summary(mg_result);
+                let mg_has_more = bindings::mg_map_at(mg_summary, str_to_c_str("has_more"));
+                let has_more = bindings::mg_value_bool(mg_has_more) != 0;
+                self.summary = Some(mg_map_to_hash_map(mg_summary));
+                Ok((None, Some(has_more)))
+            },
             _ => Err(MgError::new(read_error_message(self.mg_session))),
         }
     }
 
     fn pull_all(&mut self) -> Result<Vec<Record>, MgError> {
         let mut res = Vec::new();
-        loop {
-            match self.pull() {
-                Ok(x) => match x {
-                    Some(x) => res.push(x),
-                    None => break,
-                },
-                Err(err) => return Err(err),
-            }
+        match self.pull(0) {
+            Ok(_) => loop {
+                let x = self.fetch()?;
+                match x {
+                    (Some(x), _) => res.push(x),
+                    (None, _) => break,
+                }
+            },
+            Err(err) => return Err(err),
         }
         Ok(res)
     }
@@ -606,6 +731,9 @@ impl Connection {
             ConnectionStatus::Executing => {
                 return Err(MgError::new(String::from("Can't commit while executing")))
             }
+            ConnectionStatus::Fetching => {
+                return Err(MgError::new(String::from("Can't commit while fetching")))
+            }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             ConnectionStatus::Ready => {}
         }
@@ -613,7 +741,7 @@ impl Connection {
             return Ok(());
         }
 
-        match self.connection_run_without_results("COMMIT") {
+        match self.execute_without_results("COMMIT") {
             Ok(()) => {
                 self.in_transaction = false;
                 Ok(())
@@ -635,7 +763,10 @@ impl Connection {
                 return Err(MgError::new(String::from("Connection is closed")))
             }
             ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from("Can't commit while executing")))
+                return Err(MgError::new(String::from("Can't rollback while executing")))
+            }
+            ConnectionStatus::Fetching => {
+                return Err(MgError::new(String::from("Can't rollback while fetching")))
             }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             ConnectionStatus::Ready => {}
@@ -645,7 +776,7 @@ impl Connection {
             return Ok(());
         }
 
-        match self.connection_run_without_results("ROLLBACK") {
+        match self.execute_without_results("ROLLBACK") {
             Ok(()) => {
                 self.in_transaction = false;
                 Ok(())
