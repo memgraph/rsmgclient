@@ -14,6 +14,7 @@ use std::path::Path;
 const NUMBER_OF_REPS: u32 = 100;
 const CONTAINER_NAME: &str = "memgraph-rsmgclient-benchmark";
 const FILE_PATH: &str = "./target/benchmark-summary.json";
+const MEMGRAPH_VERSION: &str = "memgraph:1.6.0-community";
 
 fn main() {
     let insert_samples = insert_query_benchmark();
@@ -45,17 +46,33 @@ fn main() {
 
 fn start_server() -> Connection {
     // Delete container from before if present.
-    let _ = Command::new("sh")
+    match Command::new("sh")
         .arg("-c")
         .arg(format!("docker rm {}", CONTAINER_NAME))
         .output()
-        .expect("unable to delete container");
+        .expect("unable to delete container")
+        .status
+        .success()
+    {
+        true => {}
+        false => println!("unable to delete container"),
+    }
 
-    let _ = Command::new("sh")
+    // Start the new server instance.
+    match Command::new("sh")
         .arg("-c")
-        .arg(format!("docker run -d --rm -p 7687:7687 --name {} memgraph:1.1.0-community --telemetry-enabled=False", CONTAINER_NAME))
+        .arg(format!(
+            "docker run --rm -d -p 7687:7687 --name {} {} --telemetry-enabled=False",
+            CONTAINER_NAME, MEMGRAPH_VERSION
+        ))
         .output()
-        .expect("failed to start server");
+        .expect("failed to start server")
+        .status
+        .success()
+    {
+        true => {}
+        false => panic!("failed to start server"),
+    }
 
     // Wait until server has started.
     loop {
@@ -68,7 +85,7 @@ fn start_server() -> Connection {
                 return connection;
             }
             Err(_) => {
-                thread::sleep(time::Duration::from_millis(10));
+                thread::sleep(time::Duration::from_millis(100));
             }
         }
     }
@@ -88,11 +105,7 @@ fn benchmark_query(
     setup: &dyn Fn(&mut Connection) -> Result<(), MgError>,
 ) -> Vec<f64> {
     let mut connection = start_server();
-
-    match setup(&mut connection) {
-        Err(err) => panic!("{}", err),
-        _ => {}
-    }
+    if let Err(err) = setup(&mut connection) { panic!("{}", err) }
 
     let mut samples = Vec::with_capacity(NUMBER_OF_REPS as usize);
     for _ in 0..NUMBER_OF_REPS {
@@ -107,6 +120,7 @@ fn benchmark_query(
         };
         // Convert to ms.
         samples.push(start.elapsed().as_nanos() as f64 / 1e6_f64);
+        println!("Another benchmark rep DONE");
     }
 
     stop_server();
@@ -116,10 +130,7 @@ fn benchmark_query(
 
 fn write_to_file(file_name: &str, data: &[u8]) {
     let path = Path::new(file_name);
-    match path.parent() {
-        Some(p) => create_dir_all(p).expect("Unable to create dirs"),
-        None => {}
-    }
+    if let Some(p) = path.parent() { create_dir_all(p).expect("Unable to create dirs") };
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
@@ -129,7 +140,9 @@ fn write_to_file(file_name: &str, data: &[u8]) {
 }
 
 fn insert_query_benchmark() -> Vec<f64> {
-    benchmark_query("CREATE (u:User)", None, &|_| Ok(()))
+    let times = benchmark_query("CREATE (u:User)", None, &|_| Ok(()));
+    println!("insert_query_benchmark DONE");
+    times
 }
 
 fn create_index(connection: &mut Connection, index: &str) -> Result<(), MgError> {
@@ -139,7 +152,7 @@ fn create_index(connection: &mut Connection, index: &str) -> Result<(), MgError>
 }
 
 fn small_query_with_query_params_benchmark() -> Vec<f64> {
-    benchmark_query(
+    let times = benchmark_query(
         "MATCH (u:User) WHERE u.name = $name RETURN u",
         Some(&hashmap! {
             String::from("name") => QueryParam::String(String::from("u")),
@@ -150,11 +163,13 @@ fn small_query_with_query_params_benchmark() -> Vec<f64> {
 
             create_index(connection, ":User(name)")
         },
-    )
+    );
+    println!("small_query_with_query_params_benchmark DONE");
+    times
 }
 
 fn small_query_with_query_params_2_benchmark() -> Vec<f64> {
-    benchmark_query(
+    let times = benchmark_query(
         "MATCH (u:User) WHERE u.id = $id RETURN u",
         Some(&hashmap! {
             String::from("id") => QueryParam::Int(1),
@@ -172,21 +187,25 @@ fn small_query_with_query_params_2_benchmark() -> Vec<f64> {
 
             create_index(connection, ":User(id)")
         },
-    )
+    );
+    println!("small_query_with_query_params_2_benchmark DONE");
+    times
 }
 
 fn large_query_benchmark() -> Vec<f64> {
-    benchmark_query("MATCH (u:User) RETURN u", None, &|connection| {
+    let times = benchmark_query("MATCH (u:User) RETURN u", None, &|connection| {
         for i in 0..1000 {
             connection.execute(format!("CREATE (u:User {{id: {}}})", i,).as_str(), None)?;
             connection.fetchall()?;
         }
         Ok(())
-    })
+    });
+    println!("large_query_benchmark DONE");
+    times
 }
 
 fn large_query_2_benchmark() -> Vec<f64> {
-    benchmark_query("MATCH (u:User) RETURN u", None, &|connection| {
+    let times = benchmark_query("MATCH (u:User) RETURN u", None, &|connection| {
         let mut name = String::new();
         for _ in 0..100 {
             name.push('a');
@@ -199,5 +218,7 @@ fn large_query_2_benchmark() -> Vec<f64> {
             connection.fetchall()?;
         }
         Ok(())
-    })
+    });
+    println!("large_query_2_benchmark DONE");
+    times
 }
