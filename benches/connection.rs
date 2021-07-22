@@ -105,7 +105,9 @@ fn benchmark_query(
     setup: &dyn Fn(&mut Connection) -> Result<(), MgError>,
 ) -> Vec<f64> {
     let mut connection = start_server();
-    if let Err(err) = setup(&mut connection) { panic!("{}", err) }
+    if let Err(err) = setup(&mut connection) {
+        panic!("{}", err)
+    }
 
     let mut samples = Vec::with_capacity(NUMBER_OF_REPS as usize);
     for _ in 0..NUMBER_OF_REPS {
@@ -130,7 +132,9 @@ fn benchmark_query(
 
 fn write_to_file(file_name: &str, data: &[u8]) {
     let path = Path::new(file_name);
-    if let Some(p) = path.parent() { create_dir_all(p).expect("Unable to create dirs") };
+    if let Some(p) = path.parent() {
+        create_dir_all(p).expect("Unable to create dirs")
+    };
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
