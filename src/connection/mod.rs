@@ -142,7 +142,6 @@ pub struct Connection {
     mg_session: *mut bindings::mg_session,
     lazy: bool,
     autocommit: bool,
-    in_transaction: bool,
     status: ConnectionStatus,
     results_iter: Option<IntoIter<Record>>,
     arraysize: u32,
@@ -225,11 +224,6 @@ impl Connection {
         self.arraysize
     }
 
-    /// Returns whether a connection is currently inside a transaction.
-    pub fn in_transaction(&self) -> bool {
-        self.in_transaction
-    }
-
     /// Returns current connection status.
     pub fn status(&self) -> &ConnectionStatus {
         &self.status
@@ -267,13 +261,11 @@ impl Connection {
     /// Panics if connection has pending transaction or connection
     /// is not ready.
     pub fn set_autocommit(&mut self, autocommit: bool) {
-        if self.in_transaction {
-            panic!("Can't set autocommit while in pending transaction");
-        }
-
         match self.status {
             ConnectionStatus::Ready => self.autocommit = autocommit,
-            ConnectionStatus::InTransaction => panic!("Can't set autocommit while in transaction"),
+            ConnectionStatus::InTransaction => {
+                panic!("Can't set autocommit while in pending transaction")
+            }
             ConnectionStatus::Executing => panic!("Can't set autocommit while executing"),
             ConnectionStatus::Fetching => panic!("Can't set autocommit while fetching"),
             ConnectionStatus::Bad => panic!("Bad connection"),
@@ -393,7 +385,6 @@ impl Connection {
             mg_session,
             lazy: param_struct.lazy,
             autocommit: param_struct.autocommit,
-            in_transaction: false,
             status: ConnectionStatus::Ready,
             results_iter: None,
             arraysize: 1,
@@ -478,9 +469,10 @@ impl Connection {
             _ => {}
         }
 
-        if !self.autocommit && !self.in_transaction {
+        if !self.autocommit && self.status != ConnectionStatus::InTransaction {
             match self.execute_without_results("BEGIN") {
-                Ok(()) => self.in_transaction = true,
+                Ok(()) => self.status = ConnectionStatus::InTransaction,
+                // TODO(gitbuda): On BEGIN error handling.
                 Err(err) => return Err(err),
             }
         }
@@ -742,15 +734,16 @@ impl Connection {
             ConnectionStatus::Ready => {}
             ConnectionStatus::InTransaction => {}
         }
-        if self.autocommit || !self.in_transaction {
+        if self.autocommit || self.status != ConnectionStatus::InTransaction {
             return Ok(());
         }
 
         match self.execute_without_results("COMMIT") {
             Ok(()) => {
-                self.in_transaction = false;
+                self.status = ConnectionStatus::Ready;
                 Ok(())
             }
+            // TODO(gitbuda): Update status in the COMMIT error case.
             Err(err) => Err(err),
         }
     }
@@ -778,15 +771,16 @@ impl Connection {
             ConnectionStatus::InTransaction => {}
         }
 
-        if self.autocommit || !self.in_transaction {
+        if self.autocommit || self.status != ConnectionStatus::InTransaction {
             return Ok(());
         }
 
         match self.execute_without_results("ROLLBACK") {
             Ok(()) => {
-                self.in_transaction = false;
+                self.status = ConnectionStatus::Ready;
                 Ok(())
             }
+            // TODO(gitbuda): Update status in the ROLLBACK error case.
             Err(err) => Err(err),
         }
     }

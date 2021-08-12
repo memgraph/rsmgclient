@@ -773,7 +773,7 @@ fn from_connect_fetchall_rollback() {
         Err(err) => panic!("Fetching failed: {}", err),
     }
 
-    connection.in_transaction = true;
+    connection.status = ConnectionStatus::InTransaction;
     match connection.rollback() {
         Ok(_x) => {}
         Err(err) => panic!("Fetching failed: {}", err),
@@ -971,7 +971,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_transaction() {
     };
     let mut connection = get_connection(connect_prms);
 
-    connection.in_transaction = true;
+    connection.status = ConnectionStatus::InTransaction;
     connection.set_autocommit(true);
     assert!(connection.autocommit());
 }
@@ -1049,7 +1049,7 @@ fn from_connect_fetchall_get_lazy_transaction_status() {
     let connection = get_connection(connect_prms);
 
     assert!(connection.lazy());
-    assert!(!connection.in_transaction());
+    assert!(connection.status != ConnectionStatus::InTransaction);
     assert_eq!(&ConnectionStatus::Ready, connection.status());
 }
 
@@ -1086,6 +1086,7 @@ fn from_connect_close_panic() {
 #[test]
 #[serial]
 fn from_connect_execute_without_results() {
+    // TODO(gitbuda): Data inside Memgraph is not deleted.
     initialize();
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
