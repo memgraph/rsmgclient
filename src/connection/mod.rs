@@ -154,6 +154,8 @@ pub struct Connection {
 pub enum ConnectionStatus {
     /// Connection is ready to start executing.
     Ready,
+    /// Connection is in transaction.
+    InTransaction,
     /// Connection has executed query and is ready to fetch records.
     Executing,
     /// Connection is in the fetching phase.
@@ -250,6 +252,7 @@ impl Connection {
     pub fn set_lazy(&mut self, lazy: bool) {
         match self.status {
             ConnectionStatus::Ready => self.lazy = lazy,
+            ConnectionStatus::InTransaction => panic!("Can't set lazy while in transaction"),
             ConnectionStatus::Executing => panic!("Can't set lazy while executing"),
             ConnectionStatus::Fetching => panic!("Can't set lazy while fetching"),
             ConnectionStatus::Bad => panic!("Bad connection"),
@@ -270,6 +273,7 @@ impl Connection {
 
         match self.status {
             ConnectionStatus::Ready => self.autocommit = autocommit,
+            ConnectionStatus::InTransaction => panic!("Can't set autocommit while in transaction"),
             ConnectionStatus::Executing => panic!("Can't set autocommit while executing"),
             ConnectionStatus::Fetching => panic!("Can't set autocommit while fetching"),
             ConnectionStatus::Bad => panic!("Bad connection"),
@@ -736,6 +740,7 @@ impl Connection {
             }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             ConnectionStatus::Ready => {}
+            ConnectionStatus::InTransaction => {}
         }
         if self.autocommit || !self.in_transaction {
             return Ok(());
@@ -770,6 +775,7 @@ impl Connection {
             }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             ConnectionStatus::Ready => {}
+            ConnectionStatus::InTransaction => {}
         }
 
         if self.autocommit || !self.in_transaction {
