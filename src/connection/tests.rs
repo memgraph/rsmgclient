@@ -1086,7 +1086,6 @@ fn from_connect_close_panic() {
 #[test]
 #[serial]
 fn from_connect_execute_without_results() {
-    // TODO(gitbuda): Data inside Memgraph is not deleted.
     initialize();
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
@@ -1106,5 +1105,5 @@ fn from_connect_execute_without_results() {
         Ok(records) => assert_eq!(records.len(), 2),
         Err(err) => panic!("Failed to get data after execute without results {}.", err),
     }
-    assert_eq!(&ConnectionStatus::Ready, connection.status());
+    assert_eq!(&ConnectionStatus::InTransaction, connection.status());
 }

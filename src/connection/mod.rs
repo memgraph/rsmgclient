@@ -555,7 +555,11 @@ impl Connection {
                         Ok(Some(x))
                     }
                     (None, _) => {
-                        self.status = ConnectionStatus::Ready;
+                        self.status = if self.autocommit {
+                            ConnectionStatus::Ready
+                        } else {
+                            ConnectionStatus::InTransaction
+                        };
                         Ok(None)
                     }
                 }
@@ -563,7 +567,11 @@ impl Connection {
             false => match self.next_record() {
                 Some(x) => Ok(Some(x)),
                 None => {
-                    self.status = ConnectionStatus::Ready;
+                    self.status = if self.autocommit {
+                        ConnectionStatus::Ready
+                    } else {
+                        ConnectionStatus::InTransaction
+                    };
                     Ok(None)
                 }
             },
