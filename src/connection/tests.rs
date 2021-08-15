@@ -916,7 +916,7 @@ fn from_connect_fetchall_set_get_lazy_panic_executing() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Bad connection")]
+#[should_panic(expected = "Can't set lazy because bad connection")]
 fn from_connect_fetchall_set_get_lazy_panic_bad() {
     initialize();
     let connect_prms = ConnectParams {
@@ -932,7 +932,7 @@ fn from_connect_fetchall_set_get_lazy_panic_bad() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is closed")]
+#[should_panic(expected = "Can't set lazy because connection is closed")]
 fn from_connect_fetchall_set_get_lazy_panic_closed() {
     initialize();
     let connect_prms = ConnectParams {
@@ -994,7 +994,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_executing() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Bad connection")]
+#[should_panic(expected = "Can't set autocommit because bad connection")]
 fn from_connect_fetchall_set_get_autocommit_panic_bad() {
     initialize();
     let connect_prms = ConnectParams {
@@ -1010,7 +1010,7 @@ fn from_connect_fetchall_set_get_autocommit_panic_bad() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is closed")]
+#[should_panic(expected = "Can't set autocommit because connection is closed")]
 fn from_connect_fetchall_set_get_autocommit_panic_closed() {
     initialize();
     let connect_prms = ConnectParams {

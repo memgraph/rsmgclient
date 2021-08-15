@@ -249,8 +249,8 @@ impl Connection {
             ConnectionStatus::InTransaction => panic!("Can't set lazy while in transaction"),
             ConnectionStatus::Executing => panic!("Can't set lazy while executing"),
             ConnectionStatus::Fetching => panic!("Can't set lazy while fetching"),
-            ConnectionStatus::Bad => panic!("Bad connection"),
-            ConnectionStatus::Closed => panic!("Connection is closed"),
+            ConnectionStatus::Bad => panic!("Can't set lazy because bad connection"),
+            ConnectionStatus::Closed => panic!("Can't set lazy because connection is closed"),
         }
     }
 
@@ -268,8 +268,8 @@ impl Connection {
             }
             ConnectionStatus::Executing => panic!("Can't set autocommit while executing"),
             ConnectionStatus::Fetching => panic!("Can't set autocommit while fetching"),
-            ConnectionStatus::Bad => panic!("Bad connection"),
-            ConnectionStatus::Closed => panic!("Connection is closed"),
+            ConnectionStatus::Bad => panic!("Can't set autocommit because bad connection"),
+            ConnectionStatus::Closed => panic!("Can't set autocommit because connection is closed"),
         }
     }
 
@@ -457,22 +457,21 @@ impl Connection {
         params: Option<&HashMap<String, QueryParam>>,
     ) -> Result<Vec<String>, MgError> {
         match self.status {
-            ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Connection is closed")))
-            }
             ConnectionStatus::Executing => {
                 return Err(MgError::new(String::from(
                     "Connection is already executing",
                 )))
             }
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
             _ => {}
         }
 
-        if !self.autocommit && self.status != ConnectionStatus::InTransaction {
+        if !self.autocommit && self.status == ConnectionStatus::Ready {
             match self.execute_without_results("BEGIN") {
                 Ok(()) => self.status = ConnectionStatus::InTransaction,
-                // TODO(gitbuda): On BEGIN error handling.
                 Err(err) => return Err(err),
             }
         }
@@ -523,13 +522,26 @@ impl Connection {
     /// if there was an error while pulling record from database.
     pub fn fetchone(&mut self) -> Result<Option<Record>, MgError> {
         match self.status {
-            ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Connection is closed")))
-            }
             ConnectionStatus::Ready => {
-                return Err(MgError::new(String::from("Connection is not executing")))
+                return Err(MgError::new(String::from(
+                    "Connection is not executing on fetchone call",
+                )))
             }
-            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
+            ConnectionStatus::InTransaction => {
+                return Err(MgError::new(String::from(
+                    "Connection is not executing on fetchone call",
+                )))
+            }
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from(
+                    "Connection is closed on fetchone call",
+                )))
+            }
+            ConnectionStatus::Bad => {
+                return Err(MgError::new(String::from(
+                    "Bad connection on fetchone call",
+                )))
+            }
             _ => {}
         }
 
@@ -628,11 +640,19 @@ impl Connection {
                 Err(err) => return Err(err),
             }
         }
-
         Ok(vec)
     }
 
     fn pull(&mut self, n: i64) -> Result<(), MgError> {
+        match self.status {
+            ConnectionStatus::Executing => {}
+            _ => {
+                return Err(MgError::new(String::from(
+                    "Pull call while not in the executing",
+                )))
+            }
+        }
+
         let pull_status = match n {
             0 => unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) },
             _ => unsafe {
@@ -729,19 +749,20 @@ impl Connection {
     /// this method does nothing.
     pub fn commit(&mut self) -> Result<(), MgError> {
         match self.status {
-            ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Connection is closed")))
-            }
+            ConnectionStatus::Ready => {}
+            ConnectionStatus::InTransaction => {}
             ConnectionStatus::Executing => {
                 return Err(MgError::new(String::from("Can't commit while executing")))
             }
             ConnectionStatus::Fetching => {
                 return Err(MgError::new(String::from("Can't commit while fetching")))
             }
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
-            ConnectionStatus::Ready => {}
-            ConnectionStatus::InTransaction => {}
         }
+
         if self.autocommit || self.status != ConnectionStatus::InTransaction {
             return Ok(());
         }
@@ -751,7 +772,6 @@ impl Connection {
                 self.status = ConnectionStatus::Ready;
                 Ok(())
             }
-            // TODO(gitbuda): Update status in the COMMIT error case.
             Err(err) => Err(err),
         }
     }
@@ -765,21 +785,23 @@ impl Connection {
     /// this method does nothing.
     pub fn rollback(&mut self) -> Result<(), MgError> {
         match self.status {
-            ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Connection is closed")))
+            ConnectionStatus::Ready => {
+                return Err(MgError::new(String::from("Not in a transaction")))
             }
+            ConnectionStatus::InTransaction => {}
             ConnectionStatus::Executing => {
                 return Err(MgError::new(String::from("Can't rollback while executing")))
             }
             ConnectionStatus::Fetching => {
                 return Err(MgError::new(String::from("Can't rollback while fetching")))
             }
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from("Connection is closed")))
+            }
             ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
-            ConnectionStatus::Ready => {}
-            ConnectionStatus::InTransaction => {}
         }
 
-        if self.autocommit || self.status != ConnectionStatus::InTransaction {
+        if self.autocommit {
             return Ok(());
         }
 
@@ -788,7 +810,6 @@ impl Connection {
                 self.status = ConnectionStatus::Ready;
                 Ok(())
             }
-            // TODO(gitbuda): Update status in the ROLLBACK error case.
             Err(err) => Err(err),
         }
     }
