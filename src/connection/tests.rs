@@ -2,13 +2,20 @@ use super::*;
 use crate::{Node, Value};
 use serial_test::serial;
 
-pub fn initialize() {
+fn get_connection(prms: &ConnectParams) -> Connection {
+    match Connection::connect(&prms) {
+        Ok(c) => c,
+        Err(err) => panic!("{}", err),
+    }
+}
+
+pub fn initialize() -> Connection {
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
-    let mut connection = get_connection(connect_prms);
 
+    let mut connection = get_connection(&connect_prms);
     let query = String::from("MATCH (n) DETACH DELETE n");
     match connection.execute(&query, None) {
         Ok(x) => x,
@@ -22,6 +29,8 @@ pub fn initialize() {
         Ok(_) => {}
         Err(err) => panic!("Commit failed: {}", err),
     }
+
+    get_connection(&connect_prms)
 }
 
 fn execute_query(query: String) {
@@ -29,7 +38,8 @@ fn execute_query(query: String) {
         address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
-    let mut connection = get_connection(connect_prms);
+
+    let mut connection = get_connection(&connect_prms);
     match connection.execute(&query, None) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
@@ -37,13 +47,6 @@ fn execute_query(query: String) {
     match connection.fetchall() {
         Ok(_records) => {}
         Err(err) => panic!("Fetching failed: {}", err),
-    }
-}
-
-fn get_connection(prms: ConnectParams) -> Connection {
-    match Connection::connect(&prms) {
-        Ok(c) => c,
-        Err(err) => panic!("{}", err),
     }
 }
 
@@ -80,7 +83,7 @@ fn from_connect_fetchone_panic_sslcert() {
         sslcert: Some(String::from("test_sslcert")),
         ..Default::default()
     };
-    let _connection = get_connection(connect_prms);
+    let _connection = get_connection(&connect_prms);
 }
 
 #[test]
@@ -95,26 +98,18 @@ fn from_connect_fetchone_panic_sslkey() {
         sslkey: Some(String::from("test_sslkey")),
         ..Default::default()
     };
-    let _connection = get_connection(connect_prms);
+    let _connection = get_connection(&connect_prms);
 }
 
 #[test]
 #[serial]
 fn from_connect_fetchone() {
-    initialize();
+    let mut connection = initialize();
+    connection.set_lazy(false);
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        trust_callback: Some(&my_callback),
-        lazy: false,
-        username: Some(String::from("test_username")),
-        password: Some(String::from("test_password")),
-        client_name: String::from("test_username test_password"),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
     let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
@@ -157,33 +152,16 @@ fn from_connect_fetchone() {
 #[serial]
 #[should_panic(expected = "Query failed: Parameter $name not provided.")]
 fn from_connect_fetchone_none_params() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, None) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
-}
-
-#[test]
-#[serial]
-fn from_connect_fetchone_address() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let connection = get_connection(connect_prms);
-    assert!(connection.lazy);
 }
 
 #[test]
@@ -202,7 +180,7 @@ fn from_connect_fetchone_no_data() {
         client_name: String::from("test_username test_password"),
         ..Default::default()
     };
-    let mut connection = get_connection(connect_prms);
+    let mut connection = get_connection(&connect_prms);
     let params = get_params("name".to_string(), "Something".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
@@ -221,41 +199,20 @@ fn from_connect_fetchone_no_data() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is closed")]
+#[should_panic(expected = "Fetch failed: Can't call fetchone if connection is closed")]
 fn from_connect_fetchone_closed_panic() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        trust_callback: Some(&my_callback),
-        lazy: false,
-        username: Some(String::from("test_username")),
-        password: Some(String::from("test_password")),
-        client_name: String::from("test_username test_password"),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-    let params = get_params("name".to_string(), "Alice".to_string());
+    let mut connection = initialize();
 
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(x) => x,
-        Err(err) => panic!("Query failed: {}", err),
-    };
     connection.status = ConnectionStatus::Closed;
-    loop {
-        match connection.fetchone() {
-            Ok(_res) => {}
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
+    match connection.fetchone() {
+        Ok(_res) => {}
+        Err(err) => panic!("Fetch failed: {}", err),
     }
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Bad connection")]
+#[should_panic(expected = "Fetch failed: Can't call fetchone if connection is bad")]
 fn from_connect_fetchone_bad_panic() {
     initialize();
     execute_query(String::from(
@@ -270,7 +227,7 @@ fn from_connect_fetchone_bad_panic() {
         client_name: String::from("test_username test_password"),
         ..Default::default()
     };
-    let mut connection = get_connection(connect_prms);
+    let mut connection = get_connection(&connect_prms);
     let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
@@ -290,18 +247,13 @@ fn from_connect_fetchone_bad_panic() {
 #[test]
 #[serial]
 fn from_connect_fetchmany() {
-    initialize();
+    let mut connection = initialize();
+    connection.set_lazy(false);
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: false,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
     let params = get_params("name".to_string(), "Alice".to_string());
-
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -342,16 +294,12 @@ fn from_connect_fetchmany() {
 #[test]
 #[serial]
 fn from_connect_fetchmany_error() {
-    initialize();
+    let mut connection = initialize();
+    connection.set_lazy(false);
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: false,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
     let params = get_params("name".to_string(), "Alice".to_string());
 
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
@@ -394,18 +342,12 @@ fn from_connect_fetchmany_error() {
 #[test]
 #[serial]
 fn from_connect_fetchall() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
     let params = get_params("name".to_string(), "Alice".to_string());
-
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -440,20 +382,14 @@ fn from_connect_fetchall() {
 #[test]
 #[serial]
 fn from_connect_panic_fetchall() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
+
     let params = get_params("name".to_string(), "Alice".to_string());
-
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
         Err(err) => panic!("{}", err),
@@ -486,58 +422,26 @@ fn from_connect_panic_fetchall() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Fetching failed: Connection is not executing")]
+#[should_panic(expected = "Fetching failed: Can't call fetchone while ready")]
 fn from_connect_fetchall_panic() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
+    let mut connection = initialize();
+
     match connection.fetchall() {
-        Ok(records) => {
-            for record in records {
-                for val in &record.values {
-                    let values = vec![String::from("User")];
-                    let mg_map = hashmap! {
-                        String::from("name") => Value::String("Alice".to_string()),
-                    };
-                    let node = Value::Node(Node {
-                        id: match val {
-                            Value::Node(x) => x.id,
-                            _ => 1,
-                        },
-                        label_count: 1,
-                        labels: values,
-                        properties: mg_map,
-                    });
-                    assert_eq!(&node, val);
-                }
-            }
-        }
+        Ok(_) => {}
         Err(err) => panic!("Fetching failed: {}", err),
     }
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is already executing")]
+#[should_panic(expected = "Can't call execute while already executing")]
 fn from_connect_fetchall_executing_panic() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     connection.status = ConnectionStatus::Executing;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -548,19 +452,14 @@ fn from_connect_fetchall_executing_panic() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Bad connection")]
+#[should_panic(expected = "Can't call execute while connection is bad")]
 fn from_connect_fetchall_bad_panic() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     connection.status = ConnectionStatus::Bad;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -571,19 +470,14 @@ fn from_connect_fetchall_bad_panic() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is closed")]
+#[should_panic(expected = "Can't call execute while connection is closed")]
 fn from_connect_fetchall_closed_panic() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     connection.status = ConnectionStatus::Closed;
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
@@ -595,17 +489,12 @@ fn from_connect_fetchall_closed_panic() {
 #[test]
 #[serial]
 fn from_connect_fetchone_summary() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -639,13 +528,7 @@ fn from_connect_fetchone_summary() {
 #[test]
 #[serial]
 fn from_connect_fetchone_summary_none() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let connection = get_connection(connect_prms);
+    let connection = initialize();
     let summary = connection.summary();
     assert!(summary.is_none());
 }
@@ -653,17 +536,12 @@ fn from_connect_fetchone_summary_none() {
 #[test]
 #[serial]
 fn from_connect_fetchall_commit() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -686,17 +564,12 @@ fn from_connect_fetchall_commit() {
 #[serial]
 #[should_panic(expected = "Connection is closed")]
 fn from_connect_fetchall_commit_panic_closed() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -719,17 +592,12 @@ fn from_connect_fetchall_commit_panic_closed() {
 #[serial]
 #[should_panic(expected = "Can't commit while executing")]
 fn from_connect_fetchall_commit_panic_executing() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -751,17 +619,12 @@ fn from_connect_fetchall_commit_panic_executing() {
 #[test]
 #[serial]
 fn from_connect_fetchall_rollback() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -783,17 +646,12 @@ fn from_connect_fetchall_rollback() {
 #[test]
 #[serial]
 fn from_connect_fetchall_rollback_panic_closed() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -815,17 +673,12 @@ fn from_connect_fetchall_rollback_panic_closed() {
 #[serial]
 #[should_panic(expected = "Fetching failed: Can't rollback while executing")]
 fn from_connect_fetchall_rollback_panic_executing() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -848,17 +701,12 @@ fn from_connect_fetchall_rollback_panic_executing() {
 #[serial]
 #[should_panic(expected = "Bad connection")]
 fn from_connect_fetchall_rollback_panic_bad() {
-    initialize();
+    let mut connection = initialize();
+
     execute_query(String::from(
         "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
     ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
     let params = get_params("name".to_string(), "Alice".to_string());
-    let mut connection = get_connection(connect_prms);
     let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
     match connection.execute(&query, Some(&params)) {
         Ok(_x) => {}
@@ -879,161 +727,114 @@ fn from_connect_fetchall_rollback_panic_bad() {
 
 #[test]
 #[serial]
-fn from_connect_fetchall_set_get_lazy() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
+fn set_lazy() {
+    let mut connection = initialize();
     connection.set_lazy(false);
     assert!(!connection.lazy);
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't set lazy while executing")]
-fn from_connect_fetchall_set_get_lazy_panic_executing() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
+#[should_panic(expected = "Can't set lazy while in transaction")]
+fn set_lazy_in_transaction() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::InTransaction;
+    connection.set_lazy(false);
+}
 
+#[test]
+#[serial]
+#[should_panic(expected = "Can't set lazy while executing")]
+fn set_lazy_executing() {
+    let mut connection = initialize();
     connection.status = ConnectionStatus::Executing;
     connection.set_lazy(false);
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't set lazy because bad connection")]
-fn from_connect_fetchall_set_get_lazy_panic_bad() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
-    connection.status = ConnectionStatus::Bad;
+#[should_panic(expected = "Can't set lazy while fetching")]
+fn set_lazy_fetching() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Fetching;
     connection.set_lazy(false);
 }
 
 #[test]
 #[serial]
 #[should_panic(expected = "Can't set lazy because connection is closed")]
-fn from_connect_fetchall_set_get_lazy_panic_closed() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        lazy: true,
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
+fn set_lazy_closed() {
+    let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
     connection.set_lazy(false);
 }
 
 #[test]
 #[serial]
-fn from_connect_fetchall_set_get_autocommit() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
+#[should_panic(expected = "Can't set lazy because connection is bad")]
+fn set_lazy_bad() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Bad;
+    connection.set_lazy(false);
+}
 
+#[test]
+#[serial]
+fn set_autocommit() {
+    let mut connection = initialize();
     connection.set_autocommit(true);
     assert!(connection.autocommit());
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't set autocommit while in pending transaction")]
-fn from_connect_fetchall_set_get_autocommit_panic_transaction() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
+#[should_panic(expected = "Can't set autocommit while in transaction")]
+fn set_autocommit_in_transaction() {
+    let mut connection = initialize();
     connection.status = ConnectionStatus::InTransaction;
     connection.set_autocommit(true);
-    assert!(connection.autocommit());
 }
 
 #[test]
 #[serial]
 #[should_panic(expected = "Can't set autocommit while executing")]
-fn from_connect_fetchall_set_get_autocommit_panic_executing() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
+fn set_autocommit_executing() {
+    let mut connection = initialize();
     connection.status = ConnectionStatus::Executing;
     connection.set_autocommit(true);
-    assert!(connection.autocommit());
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't set autocommit because bad connection")]
-fn from_connect_fetchall_set_get_autocommit_panic_bad() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
-    connection.status = ConnectionStatus::Bad;
+#[should_panic(expected = "Can't set autocommit while fetching")]
+fn set_autocommit_fetching() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Fetching;
     connection.set_autocommit(true);
-    assert!(connection.autocommit());
 }
 
 #[test]
 #[serial]
 #[should_panic(expected = "Can't set autocommit because connection is closed")]
-fn from_connect_fetchall_set_get_autocommit_panic_closed() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
+fn set_autocommit_closed() {
+    let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
     connection.set_autocommit(true);
-    assert!(connection.autocommit());
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Can't set autocommit because connection is bad")]
+fn set_autocommit_bad() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Bad;
+    connection.set_autocommit(true);
 }
 
 #[test]
 #[serial]
 fn from_connect_fetchall_set_get_arraysize() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
+    let mut connection = initialize();
     connection.set_arraysize(2);
     assert_eq!(2, connection.arraysize());
 }
@@ -1041,13 +842,8 @@ fn from_connect_fetchall_set_get_arraysize() {
 #[test]
 #[serial]
 fn from_connect_fetchall_get_lazy_transaction_status() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let connection = get_connection(connect_prms);
-
+    // TODO(gitbuda): Fix/remove this test becuase it's just checking defaults.
+    let connection = initialize();
     assert!(connection.lazy());
     assert!(connection.status != ConnectionStatus::InTransaction);
     assert_eq!(&ConnectionStatus::Ready, connection.status());
@@ -1056,43 +852,33 @@ fn from_connect_fetchall_get_lazy_transaction_status() {
 #[test]
 #[serial]
 fn from_connect_close() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
+    let mut connection = initialize();
     connection.close();
-    assert_eq!(&ConnectionStatus::Closed, connection.status());
+    assert_eq!(ConnectionStatus::Closed, *connection.status());
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is executing")]
-fn from_connect_close_panic() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-
+#[should_panic(expected = "Can't close while executing")]
+fn from_connect_executing_close_panic() {
+    let mut connection = initialize();
     connection.status = ConnectionStatus::Executing;
     connection.close();
-    assert_eq!(&ConnectionStatus::Closed, connection.status());
+}
+
+#[test]
+#[serial]
+#[should_panic(expected = "Can't close while fetching")]
+fn from_connect_fetching_close_panic() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Fetching;
+    connection.close();
 }
 
 #[test]
 #[serial]
 fn from_connect_execute_without_results() {
-    initialize();
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-    let mut connection = get_connection(connect_prms);
-    assert_eq!(&ConnectionStatus::Ready, connection.status());
+    let mut connection = initialize();
 
     assert!(connection
         .execute_without_results("CREATE (n1) CREATE (n2) RETURN n1, n2;")

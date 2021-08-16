@@ -249,7 +249,7 @@ impl Connection {
             ConnectionStatus::InTransaction => panic!("Can't set lazy while in transaction"),
             ConnectionStatus::Executing => panic!("Can't set lazy while executing"),
             ConnectionStatus::Fetching => panic!("Can't set lazy while fetching"),
-            ConnectionStatus::Bad => panic!("Can't set lazy because bad connection"),
+            ConnectionStatus::Bad => panic!("Can't set lazy because connection is bad"),
             ConnectionStatus::Closed => panic!("Can't set lazy because connection is closed"),
         }
     }
@@ -264,11 +264,11 @@ impl Connection {
         match self.status {
             ConnectionStatus::Ready => self.autocommit = autocommit,
             ConnectionStatus::InTransaction => {
-                panic!("Can't set autocommit while in pending transaction")
+                panic!("Can't set autocommit while in transaction")
             }
             ConnectionStatus::Executing => panic!("Can't set autocommit while executing"),
             ConnectionStatus::Fetching => panic!("Can't set autocommit while fetching"),
-            ConnectionStatus::Bad => panic!("Can't set autocommit because bad connection"),
+            ConnectionStatus::Bad => panic!("Can't set autocommit because connection is bad"),
             ConnectionStatus::Closed => panic!("Can't set autocommit because connection is closed"),
         }
     }
@@ -457,16 +457,28 @@ impl Connection {
         params: Option<&HashMap<String, QueryParam>>,
     ) -> Result<Vec<String>, MgError> {
         match self.status {
+            ConnectionStatus::Ready => {}
+            ConnectionStatus::InTransaction => {}
             ConnectionStatus::Executing => {
                 return Err(MgError::new(String::from(
-                    "Connection is already executing",
+                    "Can't call execute while already executing",
+                )))
+            }
+            ConnectionStatus::Fetching => {
+                return Err(MgError::new(String::from(
+                    "Can't call execute while fetching",
                 )))
             }
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Connection is closed")))
+                return Err(MgError::new(String::from(
+                    "Can't call execute while connection is closed",
+                )))
             }
-            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
-            _ => {}
+            ConnectionStatus::Bad => {
+                return Err(MgError::new(String::from(
+                    "Can't call execute while connection is bad",
+                )))
+            }
         }
 
         if !self.autocommit && self.status == ConnectionStatus::Ready {
@@ -503,7 +515,7 @@ impl Connection {
         self.status = ConnectionStatus::Executing;
 
         if !self.lazy {
-            match self.pull_all() {
+            match self.pull_and_fetch_all() {
                 Ok(x) => self.results_iter = Some(x.into_iter()),
                 Err(x) => {
                     self.status = ConnectionStatus::Bad;
@@ -524,25 +536,26 @@ impl Connection {
         match self.status {
             ConnectionStatus::Ready => {
                 return Err(MgError::new(String::from(
-                    "Connection is not executing on fetchone call",
+                    "Can't call fetchone while ready",
                 )))
             }
             ConnectionStatus::InTransaction => {
                 return Err(MgError::new(String::from(
-                    "Connection is not executing on fetchone call",
+                    "Can't call fetchone while in transaction",
                 )))
             }
+            ConnectionStatus::Executing => {}
+            ConnectionStatus::Fetching => {}
             ConnectionStatus::Closed => {
                 return Err(MgError::new(String::from(
-                    "Connection is closed on fetchone call",
+                    "Can't call fetchone if connection is closed",
                 )))
             }
             ConnectionStatus::Bad => {
                 return Err(MgError::new(String::from(
-                    "Bad connection on fetchone call",
+                    "Can't call fetchone if connection is bad",
                 )))
             }
-            _ => {}
         }
 
         match self.lazy {
@@ -644,11 +657,28 @@ impl Connection {
     }
 
     fn pull(&mut self, n: i64) -> Result<(), MgError> {
+        // TODO(gitbuda): Test pull preconditions.
         match self.status {
-            ConnectionStatus::Executing => {}
-            _ => {
+            ConnectionStatus::Ready => {
+                return Err(MgError::new(String::from("Can't call pull while ready")))
+            }
+            ConnectionStatus::InTransaction => {
                 return Err(MgError::new(String::from(
-                    "Pull call while not in the executing",
+                    "Can't call pull while in transaction",
+                )))
+            }
+            ConnectionStatus::Executing => {}
+            ConnectionStatus::Fetching => {
+                return Err(MgError::new(String::from("Can't call pull while fetching")))
+            }
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from(
+                    "Can't call pull if connection is closed",
+                )))
+            }
+            ConnectionStatus::Bad => {
+                return Err(MgError::new(String::from(
+                    "Can't call pull if connection is bad",
                 )))
             }
         }
@@ -697,9 +727,32 @@ impl Connection {
 
     /// Maybe returns Record and has_more flag.
     fn fetch(&mut self) -> Result<(Option<Record>, Option<bool>), MgError> {
+        // TODO(gitbuda): Test fetch preconditions.
         match self.status {
+            ConnectionStatus::Ready => {
+                return Err(MgError::new(String::from("Can't call fetch while ready")))
+            }
+            ConnectionStatus::InTransaction => {
+                return Err(MgError::new(String::from(
+                    "Can't call fetch while in transaction",
+                )))
+            }
+            ConnectionStatus::Executing => {
+                return Err(MgError::new(String::from(
+                    "Can't call fetch while executing",
+                )))
+            }
             ConnectionStatus::Fetching => {}
-            _ => return Err(MgError::new(String::from("Connection is not fetching"))),
+            ConnectionStatus::Closed => {
+                return Err(MgError::new(String::from(
+                    "Can't call fetch if connection is closed",
+                )))
+            }
+            ConnectionStatus::Bad => {
+                return Err(MgError::new(String::from(
+                    "Can't call fetch if connection is bad",
+                )))
+            }
         }
 
         let mut mg_result: *mut bindings::mg_result = std::ptr::null_mut();
@@ -725,7 +778,7 @@ impl Connection {
         }
     }
 
-    fn pull_all(&mut self) -> Result<Vec<Record>, MgError> {
+    fn pull_and_fetch_all(&mut self) -> Result<Vec<Record>, MgError> {
         let mut res = Vec::new();
         match self.pull(0) {
             Ok(_) => loop {
@@ -821,8 +874,11 @@ impl Connection {
     pub fn close(&mut self) {
         match self.status {
             ConnectionStatus::Ready => self.status = ConnectionStatus::Closed,
-            ConnectionStatus::Executing => panic!("Connection is executing"),
-            _ => {}
+            ConnectionStatus::InTransaction => self.status = ConnectionStatus::Closed,
+            ConnectionStatus::Executing => panic!("Can't close while executing"),
+            ConnectionStatus::Fetching => panic!("Can't close while fetching"),
+            ConnectionStatus::Closed => {}
+            ConnectionStatus::Bad => panic!("Can't closed a bad connection"),
         }
     }
 }
