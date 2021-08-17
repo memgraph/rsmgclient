@@ -5,7 +5,38 @@ use serial_test::serial;
 fn get_connection(prms: &ConnectParams) -> Connection {
     match Connection::connect(&prms) {
         Ok(c) => c,
-        Err(err) => panic!("{}", err),
+        Err(err) => panic!("Creating connection failed: {}", err),
+    }
+}
+
+fn execute_query(connection: &mut Connection, query: &str) -> Vec<String> {
+    match connection.execute(&query, None) {
+        Ok(x) => x,
+        Err(err) => panic!("Executing query failed: {}", err),
+    }
+}
+
+fn execute_query_and_fetchall(query: &str) -> Vec<Record> {
+    let connect_prms = ConnectParams {
+        address: Some(String::from("127.0.0.1")),
+        autocommit: true,
+        ..Default::default()
+    };
+    let mut connection = get_connection(&connect_prms);
+    assert_eq!(connection.status, ConnectionStatus::Ready);
+
+    match connection.execute(&query, None) {
+        Ok(x) => x,
+        Err(err) => panic!("Executing query failed: {}", err),
+    };
+    assert_eq!(connection.status, ConnectionStatus::Executing);
+
+    match connection.fetchall() {
+        Ok(records) => {
+            assert_eq!(connection.status, ConnectionStatus::Ready);
+            records
+        }
+        Err(err) => panic!("Fetching all failed: {}", err),
     }
 }
 
@@ -14,45 +45,49 @@ pub fn initialize() -> Connection {
         address: Some(String::from("127.0.0.1")),
         ..Default::default()
     };
-
     let mut connection = get_connection(&connect_prms);
-    let query = String::from("MATCH (n) DETACH DELETE n");
+    assert_eq!(connection.status, ConnectionStatus::Ready);
+
+    let query = String::from("MATCH (n) DETACH DELETE n;");
     match connection.execute(&query, None) {
         Ok(x) => x,
-        Err(err) => panic!("Query failed: {}", err),
+        Err(err) => panic!("Executing delete all query failed: {}", err),
     };
+    assert_eq!(connection.status, ConnectionStatus::Executing);
+
     match connection.fetchall() {
         Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
+        Err(err) => panic!("Fetching all failed: {}", err),
     }
+    assert_eq!(connection.status, ConnectionStatus::InTransaction);
+
     match connection.commit() {
         Ok(_) => {}
         Err(err) => panic!("Commit failed: {}", err),
     }
+    assert_eq!(connection.status, ConnectionStatus::Ready);
 
     get_connection(&connect_prms)
 }
 
-fn execute_query(query: String) {
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
-
-    let mut connection = get_connection(&connect_prms);
-    match connection.execute(&query, None) {
-        Ok(x) => x,
-        Err(err) => panic!("Query failed: {}", err),
-    };
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
+fn create_node(labels: Vec<String>, properties: HashMap<String, Value>) -> Node {
+    Node {
+        id: 0,
+        label_count: labels.len() as u32,
+        labels,
+        properties,
     }
 }
 
-fn get_params(str_value: String, qrp: String) -> HashMap<String, QueryParam> {
+fn assert_eq_nodes(n1: &Node, n2: &Node) {
+    assert_eq!(n1.label_count, n2.label_count);
+    assert_eq!(n1.labels, n2.labels);
+    assert_eq!(n1.properties, n2.properties);
+}
+
+fn create_params(key: String, value: String) -> HashMap<String, QueryParam> {
     let mut params: HashMap<String, QueryParam> = HashMap::new();
-    params.insert(str_value, QueryParam::String(qrp));
+    params.insert(key, QueryParam::String(value));
     params
 }
 
@@ -74,7 +109,7 @@ pub fn my_callback(
 #[test]
 #[serial]
 #[should_panic(expected = "both sslcert and sslkey should be provided")]
-fn from_connect_fetchone_panic_sslcert() {
+fn panic_sslcert() {
     initialize();
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
@@ -83,13 +118,13 @@ fn from_connect_fetchone_panic_sslcert() {
         sslcert: Some(String::from("test_sslcert")),
         ..Default::default()
     };
-    let _connection = get_connection(&connect_prms);
+    get_connection(&connect_prms);
 }
 
 #[test]
 #[serial]
 #[should_panic(expected = "both sslcert and sslkey should be provided")]
-fn from_connect_fetchone_panic_sslkey() {
+fn panic_sslkey() {
     initialize();
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
@@ -101,94 +136,130 @@ fn from_connect_fetchone_panic_sslkey() {
     let _connection = get_connection(&connect_prms);
 }
 
+fn test_execute_error(connection: &mut Connection, error: &str) {
+    let result = connection.execute("RETURN 1;", None);
+    assert!(result.is_err());
+    assert!(format!("{}", result.err().unwrap()).contains(error));
+}
+
 #[test]
 #[serial]
-fn from_connect_fetchone() {
+fn execute_executing_panic() {
     let mut connection = initialize();
-    connection.set_lazy(false);
+    connection.status = ConnectionStatus::Executing;
+    test_execute_error(&mut connection, "executing");
+}
 
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
+#[test]
+#[serial]
+fn execute_fetching_panic() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Fetching;
+    test_execute_error(&mut connection, "fetching");
+}
 
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    let columns = match connection.execute(&query, Some(&params)) {
-        Ok(x) => x,
+#[test]
+#[serial]
+fn fetchall_closed_panic() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Closed;
+    test_execute_error(&mut connection, "is closed");
+}
+
+#[test]
+#[serial]
+fn execute_bad_panic() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Bad;
+    test_execute_error(&mut connection, "is bad");
+}
+
+#[test]
+#[serial]
+fn parameter_provided() {
+    let mut connection = initialize();
+
+    match connection.execute(
+        "RETURN $name;",
+        Some(&create_params("name".to_string(), "test".to_string())),
+    ) {
+        Ok(columns) => {
+            assert_eq!(columns.len(), 1);
+        }
         Err(err) => panic!("Query failed: {}", err),
     };
-    assert_eq!(columns.join(", "), "n");
-    assert!(!connection.lazy);
-
-    loop {
-        match connection.fetchone() {
-            Ok(res) => match res {
-                Some(x) => {
-                    for val in &x.values {
-                        let values = vec![String::from("User")];
-                        let mg_map = hashmap! {
-                            String::from("name") => Value::String("Alice".to_string()),
-                        };
-                        let node = Value::Node(Node {
-                            id: match val {
-                                Value::Node(x) => x.id,
-                                _ => 1,
-                            },
-                            label_count: 1,
-                            labels: values,
-                            properties: mg_map,
-                        });
-                        assert_eq!(&node, val);
-                    }
-                }
-                None => break,
-            },
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
-    }
+    let records = connection.fetchall().unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].values.len(), 1);
+    let value = &records[0].values[0];
+    assert_eq!(
+        match value {
+            Value::String(s) => s,
+            _ => panic!("Given parameter is not a string"),
+        },
+        "test"
+    );
 }
 
 #[test]
 #[serial]
 #[should_panic(expected = "Query failed: Parameter $name not provided.")]
-fn from_connect_fetchone_none_params() {
+fn parameter_not_provided() {
     let mut connection = initialize();
 
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, None) {
+    match connection.execute("MATCH (n) WHERE n.name = $name RETURN n;", None) {
         Ok(x) => x,
         Err(err) => panic!("Query failed: {}", err),
     };
 }
 
+fn test_fetchone_person_alice(connection: &mut Connection) {
+    execute_query_and_fetchall("CREATE (n:Person {name: 'Alice'});");
+    let columns = execute_query(connection, "MATCH (n) RETURN n;");
+    assert_eq!(columns.join(", "), "n");
+    let record = connection.fetchone().unwrap().unwrap();
+    assert_eq!(record.values.len(), 1);
+    match &record.values[0] {
+        Value::Node(n) => {
+            assert_eq_nodes(
+                &n,
+                &create_node(
+                    vec!["Person".to_string()],
+                    hashmap! {"name".to_string() => Value::String("Alice".to_string())},
+                ),
+            );
+        }
+        _ => panic!("Fetch one didn't return the expected node"),
+    };
+    assert!(connection.fetchone().unwrap().is_none());
+    assert!(connection.fetchone().is_err());
+}
+
 #[test]
 #[serial]
-fn from_connect_fetchone_no_data() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        trust_callback: Some(&my_callback),
-        lazy: false,
-        username: Some(String::from("test_username")),
-        password: Some(String::from("test_password")),
-        client_name: String::from("test_username test_password"),
-        ..Default::default()
-    };
-    let mut connection = get_connection(&connect_prms);
-    let params = get_params("name".to_string(), "Something".to_string());
+fn fetchone_lazy() {
+    let mut connection = initialize();
 
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(x) => x,
-        Err(err) => panic!("Query failed: {}", err),
-    };
+    test_fetchone_person_alice(&mut connection);
+}
 
+#[test]
+#[serial]
+fn fetchone_not_lazy() {
+    let mut connection = initialize();
+
+    connection.set_lazy(false);
+    assert!(!connection.lazy);
+
+    test_fetchone_person_alice(&mut connection);
+}
+
+#[test]
+#[serial]
+fn fetchone_no_data() {
+    let mut connection = initialize();
+
+    execute_query(&mut connection, "MATCH (n:NoData) RETURN n;");
     let first = connection.fetchone();
     if let Ok(rec) = first {
         assert!(rec.is_none());
@@ -199,315 +270,19 @@ fn from_connect_fetchone_no_data() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Fetch failed: Can't call fetchone if connection is closed")]
-fn from_connect_fetchone_closed_panic() {
+fn fetchone_summary() {
     let mut connection = initialize();
 
-    connection.status = ConnectionStatus::Closed;
-    match connection.fetchone() {
-        Ok(_res) => {}
-        Err(err) => panic!("Fetch failed: {}", err),
-    }
-}
+    execute_query_and_fetchall("CREATE (), ();");
 
-#[test]
-#[serial]
-#[should_panic(expected = "Fetch failed: Can't call fetchone if connection is bad")]
-fn from_connect_fetchone_bad_panic() {
-    initialize();
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        trust_callback: Some(&my_callback),
-        lazy: false,
-        username: Some(String::from("test_username")),
-        password: Some(String::from("test_password")),
-        client_name: String::from("test_username test_password"),
-        ..Default::default()
-    };
-    let mut connection = get_connection(&connect_prms);
-    let params = get_params("name".to_string(), "Alice".to_string());
-
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(x) => x,
-        Err(err) => panic!("Query failed: {}", err),
-    };
-    connection.status = ConnectionStatus::Bad;
-    loop {
-        match connection.fetchone() {
-            Ok(_res) => {}
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
-    }
-}
-
-#[test]
-#[serial]
-fn from_connect_fetchmany() {
-    let mut connection = initialize();
-    connection.set_lazy(false);
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("Query failed: {}", err),
-    };
-
-    loop {
-        let size = 3;
-        match connection.fetchmany(Some(size)) {
-            Ok(res) => {
-                for record in &res {
-                    for val in &record.values {
-                        let values = vec![String::from("User")];
-                        let mg_map = hashmap! {
-                            String::from("name") => Value::String("Alice".to_string()),
-                        };
-                        let node = Value::Node(Node {
-                            id: match val {
-                                Value::Node(x) => x.id,
-                                _ => 1,
-                            },
-                            label_count: 1,
-                            labels: values,
-                            properties: mg_map,
-                        });
-                        assert_eq!(&node, val);
-                    }
-                }
-                if res.len() != size as usize {
-                    break;
-                }
-            }
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
-    }
-}
-
-#[test]
-#[serial]
-fn from_connect_fetchmany_error() {
-    let mut connection = initialize();
-    connection.set_lazy(false);
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("Query failed: {}", err),
-    };
-
-    loop {
-        let size = 3;
-        match connection.fetchmany(None) {
-            Ok(res) => {
-                for record in &res {
-                    for val in &record.values {
-                        let values = vec![String::from("User")];
-                        let mg_map = hashmap! {
-                            String::from("name") => Value::String("Alice".to_string()),
-                        };
-                        let node = Value::Node(Node {
-                            id: match val {
-                                Value::Node(x) => x.id,
-                                _ => 1,
-                            },
-                            label_count: 1,
-                            labels: values,
-                            properties: mg_map,
-                        });
-                        assert_eq!(&node, val);
-                    }
-                }
-                if res.len() != size as usize {
-                    break;
-                }
-            }
-            Err(err) => panic!("Fetch failed: {}", err),
-        }
-    }
-}
-
-#[test]
-#[serial]
-fn from_connect_fetchall() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(records) => {
-            for record in records {
-                for val in &record.values {
-                    let values = vec![String::from("User")];
-                    let mg_map = hashmap! {
-                        String::from("name") => Value::String("Alice".to_string()),
-                    };
-                    let node = Value::Node(Node {
-                        id: match val {
-                            Value::Node(x) => x.id,
-                            _ => 1,
-                        },
-                        label_count: 1,
-                        labels: values,
-                        properties: mg_map,
-                    });
-                    assert_eq!(&node, val);
-                }
-            }
-        }
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-}
-
-#[test]
-#[serial]
-fn from_connect_panic_fetchall() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(records) => {
-            for record in records {
-                for val in &record.values {
-                    let values = vec![String::from("User")];
-                    let mg_map = hashmap! {
-                        String::from("name") => Value::String("Alice".to_string()),
-                    };
-                    let node = Value::Node(Node {
-                        id: match val {
-                            Value::Node(x) => x.id,
-                            _ => 1,
-                        },
-                        label_count: 1,
-                        labels: values,
-                        properties: mg_map,
-                    });
-                    assert_eq!(&node, val);
-                }
-            }
-        }
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-}
-
-#[test]
-#[serial]
-#[should_panic(expected = "Fetching failed: Can't call fetchone while ready")]
-fn from_connect_fetchall_panic() {
-    let mut connection = initialize();
-
-    match connection.fetchall() {
-        Ok(_) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-}
-
-#[test]
-#[serial]
-#[should_panic(expected = "Can't call execute while already executing")]
-fn from_connect_fetchall_executing_panic() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    connection.status = ConnectionStatus::Executing;
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-}
-
-#[test]
-#[serial]
-#[should_panic(expected = "Can't call execute while connection is bad")]
-fn from_connect_fetchall_bad_panic() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    connection.status = ConnectionStatus::Bad;
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-}
-
-#[test]
-#[serial]
-#[should_panic(expected = "Can't call execute while connection is closed")]
-fn from_connect_fetchall_closed_panic() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    connection.status = ConnectionStatus::Closed;
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-}
-
-#[test]
-#[serial]
-fn from_connect_fetchone_summary() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
+    execute_query(&mut connection, "MATCH (n) RETURN n;");
     loop {
         match connection.fetchone() {
             Ok(res) => match res {
                 Some(x) => for _val in &x.values {},
                 None => break,
             },
-            Err(err) => panic!("Fetch failed: {}", err),
+            Err(err) => panic!("Fetch one unexpectedly failed: {}", err),
         }
     }
 
@@ -527,210 +302,227 @@ fn from_connect_fetchone_summary() {
 
 #[test]
 #[serial]
-fn from_connect_fetchone_summary_none() {
+fn fetchone_summary_none() {
     let connection = initialize();
     let summary = connection.summary();
     assert!(summary.is_none());
 }
 
-#[test]
-#[serial]
-fn from_connect_fetchall_commit() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
-    connection.status = ConnectionStatus::Ready;
-    match connection.commit() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
+fn test_fetchone_error(connection: &mut Connection, error: &str) {
+    let result = connection.fetchone();
+    assert!(result.is_err());
+    assert!(format!("{}", result.err().unwrap()).contains(error));
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Connection is closed")]
-fn from_connect_fetchall_commit_panic_closed() {
+fn fetchone_ready_panic() {
     let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
-    connection.status = ConnectionStatus::Closed;
-    match connection.commit() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
+    test_fetchone_error(&mut connection, "ready");
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't commit while executing")]
-fn from_connect_fetchall_commit_panic_executing() {
+fn fetchone_in_transaction_panic() {
     let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
-    connection.status = ConnectionStatus::Executing;
-    match connection.commit() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-}
-
-#[test]
-#[serial]
-fn from_connect_fetchall_rollback() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
     connection.status = ConnectionStatus::InTransaction;
-    match connection.rollback() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
+    test_fetchone_error(&mut connection, "in transaction");
 }
 
 #[test]
 #[serial]
-fn from_connect_fetchall_rollback_panic_closed() {
+fn fetchone_closed_panic() {
     let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
     connection.status = ConnectionStatus::Closed;
-    let rollback_res = connection.rollback();
-    assert!(rollback_res.is_err());
-    assert!(format!("{}", rollback_res.err().unwrap()).contains("is closed"));
+    test_fetchone_error(&mut connection, "is closed");
 }
 
 #[test]
 #[serial]
-#[should_panic(expected = "Fetching failed: Can't rollback while executing")]
-fn from_connect_fetchall_rollback_panic_executing() {
+fn fetchone_bad_panic() {
     let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
-    connection.status = ConnectionStatus::Executing;
-    match connection.rollback() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-}
-
-#[test]
-#[serial]
-#[should_panic(expected = "Bad connection")]
-fn from_connect_fetchall_rollback_panic_bad() {
-    let mut connection = initialize();
-
-    execute_query(String::from(
-        "CREATE (u:User {name: 'Alice'})-[:Likes]->(m:Software {name: 'Memgraph'})",
-    ));
-    let params = get_params("name".to_string(), "Alice".to_string());
-    let query = String::from("MATCH (n:User) WHERE n.name = $name RETURN n LIMIT 5");
-    match connection.execute(&query, Some(&params)) {
-        Ok(_x) => {}
-        Err(err) => panic!("{}", err),
-    }
-
-    match connection.fetchall() {
-        Ok(_records) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
-    }
-
     connection.status = ConnectionStatus::Bad;
-    match connection.rollback() {
-        Ok(_x) => {}
-        Err(err) => panic!("Fetching failed: {}", err),
+    test_fetchone_error(&mut connection, "is bad");
+}
+
+fn test_fetchmany_empty_nodes(connection: &mut Connection) {
+    execute_query_and_fetchall("CREATE (), (), ();");
+
+    let columns = execute_query(connection, "MATCH (n) RETURN n;");
+    assert_eq!(columns.join(", "), "n");
+
+    match connection.fetchmany(Some(2)) {
+        Ok(records) => {
+            assert_eq!(records.len(), 2);
+        }
+        Err(err) => panic!("Fetch many unexpectedly failed: {}", err),
     }
+    assert_eq!(connection.status, ConnectionStatus::Fetching);
+
+    match connection.fetchmany(Some(2)) {
+        Ok(records) => {
+            assert_eq!(records.len(), 1);
+        }
+        Err(err) => panic!("Fetch many unexpectedly failed: {}", err),
+    }
+    assert_eq!(connection.status, ConnectionStatus::InTransaction);
 }
 
 #[test]
 #[serial]
-fn set_lazy() {
+fn fetchmany_lazy() {
     let mut connection = initialize();
+
+    test_fetchmany_empty_nodes(&mut connection);
+}
+
+#[test]
+#[serial]
+fn fetchmany_not_lazy() {
+    let mut connection = initialize();
+
     connection.set_lazy(false);
     assert!(!connection.lazy);
+
+    test_fetchmany_empty_nodes(&mut connection);
+}
+
+fn test_fetchall_empty_nodes(connection: &mut Connection) {
+    execute_query_and_fetchall("CREATE (), (), ();");
+
+    let columns = execute_query(connection, "MATCH (n) RETURN n;");
+    assert_eq!(columns.join(", "), "n");
+
+    match connection.fetchall() {
+        Ok(records) => {
+            assert_eq!(records.len(), 3);
+        }
+        Err(err) => panic!("Fetch all unexpectedly failed: {}", err),
+    }
+    assert_eq!(connection.status, ConnectionStatus::InTransaction);
+}
+
+#[test]
+#[serial]
+fn fetchall_lazy() {
+    let mut connection = initialize();
+
+    test_fetchall_empty_nodes(&mut connection);
+}
+
+#[test]
+#[serial]
+fn fetchall_not_lazy() {
+    let mut connection = initialize();
+
+    connection.set_lazy(false);
+    assert!(!connection.lazy);
+
+    test_fetchmany_empty_nodes(&mut connection);
+}
+
+fn test_commit_error(connection: &mut Connection, error: &str) {
+    let commit_res = connection.commit();
+    assert!(commit_res.is_err());
+    assert!(format!("{}", commit_res.err().unwrap()).contains(error));
+}
+
+#[test]
+#[serial]
+fn commit_executing_panic() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Executing;
+    test_commit_error(&mut connection, "executing");
+}
+
+#[test]
+#[serial]
+fn commit_fetching_panic() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Fetching;
+    test_commit_error(&mut connection, "fetching");
+}
+
+#[test]
+#[serial]
+fn commit_closed_panic() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Closed;
+    test_commit_error(&mut connection, "is closed");
+}
+
+#[test]
+#[serial]
+fn commit_bad_panic() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Bad;
+    test_commit_error(&mut connection, "is bad");
+}
+
+#[test]
+#[serial]
+fn rollback() {
+    let mut connection = initialize();
+
+    execute_query(&mut connection, "MATCH (n) RETURN n;");
+
+    match connection.fetchall() {
+        Ok(_records) => {}
+        Err(err) => panic!("Fetch all unexpectedly failed: {}", err),
+    }
+    assert_eq!(connection.status, ConnectionStatus::InTransaction);
+
+    match connection.rollback() {
+        Ok(_x) => {}
+        Err(err) => panic!("Rollback unexpectedly failed: {}", err),
+    }
+    assert_eq!(connection.status, ConnectionStatus::Ready);
+}
+
+fn test_rollback_error(connection: &mut Connection, error: &str) {
+    let rollback_res = connection.rollback();
+    assert!(rollback_res.is_err());
+    assert!(format!("{}", rollback_res.err().unwrap()).contains(error));
+}
+
+#[test]
+#[serial]
+fn rollback_ready_error() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Ready;
+    test_rollback_error(&mut connection, "in transaction");
+}
+
+#[test]
+#[serial]
+fn rollback_executing_error() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Executing;
+    test_rollback_error(&mut connection, "executing");
+}
+
+#[test]
+#[serial]
+fn rollback_fetching_error() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Fetching;
+    test_rollback_error(&mut connection, "fetching");
+}
+
+#[test]
+#[serial]
+fn rollback_closed_error() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Closed;
+    test_rollback_error(&mut connection, "is closed");
+}
+
+#[test]
+#[serial]
+fn rollback_bad_error() {
+    let mut connection = initialize();
+    connection.status = ConnectionStatus::Bad;
+    test_rollback_error(&mut connection, "is bad");
 }
 
 #[test]
@@ -762,7 +554,7 @@ fn set_lazy_fetching() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't set lazy because connection is closed")]
+#[should_panic(expected = "Can't set lazy while connection is closed")]
 fn set_lazy_closed() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
@@ -771,7 +563,7 @@ fn set_lazy_closed() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't set lazy because connection is bad")]
+#[should_panic(expected = "Can't set lazy while connection is bad")]
 fn set_lazy_bad() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
@@ -815,7 +607,7 @@ fn set_autocommit_fetching() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't set autocommit because connection is closed")]
+#[should_panic(expected = "Can't set autocommit while connection is closed")]
 fn set_autocommit_closed() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
@@ -824,7 +616,7 @@ fn set_autocommit_closed() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Can't set autocommit because connection is bad")]
+#[should_panic(expected = "Can't set autocommit while connection is bad")]
 fn set_autocommit_bad() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
@@ -833,7 +625,7 @@ fn set_autocommit_bad() {
 
 #[test]
 #[serial]
-fn from_connect_fetchall_set_get_arraysize() {
+fn fetchall_set_get_arraysize() {
     let mut connection = initialize();
     connection.set_arraysize(2);
     assert_eq!(2, connection.arraysize());
@@ -841,17 +633,7 @@ fn from_connect_fetchall_set_get_arraysize() {
 
 #[test]
 #[serial]
-fn from_connect_fetchall_get_lazy_transaction_status() {
-    // TODO(gitbuda): Fix/remove this test becuase it's just checking defaults.
-    let connection = initialize();
-    assert!(connection.lazy());
-    assert!(connection.status != ConnectionStatus::InTransaction);
-    assert_eq!(&ConnectionStatus::Ready, connection.status());
-}
-
-#[test]
-#[serial]
-fn from_connect_close() {
+fn close() {
     let mut connection = initialize();
     connection.close();
     assert_eq!(ConnectionStatus::Closed, *connection.status());
@@ -860,7 +642,7 @@ fn from_connect_close() {
 #[test]
 #[serial]
 #[should_panic(expected = "Can't close while executing")]
-fn from_connect_executing_close_panic() {
+fn executing_close_panic() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Executing;
     connection.close();
@@ -869,7 +651,7 @@ fn from_connect_executing_close_panic() {
 #[test]
 #[serial]
 #[should_panic(expected = "Can't close while fetching")]
-fn from_connect_fetching_close_panic() {
+fn fetching_close_panic() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Fetching;
     connection.close();
@@ -877,7 +659,7 @@ fn from_connect_fetching_close_panic() {
 
 #[test]
 #[serial]
-fn from_connect_execute_without_results() {
+fn execute_without_results() {
     let mut connection = initialize();
 
     assert!(connection

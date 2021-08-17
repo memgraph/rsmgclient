@@ -46,13 +46,12 @@ use std::vec::IntoIter;
 pub struct ConnectParams {
     /// Port number to connect to at the server host. Default port is 7687.
     pub port: u16,
-    /// DNS resolvable name of host to connect to. Exactly one of host and
-    /// address parameters must be specified.
+    /// DNS resolvable name of host to connect to. Exactly one of host and address parameters must
+    /// be specified.
     pub host: Option<String>,
-    /// Numeric IP address of host to connect to. This should be in the
-    /// standard IPv4 address format. You can also use IPv6 if your machine
-    /// supports it. Exactly one of host and address parameters must be
-    /// specified.
+    /// Numeric IP address of host to connect to. This should be in the standard IPv4 address
+    /// format. You can also use IPv6 if your machine supports it. Exactly one of host and address
+    /// parameters must be specified.
     pub address: Option<String>,
     /// Username to connect as.
     pub username: Option<String>,
@@ -61,25 +60,24 @@ pub struct ConnectParams {
     /// Alternate name and version of the client to send to server. Default is
     /// "MemgraphBolt/0.1".
     pub client_name: String,
-    /// Determines whether a secure SSL TCP/IP connection will be negotiated with
-    /// the server. Default value is `SSLMode::Require`.
+    /// Determines whether a secure SSL TCP/IP connection will be negotiated with the server.
+    /// Default value is `SSLMode::Require`.
     pub sslmode: SSLMode,
-    /// This parameter specifies the file name of the client SSL certificate.
-    /// It is ignored in case an SSL connection is not made.
+    /// This parameter specifies the file name of the client SSL certificate. It is ignored in
+    /// case an SSL connection is not made.
     pub sslcert: Option<String>,
-    /// This parameter specifies the location of the secret key used for the
-    /// client certificate. This parameter is ignored in case an SSL connection
-    /// is not made.
+    /// This parameter specifies the location of the secret key used for the client certificate.
+    /// This parameter is ignored in case an SSL connection is not made.
     pub sslkey: Option<String>,
-    /// After performing the SSL handshake, `Connection::connect` will call this
-    /// function providing the hostname, IP address, public key type and
-    /// fingerprint and user provided data. If the function returns a non-zero
-    /// value, SSL connection will be immediately terminated. This can be used
-    /// to implement TOFU (trust on first use) mechanism.
+    /// After performing the SSL handshake, `Connection::connect` will call this function providing
+    /// the hostname, IP address, public key type and fingerprint and user provided data. If the
+    /// function returns a non-zero value, SSL connection will be immediately terminated. This can
+    /// be used to implement TOFU (trust on first use) mechanism.
     pub trust_callback: Option<*const dyn Fn(&String, &String, &String, &String) -> i32>,
     /// Initial value of `lazy` field, defaults to true, Can be changed using `Connection::set_lazy`.
     pub lazy: bool,
-    /// Initial value of `autocommit` field, defaults to false. Can be changed using `Connection::set_autocommit`.
+    /// Initial value of `autocommit` field, defaults to false. Can be changed using
+    /// `Connection::set_autocommit`.
     pub autocommit: bool,
 }
 
@@ -102,8 +100,7 @@ impl Default for ConnectParams {
     }
 }
 
-/// Determines whether a secure SSL TCP/IP connection will be negotiated
-/// with the server.
+/// Determines whether a secure SSL TCP/IP connection will be negotiated with the server.
 #[derive(PartialEq)]
 pub enum SSLMode {
     /// Only try a non-SSL connection.
@@ -179,6 +176,7 @@ impl Drop for Connection {
 
 impl Connection {
     /// Initializes underlying mgclient.
+    ///
     /// Should be called at the beginning of each process using the client.
     pub fn init() {
         unsafe {
@@ -187,6 +185,7 @@ impl Connection {
     }
 
     /// Finalizes underlying mgclient.
+    ///
     /// Should be called at the end of each process using the client.
     pub fn finalize() {
         unsafe {
@@ -196,11 +195,11 @@ impl Connection {
 
     /// Returns whether connection is executing lazily.
     ///
-    /// If false, queries are not executed lazily. After running `execute`, records
-    /// are immediately pulled.
+    /// If false, queries are not executed lazily. After running `execute`, records are immediately
+    /// pulled.
     ///
-    /// If true queries are executed lazily. After running `execute`, records
-    /// will only get pulled until fetch functions are called.
+    /// If true queries are executed lazily. After running `execute`, records will only get pulled
+    /// until fetch functions are called.
     pub fn lazy(&self) -> bool {
         self.lazy
     }
@@ -209,8 +208,8 @@ impl Connection {
     ///
     /// If true all queries are automatically committed.
     ///
-    /// If false queries are executed inside a transaction. Before executing first query,
-    /// `execute` runs `begin` on database. After that user needs to commit or roll back manually, using
+    /// If false queries are executed inside a transaction. Before executing first query, `execute`
+    /// runs `begin` on database. After that user needs to commit or roll back manually, using
     /// `commit` and `rollback` functions.
     pub fn autocommit(&self) -> bool {
         self.autocommit
@@ -231,9 +230,8 @@ impl Connection {
 
     /// Returns query summary if it is present.
     ///
-    /// Query summary is present after query has completed execution(
-    /// all records have been fetched). Executing new query will remove
-    /// previous query summary.
+    /// Query summary is present after query has completed execution( all records have been
+    /// fetched). Executing new query will remove previous query summary.
     pub fn summary(&self) -> Option<HashMap<String, Value>> {
         self.summary.as_ref().map(|x| (*x).clone())
     }
@@ -249,8 +247,8 @@ impl Connection {
             ConnectionStatus::InTransaction => panic!("Can't set lazy while in transaction"),
             ConnectionStatus::Executing => panic!("Can't set lazy while executing"),
             ConnectionStatus::Fetching => panic!("Can't set lazy while fetching"),
-            ConnectionStatus::Bad => panic!("Can't set lazy because connection is bad"),
-            ConnectionStatus::Closed => panic!("Can't set lazy because connection is closed"),
+            ConnectionStatus::Bad => panic!("Can't set lazy while connection is bad"),
+            ConnectionStatus::Closed => panic!("Can't set lazy while connection is closed"),
         }
     }
 
@@ -258,8 +256,7 @@ impl Connection {
     ///
     /// # Panics
     ///
-    /// Panics if connection has pending transaction or connection
-    /// is not ready.
+    /// Panics if connection has pending transaction or connection is not ready.
     pub fn set_autocommit(&mut self, autocommit: bool) {
         match self.status {
             ConnectionStatus::Ready => self.autocommit = autocommit,
@@ -268,8 +265,8 @@ impl Connection {
             }
             ConnectionStatus::Executing => panic!("Can't set autocommit while executing"),
             ConnectionStatus::Fetching => panic!("Can't set autocommit while fetching"),
-            ConnectionStatus::Bad => panic!("Can't set autocommit because connection is bad"),
-            ConnectionStatus::Closed => panic!("Can't set autocommit because connection is closed"),
+            ConnectionStatus::Bad => panic!("Can't set autocommit while connection is bad"),
+            ConnectionStatus::Closed => panic!("Can't set autocommit while connection is closed"),
         }
     }
 
@@ -280,8 +277,8 @@ impl Connection {
 
     /// Creates a connection to database using provided connection parameters.
     ///
-    /// Returns `Connection` if connection to database is successfully established,
-    /// otherwise returns error with explanation what went wrong.
+    /// Returns `Connection` if connection to database is successfully established, otherwise
+    /// returns error with explanation what went wrong.
     ///
     /// # Examples
     ///
@@ -441,16 +438,14 @@ impl Connection {
         }
     }
 
-    /// Executes provided query using parameters(if provided) and returns names of columns.
+    /// Executes provided query using parameters (if provided) and returns names of columns.
     ///
-    /// After execution records need to get fetched using fetch methods.
-    /// Connection needs to be in status `Ready`.
-    /// Error is returned if connection is not ready, query is invalid
-    /// or there was an error in communication with server.
+    /// After execution records need to get fetched using fetch methods. Connection needs to be in
+    /// status `Ready` or `InTransaction`. Error is returned if connection is not ready, query is
+    /// invalid or there was an error in communication with server.
     ///
-    /// If connection is not lazy will also fetch and store all records.
-    /// If connection has autocommit set to false and is not in a transaction will
-    /// also start a transaction.
+    /// If connection is not lazy will also fetch and store all records. If connection has
+    /// autocommit set to false and is not in a transaction will also start a transaction.
     pub fn execute(
         &mut self,
         query: &str,
@@ -481,7 +476,7 @@ impl Connection {
             }
         }
 
-        if !self.autocommit && self.status == ConnectionStatus::Ready {
+        if !self.autocommit && self.status != ConnectionStatus::InTransaction {
             match self.execute_without_results("BEGIN") {
                 Ok(()) => self.status = ConnectionStatus::InTransaction,
                 Err(err) => return Err(err),
@@ -527,11 +522,10 @@ impl Connection {
         Ok(parse_columns(columns))
     }
 
-    /// Returns next row of query results or None if there is no more data
-    /// available.
+    /// Returns next row of query results or None if there is no more data available.
     ///
-    /// Returns error if connection is not in `Executing` status or
-    /// if there was an error while pulling record from database.
+    /// Returns error if connection is not in `Executing` status or if there was an error while
+    /// pulling record from database.
     pub fn fetchone(&mut self) -> Result<Option<Record>, MgError> {
         match self.status {
             ConnectionStatus::Ready => {
@@ -613,11 +607,11 @@ impl Connection {
 
     /// Returns next rows of query results.
     ///
-    /// The number of rows to fetch is specified either by `size` or
-    /// `arraysize` attribute, `size`(if provided) overrides `arraysize`.
+    /// The number of rows to fetch is specified either by `size` or `arraysize` attribute,
+    /// `size`(if provided) overrides `arraysize`.
     ///
-    /// Returns error if connection is not in `Executing` status or
-    /// if there was an error while pulling record from database.
+    /// Returns error if connection is not in `Executing` status or if there was an error while
+    /// pulling record from database.
     pub fn fetchmany(&mut self, size: Option<u32>) -> Result<Vec<Record>, MgError> {
         let size = match size {
             Some(x) => x,
@@ -640,8 +634,8 @@ impl Connection {
 
     /// Returns all(remaining) rows of query results.
     ///
-    /// Returns error if connection is not in `Executing` status or
-    /// if there was an error while pulling record from database.
+    /// Returns error if connection is not in `Executing` status or if there was an error while
+    /// pulling record from database.
     pub fn fetchall(&mut self) -> Result<Vec<Record>, MgError> {
         let mut vec = Vec::new();
         loop {
@@ -657,7 +651,6 @@ impl Connection {
     }
 
     fn pull(&mut self, n: i64) -> Result<(), MgError> {
-        // TODO(gitbuda): Test pull preconditions.
         match self.status {
             ConnectionStatus::Ready => {
                 return Err(MgError::new(String::from("Can't call pull while ready")))
@@ -727,7 +720,6 @@ impl Connection {
 
     /// Maybe returns Record and has_more flag.
     fn fetch(&mut self) -> Result<(Option<Record>, Option<bool>), MgError> {
-        // TODO(gitbuda): Test fetch preconditions.
         match self.status {
             ConnectionStatus::Ready => {
                 return Err(MgError::new(String::from("Can't call fetch while ready")))
@@ -795,11 +787,9 @@ impl Connection {
 
     /// Commit any pending transaction to the database.
     ///
-    /// Returns error if there are queries that didn't finish
-    /// executing.
+    /// Returns error if there are queries that didn't finish executing.
     ///
-    /// If `autocommit` is set to true or there is no pending transaction
-    /// this method does nothing.
+    /// If `autocommit` is set to true or there is no pending transaction this method does nothing.
     pub fn commit(&mut self) -> Result<(), MgError> {
         match self.status {
             ConnectionStatus::Ready => {}
@@ -811,9 +801,15 @@ impl Connection {
                 return Err(MgError::new(String::from("Can't commit while fetching")))
             }
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Connection is closed")))
+                return Err(MgError::new(String::from(
+                    "Can't commit while connection is closed",
+                )))
             }
-            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
+            ConnectionStatus::Bad => {
+                return Err(MgError::new(String::from(
+                    "Can't commit while connection is bad",
+                )))
+            }
         }
 
         if self.autocommit || self.status != ConnectionStatus::InTransaction {
@@ -831,15 +827,15 @@ impl Connection {
 
     /// Rollback any pending transaction to the database.
     ///
-    /// Returns error if there are queries that didn't finish
-    /// executing.
+    /// Returns error if there are queries that didn't finish executing.
     ///
-    /// If `autocommit` is set to true or there is no pending transaction
-    /// this method does nothing.
+    /// If `autocommit` is set to true or there is no pending transaction this method does nothing.
     pub fn rollback(&mut self) -> Result<(), MgError> {
         match self.status {
             ConnectionStatus::Ready => {
-                return Err(MgError::new(String::from("Not in a transaction")))
+                return Err(MgError::new(String::from(
+                    "Can't rollback while not in transaction",
+                )))
             }
             ConnectionStatus::InTransaction => {}
             ConnectionStatus::Executing => {
@@ -849,9 +845,15 @@ impl Connection {
                 return Err(MgError::new(String::from("Can't rollback while fetching")))
             }
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from("Connection is closed")))
+                return Err(MgError::new(String::from(
+                    "Can't rollback while connection is closed",
+                )))
             }
-            ConnectionStatus::Bad => return Err(MgError::new(String::from("Bad connection"))),
+            ConnectionStatus::Bad => {
+                return Err(MgError::new(String::from(
+                    "Can't rollback while connection is bad",
+                )))
+            }
         }
 
         if self.autocommit {
@@ -869,8 +871,8 @@ impl Connection {
 
     /// Closes the connection.
     ///
-    /// The connection will be unusable from this point forward. Any operation
-    /// on connection will return error.
+    /// The connection will be unusable from this point forward. Any operation on connection will
+    /// return error.
     pub fn close(&mut self) {
         match self.status {
             ConnectionStatus::Ready => self.status = ConnectionStatus::Closed,
