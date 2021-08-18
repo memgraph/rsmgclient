@@ -40,7 +40,7 @@ fn execute_query_and_fetchall(query: &str) -> Vec<Record> {
     }
 }
 
-pub fn initialize() -> Connection {
+fn initialize() -> Connection {
     let connect_prms = ConnectParams {
         address: Some(String::from("127.0.0.1")),
         ..Default::default()
@@ -92,12 +92,7 @@ fn create_params(key: String, value: String) -> HashMap<String, QueryParam> {
 }
 
 #[allow(clippy::ptr_arg)]
-pub fn my_callback(
-    host: &String,
-    ip_address: &String,
-    key_type: &String,
-    fingerprint: &String,
-) -> i32 {
+fn my_callback(host: &String, ip_address: &String, key_type: &String, fingerprint: &String) -> i32 {
     assert_eq!(host, "localhost");
     assert_eq!(ip_address, "127.0.0.1");
     assert_eq!(key_type, "rsaEncryption");
@@ -144,7 +139,7 @@ fn test_execute_error(connection: &mut Connection, error: &str) {
 
 #[test]
 #[serial]
-fn execute_executing_panic() {
+fn execute_executing_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Executing;
     test_execute_error(&mut connection, "executing");
@@ -152,7 +147,7 @@ fn execute_executing_panic() {
 
 #[test]
 #[serial]
-fn execute_fetching_panic() {
+fn execute_fetching_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Fetching;
     test_execute_error(&mut connection, "fetching");
@@ -160,7 +155,7 @@ fn execute_fetching_panic() {
 
 #[test]
 #[serial]
-fn fetchall_closed_panic() {
+fn execute_closed_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
     test_execute_error(&mut connection, "is closed");
@@ -168,7 +163,7 @@ fn fetchall_closed_panic() {
 
 #[test]
 #[serial]
-fn execute_bad_panic() {
+fn execute_bad_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
     test_execute_error(&mut connection, "is bad");
@@ -316,14 +311,14 @@ fn test_fetchone_error(connection: &mut Connection, error: &str) {
 
 #[test]
 #[serial]
-fn fetchone_ready_panic() {
+fn fetchone_ready_error() {
     let mut connection = initialize();
     test_fetchone_error(&mut connection, "ready");
 }
 
 #[test]
 #[serial]
-fn fetchone_in_transaction_panic() {
+fn fetchone_in_transaction_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::InTransaction;
     test_fetchone_error(&mut connection, "in transaction");
@@ -331,7 +326,7 @@ fn fetchone_in_transaction_panic() {
 
 #[test]
 #[serial]
-fn fetchone_closed_panic() {
+fn fetchone_closed_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
     test_fetchone_error(&mut connection, "is closed");
@@ -339,7 +334,7 @@ fn fetchone_closed_panic() {
 
 #[test]
 #[serial]
-fn fetchone_bad_panic() {
+fn fetchone_bad_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
     test_fetchone_error(&mut connection, "is bad");
@@ -429,7 +424,7 @@ fn test_commit_error(connection: &mut Connection, error: &str) {
 
 #[test]
 #[serial]
-fn commit_executing_panic() {
+fn commit_executing_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Executing;
     test_commit_error(&mut connection, "executing");
@@ -437,7 +432,7 @@ fn commit_executing_panic() {
 
 #[test]
 #[serial]
-fn commit_fetching_panic() {
+fn commit_fetching_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Fetching;
     test_commit_error(&mut connection, "fetching");
@@ -445,7 +440,7 @@ fn commit_fetching_panic() {
 
 #[test]
 #[serial]
-fn commit_closed_panic() {
+fn commit_closed_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
     test_commit_error(&mut connection, "is closed");
@@ -453,7 +448,7 @@ fn commit_closed_panic() {
 
 #[test]
 #[serial]
-fn commit_bad_panic() {
+fn commit_bad_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
     test_commit_error(&mut connection, "is bad");
