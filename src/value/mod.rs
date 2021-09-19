@@ -13,11 +13,12 @@
 // limitations under the License.
 
 use super::bindings;
+use chrono::prelude::Utc;
+use chrono::{Date, DateTime, Duration, NaiveTime};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
-
 use std::slice;
 
 /// Representation of parameter value used in query.
@@ -114,6 +115,10 @@ pub enum Value {
     Float(f64),
     String(String),
     List(Vec<Value>),
+    Date(Date<Utc>),
+    DateTime(DateTime<Utc>),
+    Time(NaiveTime),
+    Duration(Duration),
     Map(HashMap<String, Value>),
     Node(Node),
     Relationship(Relationship),
@@ -365,6 +370,10 @@ impl fmt::Display for Value {
             Value::Int(x) => write!(f, "{}", x),
             Value::Float(x) => write!(f, "{}", x),
             Value::String(x) => write!(f, "'{}'", x),
+            Value::Date(x) => write!(f, "'{}'", x),
+            Value::Time(x) => write!(f, "'{}'", x),
+            Value::DateTime(x) => write!(f, "'{}'", x),
+            Value::Duration(x) => write!(f, "'{}'", x),
             Value::List(x) => write!(
                 f,
                 "{}",

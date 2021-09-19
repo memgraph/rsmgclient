@@ -61,6 +61,11 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
             Value::Int(x) => bindings::mg_value_make_integer(*x),
             Value::Float(x) => bindings::mg_value_make_float(*x),
             Value::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
+            // TODO(gitbuda): Implement temporal value to mg_value conversions.
+            Value::Date(_x) => bindings::mg_value_make_null(),
+            Value::Time(_x) => bindings::mg_value_make_null(),
+            Value::DateTime(_x) => bindings::mg_value_make_null(),
+            Value::Duration(_x) => bindings::mg_value_make_null(),
             Value::List(x) => {
                 bindings::mg_value_make_list(bindings::mg_list_copy(vector_to_mg_list(x)))
             }
