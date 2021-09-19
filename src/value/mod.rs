@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use super::bindings;
-use chrono::prelude::Utc;
-use chrono::{Date, DateTime, Duration, NaiveTime};
+use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -28,6 +27,10 @@ pub enum QueryParam {
     Int(i64),
     Float(f64),
     String(String),
+    Date(NaiveDate),
+    LocalTime(NaiveTime),
+    LocalDateTime(NaiveDateTime),
+    Duration(Duration),
     List(Vec<QueryParam>),
     Map(HashMap<String, QueryParam>),
 }
@@ -44,6 +47,11 @@ impl QueryParam {
                 QueryParam::Int(x) => bindings::mg_value_make_integer(*x),
                 QueryParam::Float(x) => bindings::mg_value_make_float(*x),
                 QueryParam::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
+                // TODO(gitbuda): Implement temporal Values to QueryParam conversions.
+                QueryParam::Date(_) => bindings::mg_value_make_null(),
+                QueryParam::LocalTime(_) => bindings::mg_value_make_null(),
+                QueryParam::LocalDateTime(_) => bindings::mg_value_make_null(),
+                QueryParam::Duration(_) => bindings::mg_value_make_null(),
                 QueryParam::List(x) => bindings::mg_value_make_list(vector_to_mg_list(x)),
                 QueryParam::Map(x) => bindings::mg_value_make_map(hash_map_to_mg_map(x)),
             }
@@ -115,9 +123,9 @@ pub enum Value {
     Float(f64),
     String(String),
     List(Vec<Value>),
-    Date(Date<Utc>),
-    DateTime(DateTime<Utc>),
-    Time(NaiveTime),
+    Date(NaiveDate),
+    LocalTime(NaiveTime),
+    LocalDateTime(NaiveDateTime),
     Duration(Duration),
     Map(HashMap<String, Value>),
     Node(Node),
@@ -170,6 +178,43 @@ fn mg_string_to_string(mg_string: *const bindings::mg_string) -> String {
 pub(crate) fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     let c_str = unsafe { bindings::mg_value_string(mg_value) };
     mg_string_to_string(c_str)
+}
+
+pub(crate) fn mg_value_naive_date(mg_value: *const bindings::mg_value) -> Option<NaiveDate> {
+    let c_date = unsafe { bindings::mg_value_date(mg_value) };
+    let c_delta_days = unsafe { bindings::mg_date_days(c_date) };
+    let epoch_date = NaiveDate::from_ymd(1970, 1, 1);
+    let delta_days = Duration::days(c_delta_days);
+    epoch_date.checked_add_signed(delta_days)
+}
+
+pub(crate) fn mg_value_naive_local_time(mg_value: *const bindings::mg_value) -> Option<NaiveTime> {
+    let nsec_in_sec = 1_000_000_000;
+    let c_local_time = unsafe { bindings::mg_value_local_time(mg_value) };
+    let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
+    // TODO(gitbuda): Check the i64 to u32 conversion.
+    let seconds = (c_nanoseconds / nsec_in_sec) as u32;
+    let nanoseconds = (c_nanoseconds % nsec_in_sec) as u32;
+    NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds)
+}
+
+pub(crate) fn mg_value_naive_local_date_time(
+    mg_value: *const bindings::mg_value,
+) -> Option<NaiveDateTime> {
+    let c_local_date_time = unsafe { bindings::mg_value_local_date_time(mg_value) };
+    let c_seconds = unsafe { bindings::mg_local_date_time_seconds(c_local_date_time) };
+    let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
+    // TODO(gitbuda): Check the i64 to u32 conversion.
+    let nanoseconds_since_last_non_leap_sec = c_nanoseconds as u32;
+    NaiveDateTime::from_timestamp_opt(c_seconds, nanoseconds_since_last_non_leap_sec)
+}
+
+pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
+    let c_duration = unsafe { bindings::mg_value_duration(mg_value) };
+    let days = unsafe { bindings::mg_duration_days(c_duration) };
+    let seconds = unsafe { bindings::mg_duration_seconds(c_duration) };
+    let nanoseconds = unsafe { bindings::mg_duration_nanoseconds(c_duration) };
+    Duration::days(days) + Duration::seconds(seconds) + Duration::nanoseconds(nanoseconds)
 }
 
 pub(crate) fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, Value> {
@@ -344,6 +389,19 @@ impl Value {
             bindings::mg_value_type_MG_VALUE_TYPE_STRING => {
                 Value::String(mg_value_string(c_mg_value))
             }
+            // TODO(gitbuda): Handle None in temporal type conversions (remove unwrap).
+            bindings::mg_value_type_MG_VALUE_TYPE_DATE => {
+                Value::Date(mg_value_naive_date(c_mg_value).unwrap())
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_LOCAL_TIME => {
+                Value::LocalTime(mg_value_naive_local_time(c_mg_value).unwrap())
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_LOCAL_DATE_TIME => {
+                Value::LocalDateTime(mg_value_naive_local_date_time(c_mg_value).unwrap())
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_DURATION => {
+                Value::Duration(mg_value_duration(c_mg_value))
+            }
             bindings::mg_value_type_MG_VALUE_TYPE_LIST => {
                 Value::List(mg_value_list_to_vec(c_mg_value))
             }
@@ -371,8 +429,8 @@ impl fmt::Display for Value {
             Value::Float(x) => write!(f, "{}", x),
             Value::String(x) => write!(f, "'{}'", x),
             Value::Date(x) => write!(f, "'{}'", x),
-            Value::Time(x) => write!(f, "'{}'", x),
-            Value::DateTime(x) => write!(f, "'{}'", x),
+            Value::LocalTime(x) => write!(f, "'{}'", x),
+            Value::LocalDateTime(x) => write!(f, "'{}'", x),
             Value::Duration(x) => write!(f, "'{}'", x),
             Value::List(x) => write!(
                 f,
