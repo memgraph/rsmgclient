@@ -68,8 +68,7 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
             Value::LocalDateTime(x) => bindings::mg_value_make_local_date_time(
                 naive_local_date_time_to_mg_local_date_time(x),
             ),
-            // TODO(gitbuda): Implement temporal value to mg_value conversions.
-            Value::Duration(_x) => bindings::mg_value_make_null(),
+            Value::Duration(x) => bindings::mg_value_make_duration(duration_to_mg_duration(x)),
             Value::List(x) => {
                 bindings::mg_value_make_list(bindings::mg_list_copy(vector_to_mg_list(x)))
             }
@@ -763,6 +762,54 @@ fn from_naive_local_date_time_param_to_mg_value() {
         }
         _ => {
             panic!("QueryParam::LocalDateTime converted into a wrong Value type!");
+        }
+    }
+}
+
+#[test]
+fn from_duration_to_mg_value_1() {
+    let query_param = QueryParam::Duration(Duration::nanoseconds(86403000000000));
+    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_DURATION
+    );
+    let mg_value = unsafe { Value::from_mg_value(&c_mg_value) };
+    assert_eq!(mg_value.to_string(), "'P1DT3S'");
+    match mg_value {
+        Value::Duration(x) => {
+            assert_eq!(x.num_weeks(), 0);
+            assert_eq!(x.num_hours(), 24);
+            assert_eq!(x.num_days(), 1);
+            assert_eq!(x.num_seconds(), 86403);
+            assert_eq!(x.num_nanoseconds().unwrap(), 86403000000000);
+        }
+        _ => {
+            panic!("QueryParam::Duration converted into a wrong Value type!");
+        }
+    }
+}
+
+#[test]
+fn from_duration_to_mg_value_2() {
+    let query_param = QueryParam::Duration(Duration::nanoseconds(123456789));
+    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_DURATION
+    );
+    let mg_value = unsafe { Value::from_mg_value(&c_mg_value) };
+    assert_eq!(mg_value.to_string(), "'PT0.123456789S'");
+    match mg_value {
+        Value::Duration(x) => {
+            assert_eq!(x.num_weeks(), 0);
+            assert_eq!(x.num_hours(), 0);
+            assert_eq!(x.num_days(), 0);
+            assert_eq!(x.num_seconds(), 0);
+            assert_eq!(x.num_nanoseconds().unwrap(), 123456789);
+        }
+        _ => {
+            panic!("QueryParam::Duration converted into a wrong Value type!");
         }
     }
 }

@@ -54,8 +54,9 @@ impl QueryParam {
                 QueryParam::LocalDateTime(x) => bindings::mg_value_make_local_date_time(
                     naive_local_date_time_to_mg_local_date_time(x),
                 ),
-                // TODO(gitbuda): Implement temporal Values to QueryParam conversions.
-                QueryParam::Duration(_) => bindings::mg_value_make_null(),
+                QueryParam::Duration(x) => {
+                    bindings::mg_value_make_duration(duration_to_mg_duration(x))
+                }
                 QueryParam::List(x) => bindings::mg_value_make_list(vector_to_mg_list(x)),
                 QueryParam::Map(x) => bindings::mg_value_make_map(hash_map_to_mg_map(x)),
             }
@@ -408,6 +409,12 @@ pub(crate) fn naive_local_date_time_to_mg_local_date_time(
     }
 }
 
+pub(crate) fn duration_to_mg_duration(input: &Duration) -> *mut bindings::mg_duration {
+    // Only nanoseconds are used because Duration returns total number of nanoseconds.
+    let nanoseconds = input.num_nanoseconds().unwrap();
+    unsafe { bindings::mg_duration_make(0, 0, 0, nanoseconds) }
+}
+
 pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
     let size = vector.len() as u32;
     let mg_list = unsafe { bindings::mg_list_make_empty(size) };
@@ -429,7 +436,6 @@ impl Value {
             bindings::mg_value_type_MG_VALUE_TYPE_STRING => {
                 Value::String(mg_value_string(c_mg_value))
             }
-            // TODO(gitbuda): Handle None in temporal type conversions (remove unwrap).
             bindings::mg_value_type_MG_VALUE_TYPE_DATE => {
                 Value::Date(mg_value_naive_date(c_mg_value).unwrap())
             }
