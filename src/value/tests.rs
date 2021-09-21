@@ -65,8 +65,10 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
             Value::LocalTime(x) => {
                 bindings::mg_value_make_local_time(naive_local_time_to_mg_local_time(x))
             }
+            Value::LocalDateTime(x) => bindings::mg_value_make_local_date_time(
+                naive_local_date_time_to_mg_local_date_time(x),
+            ),
             // TODO(gitbuda): Implement temporal value to mg_value conversions.
-            Value::LocalDateTime(_x) => bindings::mg_value_make_null(),
             Value::Duration(_x) => bindings::mg_value_make_null(),
             Value::List(x) => {
                 bindings::mg_value_make_list(bindings::mg_list_copy(vector_to_mg_list(x)))
@@ -710,7 +712,7 @@ fn from_naive_date_param_to_mg_value() {
             assert_eq!(x.day(), 1);
         }
         _ => {
-            panic!("QueryParam::Date converted into a wrong Value!");
+            panic!("QueryParam::Date converted into a wrong Value type!");
         }
     }
 }
@@ -733,7 +735,34 @@ fn from_naive_local_time_param_to_mg_value() {
             assert_eq!(x.nanosecond(), 1234);
         }
         _ => {
-            panic!("QueryParam::LocalTime converted into a wrong Value!");
+            panic!("QueryParam::LocalTime converted into a wrong Value type!");
+        }
+    }
+}
+
+#[test]
+fn from_naive_local_date_time_param_to_mg_value() {
+    let query_param =
+        QueryParam::LocalDateTime(NaiveDate::from_ymd(1960, 1, 1).and_hms_nano(2, 3, 4, 1234));
+    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_LOCAL_DATE_TIME
+    );
+    let mg_value = unsafe { Value::from_mg_value(&c_mg_value) };
+    assert_eq!(mg_value.to_string(), "'1960-01-01 02:03:04.000001234'");
+    match mg_value {
+        Value::LocalDateTime(x) => {
+            assert_eq!(x.year(), 1960);
+            assert_eq!(x.month(), 1);
+            assert_eq!(x.day(), 1);
+            assert_eq!(x.hour(), 2);
+            assert_eq!(x.minute(), 3);
+            assert_eq!(x.second(), 4);
+            assert_eq!(x.nanosecond(), 1234);
+        }
+        _ => {
+            panic!("QueryParam::LocalDateTime converted into a wrong Value type!");
         }
     }
 }

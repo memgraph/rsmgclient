@@ -51,8 +51,10 @@ impl QueryParam {
                 QueryParam::LocalTime(x) => {
                     bindings::mg_value_make_local_time(naive_local_time_to_mg_local_time(x))
                 }
+                QueryParam::LocalDateTime(x) => bindings::mg_value_make_local_date_time(
+                    naive_local_date_time_to_mg_local_date_time(x),
+                ),
                 // TODO(gitbuda): Implement temporal Values to QueryParam conversions.
-                QueryParam::LocalDateTime(_) => bindings::mg_value_make_null(),
                 QueryParam::Duration(_) => bindings::mg_value_make_null(),
                 QueryParam::List(x) => bindings::mg_value_make_list(vector_to_mg_list(x)),
                 QueryParam::Map(x) => bindings::mg_value_make_map(hash_map_to_mg_map(x)),
@@ -390,6 +392,20 @@ pub(crate) fn naive_local_time_to_mg_local_time(input: &NaiveTime) -> *mut bindi
     let seconds_ns = (input.second() as i64) * nsec_in_sec;
     let nanoseconds = input.nanosecond() as i64;
     unsafe { bindings::mg_local_time_make(hours_ns + minutes_ns + seconds_ns + nanoseconds) }
+}
+
+pub(crate) fn naive_local_date_time_to_mg_local_date_time(
+    input: &NaiveDateTime,
+) -> *mut bindings::mg_local_date_time {
+    let unix_epoch = NaiveDate::from_ymd(1970, 1, 1).num_days_from_ce();
+    let days_s = (input.num_days_from_ce() - unix_epoch) as i64 * 24 * 60 * 60;
+    let hours_s = (input.hour() as i64) * 60 * 60;
+    let minutes_s = (input.minute() as i64) * 60;
+    let seconds_s = input.second() as i64;
+    let nanoseconds = input.nanosecond() as i64;
+    unsafe {
+        bindings::mg_local_date_time_make(days_s + hours_s + minutes_s + seconds_s, nanoseconds)
+    }
 }
 
 pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
