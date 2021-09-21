@@ -410,9 +410,15 @@ pub(crate) fn naive_local_date_time_to_mg_local_date_time(
 }
 
 pub(crate) fn duration_to_mg_duration(input: &Duration) -> *mut bindings::mg_duration {
-    // Only nanoseconds are used because Duration returns total number of nanoseconds.
-    let nanoseconds = input.num_nanoseconds().unwrap();
-    unsafe { bindings::mg_duration_make(0, 0, 0, nanoseconds) }
+    let nsec_in_sec = 1_000_000_000_i64;
+    // Duration returns total number of nanoseconds, in order to create a valid mg_duration object,
+    // days and seconds have to be reducted from the total number of nanoseconds.
+    let mut nanoseconds = input.num_nanoseconds().unwrap();
+    let days = input.num_days();
+    nanoseconds -= days * 24 * 60 * 60 * nsec_in_sec;
+    let seconds = input.num_seconds() - days * 24 * 60 * 60;
+    nanoseconds -= seconds * nsec_in_sec;
+    unsafe { bindings::mg_duration_make(0, days, seconds, nanoseconds) }
 }
 
 pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
