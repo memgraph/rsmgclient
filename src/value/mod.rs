@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::bindings;
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -47,8 +47,8 @@ impl QueryParam {
                 QueryParam::Int(x) => bindings::mg_value_make_integer(*x),
                 QueryParam::Float(x) => bindings::mg_value_make_float(*x),
                 QueryParam::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
+                QueryParam::Date(x) => bindings::mg_value_make_date(naive_date_to_mg_date(x)),
                 // TODO(gitbuda): Implement temporal Values to QueryParam conversions.
-                QueryParam::Date(_) => bindings::mg_value_make_null(),
                 QueryParam::LocalTime(_) => bindings::mg_value_make_null(),
                 QueryParam::LocalDateTime(_) => bindings::mg_value_make_null(),
                 QueryParam::Duration(_) => bindings::mg_value_make_null(),
@@ -374,6 +374,11 @@ pub(crate) fn hash_map_to_mg_map(hash_map: &HashMap<String, QueryParam>) -> *mut
 pub(crate) fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
     let c_str = Box::into_raw(Box::new(CString::new(string).unwrap()));
     unsafe { (*c_str).as_ptr() }
+}
+
+pub(crate) fn naive_date_to_mg_date(input: &NaiveDate) -> *mut bindings::mg_date {
+    let unix_epoch = NaiveDate::from_ymd(1970, 1, 1).num_days_from_ce();
+    unsafe { bindings::mg_date_make((input.num_days_from_ce() - unix_epoch) as i64) }
 }
 
 pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {

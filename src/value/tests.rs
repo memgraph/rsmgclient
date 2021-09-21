@@ -695,6 +695,25 @@ fn from_to_c_mg_value_string() {
 }
 
 #[test]
+fn from_naive_date_param_to_mg_value() {
+    let query_param = QueryParam::Date(NaiveDate::from_ymd(1971, 1, 1));
+    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
+    assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_DATE);
+    let mg_value = unsafe { Value::from_mg_value(&c_mg_value) };
+    assert_eq!(mg_value.to_string(), "'1971-01-01'");
+    match mg_value {
+        Value::Date(x) => {
+            assert_eq!(x.year(), 1971);
+            assert_eq!(x.month(), 1);
+            assert_eq!(x.day(), 1);
+        }
+        _ => {
+            panic!("QueryParam::Date converted into a wrong Value!");
+        }
+    }
+}
+
+#[test]
 fn from_to_c_mg_value_list() {
     let vec: Vec<QueryParam> = vec![
         QueryParam::Null,
