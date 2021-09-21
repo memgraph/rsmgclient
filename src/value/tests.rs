@@ -233,7 +233,7 @@ fn from_c_mg_value_string() {
 }
 
 #[test]
-fn from_c_mg_value_date() {
+fn from_c_mg_value_date1() {
     let c_date = bindings::mg_date { days: 100 };
     let c_mg_value = unsafe { bindings::mg_value_make_date(bindings::mg_date_copy(&c_date)) };
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
@@ -246,6 +246,15 @@ fn from_c_mg_value_date() {
         mg_value
     );
     assert_eq!(format!("{}", mg_value), "'1970-04-11'");
+}
+
+#[test]
+fn from_c_mg_value_date2() {
+    let c_date = bindings::mg_date { days: 365 };
+    let c_mg_value = unsafe { bindings::mg_value_make_date(bindings::mg_date_copy(&c_date)) };
+    let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
+    assert_eq!(Value::Date(NaiveDate::from_ymd(1971, 1, 1)), mg_value);
+    assert_eq!(format!("{}", mg_value), "'1971-01-01'");
 }
 
 #[test]

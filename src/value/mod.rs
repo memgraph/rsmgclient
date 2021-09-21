@@ -190,23 +190,31 @@ pub(crate) fn mg_value_naive_date(mg_value: *const bindings::mg_value) -> Option
 
 pub(crate) fn mg_value_naive_local_time(mg_value: *const bindings::mg_value) -> Option<NaiveTime> {
     let nsec_in_sec = 1_000_000_000;
+    let u32_max = u32::MAX as i64;
     let c_local_time = unsafe { bindings::mg_value_local_time(mg_value) };
     let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
-    // TODO(gitbuda): Check the i64 to u32 conversion.
-    let seconds = (c_nanoseconds / nsec_in_sec) as u32;
-    let nanoseconds = (c_nanoseconds % nsec_in_sec) as u32;
-    NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds)
+    let seconds = c_nanoseconds / nsec_in_sec;
+    let nanoseconds = c_nanoseconds % nsec_in_sec;
+    if seconds > u32_max {
+        return None;
+    }
+    if nanoseconds > u32_max {
+        return None;
+    }
+    NaiveTime::from_num_seconds_from_midnight_opt(seconds as u32, nanoseconds as u32)
 }
 
 pub(crate) fn mg_value_naive_local_date_time(
     mg_value: *const bindings::mg_value,
 ) -> Option<NaiveDateTime> {
+    let u32_max = u32::MAX as i64;
     let c_local_date_time = unsafe { bindings::mg_value_local_date_time(mg_value) };
     let c_seconds = unsafe { bindings::mg_local_date_time_seconds(c_local_date_time) };
     let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
-    // TODO(gitbuda): Check the i64 to u32 conversion.
-    let nanoseconds_since_last_non_leap_sec = c_nanoseconds as u32;
-    NaiveDateTime::from_timestamp_opt(c_seconds, nanoseconds_since_last_non_leap_sec)
+    if c_nanoseconds > u32_max {
+        return None;
+    }
+    NaiveDateTime::from_timestamp_opt(c_seconds, c_nanoseconds as u32)
 }
 
 pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
