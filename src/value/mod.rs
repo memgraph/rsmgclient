@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::bindings;
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -48,8 +48,10 @@ impl QueryParam {
                 QueryParam::Float(x) => bindings::mg_value_make_float(*x),
                 QueryParam::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
                 QueryParam::Date(x) => bindings::mg_value_make_date(naive_date_to_mg_date(x)),
+                QueryParam::LocalTime(x) => {
+                    bindings::mg_value_make_local_time(naive_local_time_to_mg_local_time(x))
+                }
                 // TODO(gitbuda): Implement temporal Values to QueryParam conversions.
-                QueryParam::LocalTime(_) => bindings::mg_value_make_null(),
                 QueryParam::LocalDateTime(_) => bindings::mg_value_make_null(),
                 QueryParam::Duration(_) => bindings::mg_value_make_null(),
                 QueryParam::List(x) => bindings::mg_value_make_list(vector_to_mg_list(x)),
@@ -379,6 +381,15 @@ pub(crate) fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
 pub(crate) fn naive_date_to_mg_date(input: &NaiveDate) -> *mut bindings::mg_date {
     let unix_epoch = NaiveDate::from_ymd(1970, 1, 1).num_days_from_ce();
     unsafe { bindings::mg_date_make((input.num_days_from_ce() - unix_epoch) as i64) }
+}
+
+pub(crate) fn naive_local_time_to_mg_local_time(input: &NaiveTime) -> *mut bindings::mg_local_time {
+    let nsec_in_sec = 1_000_000_000_i64;
+    let hours_ns = (input.hour() as i64) * 60 * 60 * nsec_in_sec;
+    let minutes_ns = (input.minute() as i64) * 60 * nsec_in_sec;
+    let seconds_ns = (input.second() as i64) * nsec_in_sec;
+    let nanoseconds = input.nanosecond() as i64;
+    unsafe { bindings::mg_local_time_make(hours_ns + minutes_ns + seconds_ns + nanoseconds) }
 }
 
 pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {

@@ -61,9 +61,11 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
             Value::Int(x) => bindings::mg_value_make_integer(*x),
             Value::Float(x) => bindings::mg_value_make_float(*x),
             Value::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
+            Value::Date(x) => bindings::mg_value_make_date(naive_date_to_mg_date(x)),
+            Value::LocalTime(x) => {
+                bindings::mg_value_make_local_time(naive_local_time_to_mg_local_time(x))
+            }
             // TODO(gitbuda): Implement temporal value to mg_value conversions.
-            Value::Date(_x) => bindings::mg_value_make_null(),
-            Value::LocalTime(_x) => bindings::mg_value_make_null(),
             Value::LocalDateTime(_x) => bindings::mg_value_make_null(),
             Value::Duration(_x) => bindings::mg_value_make_null(),
             Value::List(x) => {
@@ -709,6 +711,29 @@ fn from_naive_date_param_to_mg_value() {
         }
         _ => {
             panic!("QueryParam::Date converted into a wrong Value!");
+        }
+    }
+}
+
+#[test]
+fn from_naive_local_time_param_to_mg_value() {
+    let query_param = QueryParam::LocalTime(NaiveTime::from_hms_nano(2, 3, 4, 1234));
+    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_LOCAL_TIME
+    );
+    let mg_value = unsafe { Value::from_mg_value(&c_mg_value) };
+    assert_eq!(mg_value.to_string(), "'02:03:04.000001234'");
+    match mg_value {
+        Value::LocalTime(x) => {
+            assert_eq!(x.hour(), 2);
+            assert_eq!(x.minute(), 3);
+            assert_eq!(x.second(), 4);
+            assert_eq!(x.nanosecond(), 1234);
+        }
+        _ => {
+            panic!("QueryParam::LocalTime converted into a wrong Value!");
         }
     }
 }
