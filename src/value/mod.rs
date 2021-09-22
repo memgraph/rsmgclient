@@ -212,11 +212,10 @@ pub(crate) fn mg_value_naive_local_time(mg_value: *const bindings::mg_value) -> 
 pub(crate) fn mg_value_naive_local_date_time(
     mg_value: *const bindings::mg_value,
 ) -> Option<NaiveDateTime> {
-    let u32_max = u32::MAX as i64;
     let c_local_date_time = unsafe { bindings::mg_value_local_date_time(mg_value) };
     let c_seconds = unsafe { bindings::mg_local_date_time_seconds(c_local_date_time) };
     let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
-    if c_nanoseconds > u32_max {
+    if c_nanoseconds > u32::MAX as i64 {
         return None;
     }
     NaiveDateTime::from_timestamp_opt(c_seconds, c_nanoseconds as u32)
