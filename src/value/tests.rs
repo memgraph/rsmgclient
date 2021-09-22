@@ -261,6 +261,15 @@ fn from_c_mg_value_date2() {
 }
 
 #[test]
+fn from_c_mg_value_date3() {
+    let c_date = bindings::mg_date { days: -365 };
+    let c_mg_value = unsafe { bindings::mg_value_make_date(bindings::mg_date_copy(&c_date)) };
+    let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
+    assert_eq!(Value::Date(NaiveDate::from_ymd(1969, 1, 1)), mg_value);
+    assert_eq!(format!("{}", mg_value), "'1969-01-01'");
+}
+
+#[test]
 fn from_c_mg_value_local_time() {
     let c_local_time = bindings::mg_local_time {
         nanoseconds: 52835851241000,
