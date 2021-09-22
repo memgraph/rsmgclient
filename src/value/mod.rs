@@ -15,9 +15,11 @@
 use super::bindings;
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
+use std::num::TryFromIntError;
 use std::slice;
 
 /// Representation of parameter value used in query.
@@ -185,40 +187,33 @@ pub(crate) fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     mg_string_to_string(c_str)
 }
 
-pub(crate) fn mg_value_naive_date(mg_value: *const bindings::mg_value) -> Option<NaiveDate> {
+pub(crate) fn mg_value_naive_date(mg_value: *const bindings::mg_value) -> Result<NaiveDate, ()> {
     let c_date = unsafe { bindings::mg_value_date(mg_value) };
     let c_delta_days = unsafe { bindings::mg_date_days(c_date) };
     let epoch_date = NaiveDate::from_ymd(1970, 1, 1);
     let delta_days = Duration::days(c_delta_days);
-    epoch_date.checked_add_signed(delta_days)
+    Ok(epoch_date.checked_add_signed(delta_days).unwrap())
 }
 
-pub(crate) fn mg_value_naive_local_time(mg_value: *const bindings::mg_value) -> Option<NaiveTime> {
+pub(crate) fn mg_value_naive_local_time(
+    mg_value: *const bindings::mg_value,
+) -> Result<NaiveTime, TryFromIntError> {
     let nsec_in_sec = 1_000_000_000;
-    let u32_max = u32::MAX as i64;
     let c_local_time = unsafe { bindings::mg_value_local_time(mg_value) };
     let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
-    let seconds = c_nanoseconds / nsec_in_sec;
-    let nanoseconds = c_nanoseconds % nsec_in_sec;
-    if seconds > u32_max {
-        return None;
-    }
-    if nanoseconds > u32_max {
-        return None;
-    }
-    NaiveTime::from_num_seconds_from_midnight_opt(seconds as u32, nanoseconds as u32)
+    let seconds = u32::try_from(c_nanoseconds / nsec_in_sec)?;
+    let nanoseconds = u32::try_from(c_nanoseconds % nsec_in_sec)?;
+    Ok(NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds).unwrap())
 }
 
 pub(crate) fn mg_value_naive_local_date_time(
     mg_value: *const bindings::mg_value,
-) -> Option<NaiveDateTime> {
+) -> Result<NaiveDateTime, TryFromIntError> {
     let c_local_date_time = unsafe { bindings::mg_value_local_date_time(mg_value) };
     let c_seconds = unsafe { bindings::mg_local_date_time_seconds(c_local_date_time) };
     let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
-    if c_nanoseconds > u32::MAX as i64 {
-        return None;
-    }
-    NaiveDateTime::from_timestamp_opt(c_seconds, c_nanoseconds as u32)
+    let nanoseconds = u32::try_from(c_nanoseconds)?;
+    Ok(NaiveDateTime::from_timestamp_opt(c_seconds, nanoseconds).unwrap())
 }
 
 pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
