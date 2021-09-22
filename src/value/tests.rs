@@ -285,7 +285,7 @@ fn from_c_mg_value_local_time() {
 }
 
 #[test]
-fn from_c_mg_value_local_date_time() {
+fn from_c_mg_value_local_date_time1() {
     let c_local_date_time = bindings::mg_local_date_time {
         seconds: 500 * 24 * 60 * 60 + 52835,
         nanoseconds: 851241 * 1000,
@@ -301,6 +301,25 @@ fn from_c_mg_value_local_date_time() {
         mg_value
     );
     assert_eq!(format!("{}", mg_value), "'1971-05-16 14:40:35.851241'");
+}
+
+#[test]
+fn from_c_mg_value_local_date_time2() {
+    let c_local_date_time = bindings::mg_local_date_time {
+        seconds: -500 * 24 * 60 * 60 + 52835,
+        nanoseconds: 851241 * 1000,
+    };
+    let c_mg_value = unsafe {
+        bindings::mg_value_make_local_date_time(bindings::mg_local_date_time_copy(
+            &c_local_date_time,
+        ))
+    };
+    let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
+    assert_eq!(
+        Value::LocalDateTime(NaiveDate::from_ymd(1968, 8, 19).and_hms_micro(14, 40, 35, 851241)),
+        mg_value
+    );
+    assert_eq!(format!("{}", mg_value), "'1968-08-19 14:40:35.851241'");
 }
 
 #[test]
