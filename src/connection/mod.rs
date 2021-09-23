@@ -476,7 +476,7 @@ impl Connection {
             }
         }
 
-        if !self.autocommit && self.status != ConnectionStatus::InTransaction {
+        if !self.autocommit && self.status == ConnectionStatus::Ready {
             match self.execute_without_results("BEGIN") {
                 Ok(()) => self.status = ConnectionStatus::InTransaction,
                 Err(err) => return Err(err),
