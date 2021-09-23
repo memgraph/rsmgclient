@@ -323,6 +323,25 @@ fn from_c_mg_value_local_date_time2() {
 }
 
 #[test]
+fn from_c_mg_value_local_date_time3() {
+    let c_local_date_time = bindings::mg_local_date_time {
+        seconds: -1,
+        nanoseconds: 0,
+    };
+    let c_mg_value = unsafe {
+        bindings::mg_value_make_local_date_time(bindings::mg_local_date_time_copy(
+            &c_local_date_time,
+        ))
+    };
+    let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
+    assert_eq!(
+        Value::LocalDateTime(NaiveDate::from_ymd(1969, 12, 31).and_hms_micro(23, 59, 59, 0)),
+        mg_value
+    );
+    assert_eq!(format!("{}", mg_value), "'1969-12-31 23:59:59'");
+}
+
+#[test]
 fn from_c_mg_value_duration() {
     let c_duration = bindings::mg_duration {
         months: 0,

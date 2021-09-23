@@ -187,6 +187,20 @@ pub(crate) fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     mg_string_to_string(c_str)
 }
 
+fn days_as_seconds(days: i64) -> i64 {
+    hours_as_seconds(days * 24)
+}
+
+fn hours_as_seconds(hours: i64) -> i64 {
+    hours * 60 * 60
+}
+
+fn minutes_as_seconds(minutes: i64) -> i64 {
+    minutes * 60
+}
+
+const NSEC_IN_SEC: i64 = 1_000_000_000;
+
 pub(crate) fn mg_value_naive_date(mg_value: *const bindings::mg_value) -> Result<NaiveDate, ()> {
     let c_date = unsafe { bindings::mg_value_date(mg_value) };
     let c_delta_days = unsafe { bindings::mg_date_days(c_date) };
@@ -198,11 +212,10 @@ pub(crate) fn mg_value_naive_date(mg_value: *const bindings::mg_value) -> Result
 pub(crate) fn mg_value_naive_local_time(
     mg_value: *const bindings::mg_value,
 ) -> Result<NaiveTime, TryFromIntError> {
-    let nsec_in_sec = 1_000_000_000;
     let c_local_time = unsafe { bindings::mg_value_local_time(mg_value) };
     let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
-    let seconds = u32::try_from(c_nanoseconds / nsec_in_sec)?;
-    let nanoseconds = u32::try_from(c_nanoseconds % nsec_in_sec)?;
+    let seconds = u32::try_from(c_nanoseconds / NSEC_IN_SEC)?;
+    let nanoseconds = u32::try_from(c_nanoseconds % NSEC_IN_SEC)?;
     Ok(NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds).unwrap())
 }
 
@@ -381,10 +394,9 @@ pub(crate) fn naive_date_to_mg_date(input: &NaiveDate) -> *mut bindings::mg_date
 }
 
 pub(crate) fn naive_local_time_to_mg_local_time(input: &NaiveTime) -> *mut bindings::mg_local_time {
-    let nsec_in_sec = 1_000_000_000_i64;
-    let hours_ns = (input.hour() as i64) * 60 * 60 * nsec_in_sec;
-    let minutes_ns = (input.minute() as i64) * 60 * nsec_in_sec;
-    let seconds_ns = (input.second() as i64) * nsec_in_sec;
+    let hours_ns = hours_as_seconds(input.hour() as i64) * NSEC_IN_SEC;
+    let minutes_ns = minutes_as_seconds(input.minute() as i64) * NSEC_IN_SEC;
+    let seconds_ns = (input.second() as i64) * NSEC_IN_SEC;
     let nanoseconds = input.nanosecond() as i64;
     unsafe { bindings::mg_local_time_make(hours_ns + minutes_ns + seconds_ns + nanoseconds) }
 }
@@ -393,9 +405,9 @@ pub(crate) fn naive_local_date_time_to_mg_local_date_time(
     input: &NaiveDateTime,
 ) -> *mut bindings::mg_local_date_time {
     let unix_epoch = NaiveDate::from_ymd(1970, 1, 1).num_days_from_ce();
-    let days_s = (input.num_days_from_ce() - unix_epoch) as i64 * 24 * 60 * 60;
-    let hours_s = (input.hour() as i64) * 60 * 60;
-    let minutes_s = (input.minute() as i64) * 60;
+    let days_s = days_as_seconds((input.num_days_from_ce() - unix_epoch) as i64);
+    let hours_s = hours_as_seconds(input.hour() as i64);
+    let minutes_s = minutes_as_seconds(input.minute() as i64);
     let seconds_s = input.second() as i64;
     let nanoseconds = input.nanosecond() as i64;
     unsafe {
@@ -404,14 +416,13 @@ pub(crate) fn naive_local_date_time_to_mg_local_date_time(
 }
 
 pub(crate) fn duration_to_mg_duration(input: &Duration) -> *mut bindings::mg_duration {
-    let nsec_in_sec = 1_000_000_000_i64;
     // Duration returns total number of nanoseconds, in order to create a valid mg_duration object,
     // days and seconds have to be reducted from the total number of nanoseconds.
     let mut nanoseconds = input.num_nanoseconds().unwrap();
     let days = input.num_days();
-    nanoseconds -= days * 24 * 60 * 60 * nsec_in_sec;
-    let seconds = input.num_seconds() - days * 24 * 60 * 60;
-    nanoseconds -= seconds * nsec_in_sec;
+    nanoseconds -= days_as_seconds(days) * NSEC_IN_SEC;
+    let seconds = input.num_seconds() - days_as_seconds(days);
+    nanoseconds -= seconds * NSEC_IN_SEC;
     unsafe { bindings::mg_duration_make(0, days, seconds, nanoseconds) }
 }
 
