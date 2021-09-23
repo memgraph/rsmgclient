@@ -256,7 +256,7 @@ impl Connection {
     ///
     /// # Panics
     ///
-    /// Panics if connection has pending transaction or connection is not ready.
+    /// Panics if connection is not in a `Ready` status.
     pub fn set_autocommit(&mut self, autocommit: bool) {
         match self.status {
             ConnectionStatus::Ready => self.autocommit = autocommit,
