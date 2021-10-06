@@ -192,7 +192,7 @@ fn days_as_seconds(days: i64) -> i64 {
 }
 
 fn hours_as_seconds(hours: i64) -> i64 {
-    hours * 60 * 60
+    minutes_as_seconds(hours * 60)
 }
 
 fn minutes_as_seconds(minutes: i64) -> i64 {
@@ -216,7 +216,7 @@ pub(crate) fn mg_value_naive_local_time(
     let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
     let seconds = u32::try_from(c_nanoseconds / NSEC_IN_SEC)?;
     let nanoseconds = u32::try_from(c_nanoseconds % NSEC_IN_SEC)?;
-    Ok(NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds).unwrap())
+    Ok(NaiveTime::from_num_seconds_from_midnight(seconds, nanoseconds))
 }
 
 pub(crate) fn mg_value_naive_local_date_time(
@@ -226,7 +226,7 @@ pub(crate) fn mg_value_naive_local_date_time(
     let c_seconds = unsafe { bindings::mg_local_date_time_seconds(c_local_date_time) };
     let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
     let nanoseconds = u32::try_from(c_nanoseconds)?;
-    Ok(NaiveDateTime::from_timestamp_opt(c_seconds, nanoseconds).unwrap())
+    Ok(NaiveDateTime::from_timestamp(c_seconds, nanoseconds))
 }
 
 pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
