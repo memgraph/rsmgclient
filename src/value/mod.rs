@@ -216,7 +216,10 @@ pub(crate) fn mg_value_naive_local_time(
     let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
     let seconds = u32::try_from(c_nanoseconds / NSEC_IN_SEC)?;
     let nanoseconds = u32::try_from(c_nanoseconds % NSEC_IN_SEC)?;
-    Ok(NaiveTime::from_num_seconds_from_midnight(seconds, nanoseconds))
+    Ok(NaiveTime::from_num_seconds_from_midnight(
+        seconds,
+        nanoseconds,
+    ))
 }
 
 pub(crate) fn mg_value_naive_local_date_time(
@@ -417,12 +420,15 @@ pub(crate) fn naive_local_date_time_to_mg_local_date_time(
 
 pub(crate) fn duration_to_mg_duration(input: &Duration) -> *mut bindings::mg_duration {
     // Duration returns total number of nanoseconds, in order to create a valid mg_duration object,
-    // days and seconds have to be reducted from the total number of nanoseconds.
-    let mut nanoseconds = input.num_nanoseconds().unwrap();
+    // days and seconds have to be reducted from the total duration. In addition, one can get numer
+    // of nanoseconds and then substract days and seconds, but since nanoseconds can overflow quite
+    // quicky (with 292 years), it's better to use Duration and first reduce days and seconds.
+    let mut duration = *input;
     let days = input.num_days();
-    nanoseconds -= days_as_seconds(days) * NSEC_IN_SEC;
-    let seconds = input.num_seconds() - days_as_seconds(days);
-    nanoseconds -= seconds * NSEC_IN_SEC;
+    duration = duration - Duration::days(days);
+    let seconds = input.num_seconds();
+    duration = duration - Duration::seconds(seconds);
+    let nanoseconds = duration.num_nanoseconds().unwrap();
     unsafe { bindings::mg_duration_make(0, days, seconds, nanoseconds) }
 }
 
