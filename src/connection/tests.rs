@@ -291,7 +291,7 @@ fn fetchone_summary() {
         "planning_time",
         "plan_execution_time",
     ] {
-        assert!(summary.contains_key(&key as &str));
+        assert!(summary.contains_key(key as &str));
     }
 }
 

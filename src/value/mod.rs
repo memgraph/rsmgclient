@@ -13,11 +13,13 @@
 // limitations under the License.
 
 use super::bindings;
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
-
+use std::num::TryFromIntError;
 use std::slice;
 
 /// Representation of parameter value used in query.
@@ -27,6 +29,10 @@ pub enum QueryParam {
     Int(i64),
     Float(f64),
     String(String),
+    Date(NaiveDate),
+    LocalTime(NaiveTime),
+    LocalDateTime(NaiveDateTime),
+    Duration(Duration),
     List(Vec<QueryParam>),
     Map(HashMap<String, QueryParam>),
 }
@@ -43,6 +49,16 @@ impl QueryParam {
                 QueryParam::Int(x) => bindings::mg_value_make_integer(*x),
                 QueryParam::Float(x) => bindings::mg_value_make_float(*x),
                 QueryParam::String(x) => bindings::mg_value_make_string(str_to_c_str(x.as_str())),
+                QueryParam::Date(x) => bindings::mg_value_make_date(naive_date_to_mg_date(x)),
+                QueryParam::LocalTime(x) => {
+                    bindings::mg_value_make_local_time(naive_local_time_to_mg_local_time(x))
+                }
+                QueryParam::LocalDateTime(x) => bindings::mg_value_make_local_date_time(
+                    naive_local_date_time_to_mg_local_date_time(x),
+                ),
+                QueryParam::Duration(x) => {
+                    bindings::mg_value_make_duration(duration_to_mg_duration(x))
+                }
                 QueryParam::List(x) => bindings::mg_value_make_list(vector_to_mg_list(x)),
                 QueryParam::Map(x) => bindings::mg_value_make_map(hash_map_to_mg_map(x)),
             }
@@ -114,6 +130,10 @@ pub enum Value {
     Float(f64),
     String(String),
     List(Vec<Value>),
+    Date(NaiveDate),
+    LocalTime(NaiveTime),
+    LocalDateTime(NaiveDateTime),
+    Duration(Duration),
     Map(HashMap<String, Value>),
     Node(Node),
     Relationship(Relationship),
@@ -165,6 +185,59 @@ fn mg_string_to_string(mg_string: *const bindings::mg_string) -> String {
 pub(crate) fn mg_value_string(mg_value: *const bindings::mg_value) -> String {
     let c_str = unsafe { bindings::mg_value_string(mg_value) };
     mg_string_to_string(c_str)
+}
+
+fn days_as_seconds(days: i64) -> i64 {
+    hours_as_seconds(days * 24)
+}
+
+fn hours_as_seconds(hours: i64) -> i64 {
+    minutes_as_seconds(hours * 60)
+}
+
+fn minutes_as_seconds(minutes: i64) -> i64 {
+    minutes * 60
+}
+
+const NSEC_IN_SEC: i64 = 1_000_000_000;
+
+pub(crate) fn mg_value_naive_date(mg_value: *const bindings::mg_value) -> Result<NaiveDate, ()> {
+    let c_date = unsafe { bindings::mg_value_date(mg_value) };
+    let c_delta_days = unsafe { bindings::mg_date_days(c_date) };
+    let epoch_date = NaiveDate::from_ymd(1970, 1, 1);
+    let delta_days = Duration::days(c_delta_days);
+    Ok(epoch_date.checked_add_signed(delta_days).unwrap())
+}
+
+pub(crate) fn mg_value_naive_local_time(
+    mg_value: *const bindings::mg_value,
+) -> Result<NaiveTime, TryFromIntError> {
+    let c_local_time = unsafe { bindings::mg_value_local_time(mg_value) };
+    let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
+    let seconds = u32::try_from(c_nanoseconds / NSEC_IN_SEC)?;
+    let nanoseconds = u32::try_from(c_nanoseconds % NSEC_IN_SEC)?;
+    Ok(NaiveTime::from_num_seconds_from_midnight(
+        seconds,
+        nanoseconds,
+    ))
+}
+
+pub(crate) fn mg_value_naive_local_date_time(
+    mg_value: *const bindings::mg_value,
+) -> Result<NaiveDateTime, TryFromIntError> {
+    let c_local_date_time = unsafe { bindings::mg_value_local_date_time(mg_value) };
+    let c_seconds = unsafe { bindings::mg_local_date_time_seconds(c_local_date_time) };
+    let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
+    let nanoseconds = u32::try_from(c_nanoseconds)?;
+    Ok(NaiveDateTime::from_timestamp(c_seconds, nanoseconds))
+}
+
+pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
+    let c_duration = unsafe { bindings::mg_value_duration(mg_value) };
+    let days = unsafe { bindings::mg_duration_days(c_duration) };
+    let seconds = unsafe { bindings::mg_duration_seconds(c_duration) };
+    let nanoseconds = unsafe { bindings::mg_duration_nanoseconds(c_duration) };
+    Duration::days(days) + Duration::seconds(seconds) + Duration::nanoseconds(nanoseconds)
 }
 
 pub(crate) fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, Value> {
@@ -318,6 +391,47 @@ pub(crate) fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
     unsafe { (*c_str).as_ptr() }
 }
 
+pub(crate) fn naive_date_to_mg_date(input: &NaiveDate) -> *mut bindings::mg_date {
+    let unix_epoch = NaiveDate::from_ymd(1970, 1, 1).num_days_from_ce();
+    unsafe { bindings::mg_date_make((input.num_days_from_ce() - unix_epoch) as i64) }
+}
+
+pub(crate) fn naive_local_time_to_mg_local_time(input: &NaiveTime) -> *mut bindings::mg_local_time {
+    let hours_ns = hours_as_seconds(input.hour() as i64) * NSEC_IN_SEC;
+    let minutes_ns = minutes_as_seconds(input.minute() as i64) * NSEC_IN_SEC;
+    let seconds_ns = (input.second() as i64) * NSEC_IN_SEC;
+    let nanoseconds = input.nanosecond() as i64;
+    unsafe { bindings::mg_local_time_make(hours_ns + minutes_ns + seconds_ns + nanoseconds) }
+}
+
+pub(crate) fn naive_local_date_time_to_mg_local_date_time(
+    input: &NaiveDateTime,
+) -> *mut bindings::mg_local_date_time {
+    let unix_epoch = NaiveDate::from_ymd(1970, 1, 1).num_days_from_ce();
+    let days_s = days_as_seconds((input.num_days_from_ce() - unix_epoch) as i64);
+    let hours_s = hours_as_seconds(input.hour() as i64);
+    let minutes_s = minutes_as_seconds(input.minute() as i64);
+    let seconds_s = input.second() as i64;
+    let nanoseconds = input.nanosecond() as i64;
+    unsafe {
+        bindings::mg_local_date_time_make(days_s + hours_s + minutes_s + seconds_s, nanoseconds)
+    }
+}
+
+pub(crate) fn duration_to_mg_duration(input: &Duration) -> *mut bindings::mg_duration {
+    // Duration returns total number of nanoseconds, in order to create a valid mg_duration object,
+    // days and seconds have to be reducted from the total duration. In addition, one can get numer
+    // of nanoseconds and then substract days and seconds, but since nanoseconds can overflow quite
+    // quicky (with 292 years), it's better to use Duration and first reduce days and seconds.
+    let mut duration = *input;
+    let days = input.num_days();
+    duration = duration - Duration::days(days);
+    let seconds = input.num_seconds();
+    duration = duration - Duration::seconds(seconds);
+    let nanoseconds = duration.num_nanoseconds().unwrap();
+    unsafe { bindings::mg_duration_make(0, days, seconds, nanoseconds) }
+}
+
 pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
     let size = vector.len() as u32;
     let mg_list = unsafe { bindings::mg_list_make_empty(size) };
@@ -338,6 +452,18 @@ impl Value {
             bindings::mg_value_type_MG_VALUE_TYPE_FLOAT => Value::Float(mg_value_float(c_mg_value)),
             bindings::mg_value_type_MG_VALUE_TYPE_STRING => {
                 Value::String(mg_value_string(c_mg_value))
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_DATE => {
+                Value::Date(mg_value_naive_date(c_mg_value).unwrap())
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_LOCAL_TIME => {
+                Value::LocalTime(mg_value_naive_local_time(c_mg_value).unwrap())
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_LOCAL_DATE_TIME => {
+                Value::LocalDateTime(mg_value_naive_local_date_time(c_mg_value).unwrap())
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_DURATION => {
+                Value::Duration(mg_value_duration(c_mg_value))
             }
             bindings::mg_value_type_MG_VALUE_TYPE_LIST => {
                 Value::List(mg_value_list_to_vec(c_mg_value))
@@ -365,6 +491,10 @@ impl fmt::Display for Value {
             Value::Int(x) => write!(f, "{}", x),
             Value::Float(x) => write!(f, "{}", x),
             Value::String(x) => write!(f, "'{}'", x),
+            Value::Date(x) => write!(f, "'{}'", x),
+            Value::LocalTime(x) => write!(f, "'{}'", x),
+            Value::LocalDateTime(x) => write!(f, "'{}'", x),
+            Value::Duration(x) => write!(f, "'{}'", x),
             Value::List(x) => write!(
                 f,
                 "{}",
