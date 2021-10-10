@@ -2,50 +2,46 @@
 
 [![](https://github.com/memgraph/rsmgclient/workflows/CI/badge.svg)](https://github.com/memgraph/rsmgclient/actions)
 
-`rsmgclient` is a Memgraph database adapter for Rust programming language.
+`rsmgclient` is [Memgraph](https://memgraph.com/) database adapter for Rust
+programming language. `rsmgclient` crate is the current implementation of the
+adapter. It is implemented as a wrapper around
+[mgclient](https://github.com/memgraph/mgclient), the official Memgraph C/C++
+client library.
 
-rsmgclient crate is the current implementation of the adapter. It is
-implemented as a wrapper around
-[mgclient](https://github.com/memgraph/mgclient), the official Memgraph client
-library.
+## Installation
 
-## Prerequisites
-
-### Installation
-
-`rsmgclient` is a wrapper around the
-[mgclient](https://github.com/memgraph/mgclient) Memgraph client library. To
-install it from sources you will need:
+### Prerequisites
 
 - [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
   1.42.0 or above
-- A C compiler supporting C11 standard
-- [Memgraph](https://docs.memgraph.com/memgraph/quick-start)
+- Prerequisites of [mgclient](https://github.com/memgraph/mgclient):
+  - A C compiler supporting C11 standard
+  - CMake 3.8 or newer
+  - OpenSSL 1.0.2 or newer
 
-Once prerequisites are met, if you want to use it as library for your own Rust
-project, you can install rsmgclient using `cargo` to download it from
-crates.io:
+### Installing from crates.io
+
+Once prerequisites are met, if you want to use `rsmgclient` as library for your
+own Rust project, you can install it by using `cargo`:
 
 ```bash
 cargo install rsmgclient
 ```
 
-### Building from source
+### Building from Source
 
-To use `rsmgclient` for contributing or just looking closely how it is made,
+To contribute into `rsmgclient` or just looking closely how it is made,
 you will need:
 
 - Cloned [rsmgclient](https://github.com/memgraph/rsmgclient) repository
-- [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-  1.42.0-nightly or above
-- A C compiler supporting C11 standard
-- [Memgraph](https://docs.memgraph.com/memgraph/quick-start)
+- [Memgraph Quick Start Guide](https://memgraph.com/docs/memgraph/quick-start)
 
-Once rsmgclient is cloned, you will need to build it and then you can run
-the test suite to verify it is working correctly.
+Once `rsmgclient` is cloned, you will need to build it and then you can run
+the test suite to verify it is working correctly:
 
 ```bash
 cargo build
+# Run Memgraph based on the quick start guide
 cargo test
 ```
 
@@ -54,9 +50,9 @@ cargo test
 Online documentation can be found on [docs.rs
 pages](https://docs.rs/rsmgclient/).
 
-## Code sample
+## Code Sample
 
-Here is an example showing some of the basic commands:
+`src/main.rs` is an example showing some of the basic commands:
 
 ```rust
 use rsmgclient::{ConnectParams, Connection, MgError, Value};
