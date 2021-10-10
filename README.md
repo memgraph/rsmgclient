@@ -34,7 +34,7 @@ To contribute into `rsmgclient` or just looking closely how it is made,
 you will need:
 
 - Cloned [rsmgclient](https://github.com/memgraph/rsmgclient) repository
-- [Memgraph Quick Start Guide](https://docs.memgraph.com/memgraph/quick-start)
+- [Memgraph Quick Start Guide](https://memgraph.com/docs/memgraph/quick-start)
 
 Once `rsmgclient` is cloned, you will need to build it and then you can run
 the test suite to verify it is working correctly:
@@ -52,7 +52,7 @@ pages](https://docs.rs/rsmgclient/).
 
 ## Code Sample
 
-[Here](src/main.rs) is an example showing some of the basic commands:
+`src/main.rs` is an example showing some of the basic commands:
 
 ```rust
 use rsmgclient::{ConnectParams, Connection, MgError, Value};
