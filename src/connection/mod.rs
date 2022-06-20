@@ -146,7 +146,8 @@ pub struct Connection {
 }
 
 /// Representation of current connection status.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum ConnectionStatus {
     /// Connection is ready to start executing.
     Ready,
@@ -224,8 +225,8 @@ impl Connection {
     }
 
     /// Returns current connection status.
-    pub fn status(&self) -> &ConnectionStatus {
-        &self.status
+    pub fn status(&self) -> ConnectionStatus {
+        self.status
     }
 
     /// Returns query summary if it is present.
