@@ -49,11 +49,15 @@ fn main() {
             .build(),
 
         HostType::MacOS => {
-            let mut openssl_dirs =
-                std::fs::read_dir(PathBuf::new().join("/usr/local/Cellar/openssl@1.1"))
-                    .unwrap()
-                    .map(|r| r.unwrap().path())
-                    .collect::<Vec<PathBuf>>();
+            let path_openssl = if cfg!(target_arch = "aarch64") {
+                "/opt/homebrew/Cellar/openssl@1.1"
+            } else {
+                "/usr/local/Cellar/openssl@1.1"
+            };
+            let mut openssl_dirs = std::fs::read_dir(PathBuf::new().join(path_openssl))
+                .unwrap()
+                .map(|r| r.unwrap().path())
+                .collect::<Vec<PathBuf>>();
             openssl_dirs.sort_by(|a, b| {
                 let a_time = a.metadata().unwrap().modified().unwrap();
                 let b_time = b.metadata().unwrap().modified().unwrap();
