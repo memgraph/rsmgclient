@@ -3,14 +3,14 @@ use crate::{Node, Value};
 use serial_test::serial;
 
 fn get_connection(prms: &ConnectParams) -> Connection {
-    match Connection::connect(&prms) {
+    match Connection::connect(prms) {
         Ok(c) => c,
         Err(err) => panic!("Creating connection failed: {}", err),
     }
 }
 
 fn execute_query(connection: &mut Connection, query: &str) -> Vec<String> {
-    match connection.execute(&query, None) {
+    match connection.execute(query, None) {
         Ok(x) => x,
         Err(err) => panic!("Executing query failed: {}", err),
     }
@@ -25,7 +25,7 @@ fn execute_query_and_fetchall(query: &str) -> Vec<Record> {
     let mut connection = get_connection(&connect_prms);
     assert_eq!(connection.status, ConnectionStatus::Ready);
 
-    match connection.execute(&query, None) {
+    match connection.execute(query, None) {
         Ok(x) => x,
         Err(err) => panic!("Executing query failed: {}", err),
     };
@@ -217,7 +217,7 @@ fn test_fetchone_person_alice(connection: &mut Connection) {
     match &record.values[0] {
         Value::Node(n) => {
             assert_eq_nodes(
-                &n,
+                n,
                 &create_node(
                     vec!["Person".to_string()],
                     hashmap! {"name".to_string() => Value::String("Alice".to_string())},

@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2020 Memgraph Ltd. [https://memgraph.com]
+// Copyright (c) 2016-2022 Memgraph Ltd. [https://memgraph.com]
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ impl Default for ConnectParams {
 }
 
 /// Determines whether a secure SSL TCP/IP connection will be negotiated with the server.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum SSLMode {
     /// Only try a non-SSL connection.
     Disable,
@@ -146,7 +146,7 @@ pub struct Connection {
 }
 
 /// Representation of current connection status.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum ConnectionStatus {
     /// Connection is ready to start executing.
