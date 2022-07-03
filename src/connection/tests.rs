@@ -631,7 +631,7 @@ fn fetchall_set_get_arraysize() {
 fn close() {
     let mut connection = initialize();
     connection.close();
-    assert_eq!(ConnectionStatus::Closed, *connection.status());
+    assert_eq!(ConnectionStatus::Closed, connection.status());
 }
 
 #[test]
@@ -660,13 +660,13 @@ fn execute_without_results() {
     assert!(connection
         .execute_without_results("CREATE (n1) CREATE (n2) RETURN n1, n2;")
         .is_ok());
-    assert_eq!(&ConnectionStatus::Ready, connection.status());
+    assert_eq!(ConnectionStatus::Ready, connection.status());
 
     assert!(connection.execute("MATCH (n) RETURN n;", None).is_ok());
-    assert_eq!(&ConnectionStatus::Executing, connection.status());
+    assert_eq!(ConnectionStatus::Executing, connection.status());
     match connection.fetchall() {
         Ok(records) => assert_eq!(records.len(), 2),
         Err(err) => panic!("Failed to get data after execute without results {}.", err),
     }
-    assert_eq!(&ConnectionStatus::InTransaction, connection.status());
+    assert_eq!(ConnectionStatus::InTransaction, connection.status());
 }
