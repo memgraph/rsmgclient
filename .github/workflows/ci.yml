@@ -27,7 +27,7 @@ jobs:
       if: steps.cache-memgraph-community-docker.outputs.cache-hit != 'true'
       run: |
         mkdir ~/memgraph
-        curl -L https://memgraph.com/download/memgraph/v${{ matrix.mgversion }}/docker/memgraph-${{ matrix.mgversion }}-community-docker.tar.gz > ~/memgraph/memgraph-docker.tar.gz
+        curl -L https://memgraph.com/download/memgraph/v${{ matrix.mgversion }}/docker/memgraph-${{ matrix.mgversion }}-docker.tar.gz > ~/memgraph/memgraph-docker.tar.gz
     - name: Load Memgraph Docker image
       run: docker load -i ~/memgraph/memgraph-docker.tar.gz
 
