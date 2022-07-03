@@ -40,6 +40,7 @@ Once `rsmgclient` is cloned, you will need to build it and then you can run
 the test suite to verify it is working correctly:
 
 ```bash
+git submodule update --init
 cargo build
 # Run Memgraph based on the quick start guide
 cargo test
