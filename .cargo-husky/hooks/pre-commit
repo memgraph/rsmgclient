@@ -3,5 +3,4 @@
 set -eux
 
 cargo clippy
-cargo clippy --fix -Z unstable-options --allow-dirty --allow-staged
 cargo fmt

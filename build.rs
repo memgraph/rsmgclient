@@ -16,7 +16,8 @@ extern crate bindgen;
 
 use cmake::Config;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[derive(PartialEq)]
 enum HostType {
@@ -49,42 +50,96 @@ fn main() {
             .build(),
 
         HostType::MacOS => {
-            let path_openssl = if cfg!(target_arch = "aarch64") {
-                "/opt/homebrew/Cellar/openssl@1.1"
+            println!("Checking for MacPorts.");
+            let output = Command::new("/usr/bin/command")
+                .args(["-v", "port"])
+                .output()
+                .expect("Failed to execute shell command: '/usr/bin/command -v port'")
+                .stdout;
+
+            let port_path = String::from_utf8(output).unwrap();
+            let port_path = &port_path[..port_path.len() - 1];
+            if !port_path.is_empty() {
+                println!(
+                    "'port' binary detected at {:?}. We assume MacPorts is installed.",
+                    &port_path
+                );
+                let port_binary_path = Path::new(&port_path);
+
+                println!("Checking if the 'openssl' port is installed.");
+
+                let output = String::from_utf8(
+                    Command::new(&port_path)
+                        .args(["installed", "openssl"])
+                        .output()
+                        .expect("Failed to execute shell command 'port installed openssl'")
+                        .stdout,
+                )
+                .unwrap();
+
+                if output == "None of the specified ports are installed.\n" {
+                    panic!("The openssl port does not seem to be installed! Please install it using 'port install openssl'.");
+                } else {
+                }
+
+                let openssl_lib_dir = port_binary_path
+                    .ancestors()
+                    .nth(2)
+                    .unwrap()
+                    .join("libexec")
+                    .join("openssl3")
+                    .join("lib");
+
+                // Telling Cargo to tell rustc where to look for the OpenSSL library.
+                println!(
+                    "cargo:rustc-link-search=native={}",
+                    openssl_lib_dir.display()
+                );
+
+                // With MacPorts, you don't need to pass in the OPENSSL_ROOT_DIR,
+                // OPENSSL_CRYPTO_LIBRARY, and OPENSSL_SSL_LIBRARY options to CMake, PkgConfig
+                // should take care of setting those variables.
+                Config::new("mgclient").build()
             } else {
-                "/usr/local/Cellar/openssl@1.1"
-            };
-            let mut openssl_dirs = std::fs::read_dir(PathBuf::new().join(path_openssl))
-                .unwrap()
-                .map(|r| r.unwrap().path())
-                .collect::<Vec<PathBuf>>();
-            openssl_dirs.sort_by(|a, b| {
-                let a_time = a.metadata().unwrap().modified().unwrap();
-                let b_time = b.metadata().unwrap().modified().unwrap();
-                b_time.cmp(&a_time)
-            });
-            let openssl_root = openssl_dirs[0].clone();
-            println!(
-                "cargo:rustc-link-search=native={}",
-                openssl_root.join("lib").display()
-            );
-            Config::new("mgclient")
-                .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
-                .define(
-                    "OPENSSL_CRYPTO_LIBRARY",
-                    format!(
-                        "{}",
-                        openssl_root.join("lib").join("libcrypto.dylib").display()
-                    ),
-                )
-                .define(
-                    "OPENSSL_SSL_LIBRARY",
-                    format!(
-                        "{}",
-                        openssl_root.join("lib").join("libssl.dylib").display()
-                    ),
-                )
-                .build()
+                println!("We did not find a MacPorts installation, and are proceeding assuming that you are using Homebrew as your package manager.");
+                let path_openssl = if cfg!(target_arch = "aarch64") {
+                    "/opt/homebrew/Cellar/openssl@1.1"
+                } else {
+                    "/usr/local/Cellar/openssl@1.1"
+                };
+                let mut openssl_dirs = std::fs::read_dir(PathBuf::new().join(path_openssl))
+                    .unwrap()
+                    .map(|r| r.unwrap().path())
+                    .collect::<Vec<PathBuf>>();
+                openssl_dirs.sort_by(|a, b| {
+                    let a_time = a.metadata().unwrap().modified().unwrap();
+                    let b_time = b.metadata().unwrap().modified().unwrap();
+                    b_time.cmp(&a_time)
+                });
+                let openssl_root_path = openssl_dirs[0].clone();
+                println!(
+                    "cargo:rustc-link-search=native={}",
+                    openssl_root_path.join("lib").display()
+                );
+                let openssl_root = openssl_dirs[0].clone();
+                Config::new("mgclient")
+                    .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
+                    .define(
+                        "OPENSSL_CRYPTO_LIBRARY",
+                        format!(
+                            "{}",
+                            openssl_root.join("lib").join("libcrypto.dylib").display()
+                        ),
+                    )
+                    .define(
+                        "OPENSSL_SSL_LIBRARY",
+                        format!(
+                            "{}",
+                            openssl_root.join("lib").join("libssl.dylib").display()
+                        ),
+                    )
+                    .build()
+            }
         }
 
         _ => cmake::build("mgclient"),
@@ -92,6 +147,7 @@ fn main() {
 
     let mgclient_h = mgclient_out.join("include").join("mgclient.h");
     let mgclient_export_h = mgclient_out.join("include").join("mgclient-export.h");
+
     // Required because of tests that rely on the C struct fields.
     let mgclient_mgvalue_h = mgclient.join("src").join("mgvalue.h");
 
@@ -106,7 +162,9 @@ fn main() {
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .generate()
         .expect("Unable to generate bindings");
+
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
