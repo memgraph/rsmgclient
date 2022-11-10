@@ -70,7 +70,7 @@ fn main() {
                 println!("Checking if the 'openssl' port is installed.");
 
                 let output = String::from_utf8(
-                    Command::new(&port_path)
+                    Command::new(port_path)
                         .args(["installed", "openssl"])
                         .output()
                         .expect("Failed to execute shell command 'port installed openssl'")
