@@ -50,7 +50,8 @@ fn main() {
             .build(),
 
         HostType::MacOS => {
-            println!("Checking for MacPorts.");
+            println!("MacOS detected. We will check if you have either the MacPorts or Homebrew package managers.");
+            println!("Checking for MacPorts...");
             let output = Command::new("/usr/bin/command")
                 .args(["-v", "port"])
                 .output()
@@ -58,10 +59,10 @@ fn main() {
                 .stdout;
 
             let port_path = String::from_utf8(output).unwrap();
-            let port_path = &port_path[..port_path.len() - 1];
             if !port_path.is_empty() {
+                let port_path = &port_path[..port_path.len() - 1];
                 println!(
-                    "'port' binary detected at {:?}. We assume MacPorts is installed.",
+                    "'port' binary detected at {:?}. We assume MacPorts is installed and is your primary package manager.",
                     &port_path
                 );
                 let port_binary_path = Path::new(&port_path);
@@ -79,7 +80,6 @@ fn main() {
 
                 if output == "None of the specified ports are installed.\n" {
                     panic!("The openssl port does not seem to be installed! Please install it using 'port install openssl'.");
-                } else {
                 }
 
                 let openssl_lib_dir = port_binary_path
@@ -101,7 +101,27 @@ fn main() {
                 // should take care of setting those variables.
                 Config::new("mgclient").build()
             } else {
-                println!("We did not find a MacPorts installation, and are proceeding assuming that you are using Homebrew as your package manager.");
+                println!("Macports not found.");
+                println!("Checking for Homebrew...");
+
+                let output = Command::new("/usr/bin/command")
+                    .args(["-v", "brew"])
+                    .output()
+                    .expect("Failed to execute shell command: '/usr/bin/command -v brew'")
+                    .stdout;
+
+                let brew_path = String::from_utf8(output).unwrap();
+
+                if brew_path.is_empty() {
+                    println!("Homebrew not found.");
+                    panic!("We did not detect either MacPorts or Homebrew on your machine. We cannot proceed.");
+                } else {
+                    println!("'brew' executable detected at {:?}", &brew_path);
+                    println!(
+                        "Proceeding with installation assuming Homebrew is your package manager"
+                    );
+                }
+
                 let path_openssl = if cfg!(target_arch = "aarch64") {
                     "/opt/homebrew/Cellar/openssl@1.1"
                 } else {
