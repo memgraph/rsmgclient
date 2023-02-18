@@ -45,8 +45,6 @@ fn main() {
         // While installing Rust please select x86_64-pc-windows-gnu
         // as the host triplet (custom installation step is required).
         HostType::Windows => Config::new("mgclient")
-            .target("windows-gnu")
-            .generator("MinGW Makefiles")
             .build(),
 
         HostType::MacOS => {
