@@ -40,10 +40,6 @@ fn main() {
 
     let mgclient = PathBuf::new().join("mgclient");
     let mgclient_out = match host_type {
-        // Please checkout what are Windows requirements to compile
-        // https://github.com/memgraph/mgclient.
-        // While installing Rust please select x86_64-pc-windows-gnu
-        // as the host triplet (custom installation step is required).
         HostType::Windows => Config::new("mgclient").build(),
 
         HostType::MacOS => {
