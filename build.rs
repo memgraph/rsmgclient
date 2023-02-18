@@ -44,8 +44,7 @@ fn main() {
         // https://github.com/memgraph/mgclient.
         // While installing Rust please select x86_64-pc-windows-gnu
         // as the host triplet (custom installation step is required).
-        HostType::Windows => Config::new("mgclient")
-            .build(),
+        HostType::Windows => Config::new("mgclient").build(),
 
         HostType::MacOS => {
             println!("MacOS detected. We will check if you have either the MacPorts or Homebrew package managers.");
