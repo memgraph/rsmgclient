@@ -190,6 +190,8 @@ fn main() {
         mgclient_out.join("lib").display()
     );
     println!("cargo:rustc-link-lib=static=mgclient");
+    // If the following part of the code is pushed inside build_mgclient_xzy, linking is not done
+    // properly.
     match host_type {
         HostType::Linux => {
             println!("cargo:rustc-link-lib=dylib=crypto");

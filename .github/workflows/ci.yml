@@ -40,23 +40,11 @@ jobs:
       run: cargo fmt -- --check
     - name: Build the project
       run: cargo build --verbose
-
     - name: Run Memgraph
       run: |
         docker run -d -p 7687:7687 memgraph --telemetry-enabled=False
-
     - name: Run test
       run: cargo test
-    # - name: Run cargo-tarpaulin
-    #   uses: actions-rs/tarpaulin@v0.1.0
-    #   with:
-    #     version: '0.25.0'
-    #     args: '--out Html --ignore-tests --exclude-files mgclient/*'
-    # - name: Archive code coverage results
-    #   uses: actions/upload-artifact@v1
-    #   with:
-    #     name: code-coverage-report
-    #     path: tarpaulin-report.html
 
   build_macos:
     strategy:
