@@ -70,8 +70,6 @@ fn build_mgclient_macos() -> PathBuf {
             "cargo:rustc-link-search=native={}",
             openssl_lib_dir.display()
         );
-        println!("cargo:rustc-link-lib=dylib=crypto");
-        println!("cargo:rustc-link-lib=dylib=ssl");
         // With MacPorts, you don't need to pass in the OPENSSL_ROOT_DIR,
         // OPENSSL_CRYPTO_LIBRARY, and OPENSSL_SSL_LIBRARY options to CMake, PkgConfig
         // should take care of setting those variables.
@@ -113,8 +111,6 @@ fn build_mgclient_macos() -> PathBuf {
             "cargo:rustc-link-search=native={}",
             openssl_root_path.join("lib").display()
         );
-        println!("cargo:rustc-link-lib=dylib=crypto");
-        println!("cargo:rustc-link-lib=dylib=ssl");
         let openssl_root = openssl_dirs[0].clone();
         Config::new("mgclient")
             .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
@@ -137,8 +133,6 @@ fn build_mgclient_macos() -> PathBuf {
 }
 
 fn build_mgclient_linux() -> PathBuf {
-    println!("cargo:rustc-link-lib=dylib=crypto");
-    println!("cargo:rustc-link-lib=dylib=ssl");
     Config::new("mgclient").build()
 }
 
@@ -148,8 +142,6 @@ fn build_mgclient_windows() -> PathBuf {
             .unwrap_or_else(|_| "C:\\Program Files\\OpenSSL-Win64\\lib".to_string()),
     );
     println!("cargo:rustc-link-search=native={}", openssl_dir.display());
-    println!("cargo:rustc-link-lib=dylib=libcrypto");
-    println!("cargo:rustc-link-lib=dylib=libssl");
     Config::new("mgclient")
         .define("OPENSSL_ROOT_DIR", format!("{}", openssl_dir.display()))
         .build()
@@ -198,4 +190,19 @@ fn main() {
         mgclient_out.join("lib").display()
     );
     println!("cargo:rustc-link-lib=static=mgclient");
+    match host_type {
+        HostType::Linux => {
+            println!("cargo:rustc-link-lib=dylib=crypto");
+            println!("cargo:rustc-link-lib=dylib=ssl");
+        }
+        HostType::Windows => {
+            println!("cargo:rustc-link-lib=dylib=libcrypto");
+            println!("cargo:rustc-link-lib=dylib=libssl");
+        }
+        HostType::MacOS => {
+            println!("cargo:rustc-link-lib=dylib=crypto");
+            println!("cargo:rustc-link-lib=dylib=ssl");
+        }
+        HostType::Unknown => panic!("Unknown operating system"),
+    }
 }
