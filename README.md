@@ -43,14 +43,19 @@ the test suite to verify it is working correctly:
 ```bash
 git submodule update --init
 cargo build
-# Run Memgraph based on the quick start guide
+# Please run Memgraph based on the quick start guide
 cargo test
 ```
+
+On MacOS, the build will try to detect OpenSSL by using MacPorts or Brew.
 
 On Windows, `bindgen` requires `libclang` which is a part of LLVM. If LLVM is
 not already installed just go to the [LLVM
 download](https://releases.llvm.org/download.html) page, download and install
-`LLVM.exe` file (select the option to put LLVM on the PATH).
+`LLVM.exe` file (select the option to put LLVM on the PATH). In addition,
+default OpenSSL path is `C:\Program Files\OpenSSL-Win64\lib`, if you would like
+to change that please provide `OPENSSL_LIB_DIR` env variable during the build
+phase.
 
 ## Documentation
 

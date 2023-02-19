@@ -27,10 +27,138 @@ enum HostType {
     Unknown,
 }
 
+// NOTE: The code here is equivalent to [rust-openssl](https://github.com/sfackler/rust-openssl).
+// NOTE: We have to build mgclient and link the rust binary with the same SSL and Crypto libs.
+
+fn build_mgclient_macos() -> PathBuf {
+    println!("MacOS detected. We will check if you have either the MacPorts or Homebrew package managers.");
+    println!("Checking for MacPorts...");
+    let output = Command::new("/usr/bin/command")
+        .args(["-v", "port"])
+        .output()
+        .expect("Failed to execute shell command: '/usr/bin/command -v port'")
+        .stdout;
+    let port_path = String::from_utf8(output).unwrap();
+    if !port_path.is_empty() {
+        let port_path = &port_path[..port_path.len() - 1];
+        println!(
+            "'port' binary detected at {:?}. We assume MacPorts is installed and is your primary package manager.",
+            &port_path
+        );
+        let port_binary_path = Path::new(&port_path);
+        println!("Checking if the 'openssl' port is installed.");
+        let output = String::from_utf8(
+            Command::new(port_path)
+                .args(["installed", "openssl"])
+                .output()
+                .expect("Failed to execute shell command 'port installed openssl'")
+                .stdout,
+        )
+        .unwrap();
+        if output == "None of the specified ports are installed.\n" {
+            panic!("The openssl port does not seem to be installed! Please install it using 'port install openssl'.");
+        }
+        let openssl_lib_dir = port_binary_path
+            .ancestors()
+            .nth(2)
+            .unwrap()
+            .join("libexec")
+            .join("openssl3")
+            .join("lib");
+        // Telling Cargo to tell rustc where to look for the OpenSSL library.
+        println!(
+            "cargo:rustc-link-search=native={}",
+            openssl_lib_dir.display()
+        );
+        println!("cargo:rustc-link-lib=dylib=crypto");
+        println!("cargo:rustc-link-lib=dylib=ssl");
+        // With MacPorts, you don't need to pass in the OPENSSL_ROOT_DIR,
+        // OPENSSL_CRYPTO_LIBRARY, and OPENSSL_SSL_LIBRARY options to CMake, PkgConfig
+        // should take care of setting those variables.
+        Config::new("mgclient").build()
+    } else {
+        println!("Macports not found.");
+        println!("Checking for Homebrew...");
+        let output = Command::new("/usr/bin/command")
+            .args(["-v", "brew"])
+            .output()
+            .expect("Failed to execute shell command: '/usr/bin/command -v brew'")
+            .stdout;
+        let brew_path = String::from_utf8(output).unwrap();
+        if brew_path.is_empty() {
+            println!("Homebrew not found.");
+            panic!(
+                "We did not detect either MacPorts or Homebrew on your machine. We cannot proceed."
+            );
+        } else {
+            println!("'brew' executable detected at {:?}", &brew_path);
+            println!("Proceeding with installation assuming Homebrew is your package manager");
+        }
+        let path_openssl = if cfg!(target_arch = "aarch64") {
+            "/opt/homebrew/Cellar/openssl@1.1"
+        } else {
+            "/usr/local/Cellar/openssl@1.1"
+        };
+        let mut openssl_dirs = std::fs::read_dir(PathBuf::new().join(path_openssl))
+            .unwrap()
+            .map(|r| r.unwrap().path())
+            .collect::<Vec<PathBuf>>();
+        openssl_dirs.sort_by(|a, b| {
+            let a_time = a.metadata().unwrap().modified().unwrap();
+            let b_time = b.metadata().unwrap().modified().unwrap();
+            b_time.cmp(&a_time)
+        });
+        let openssl_root_path = openssl_dirs[0].clone();
+        println!(
+            "cargo:rustc-link-search=native={}",
+            openssl_root_path.join("lib").display()
+        );
+        println!("cargo:rustc-link-lib=dylib=crypto");
+        println!("cargo:rustc-link-lib=dylib=ssl");
+        let openssl_root = openssl_dirs[0].clone();
+        Config::new("mgclient")
+            .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
+            .define(
+                "OPENSSL_CRYPTO_LIBRARY",
+                format!(
+                    "{}",
+                    openssl_root.join("lib").join("libcrypto.dylib").display()
+                ),
+            )
+            .define(
+                "OPENSSL_SSL_LIBRARY",
+                format!(
+                    "{}",
+                    openssl_root.join("lib").join("libssl.dylib").display()
+                ),
+            )
+            .build()
+    }
+}
+
+fn build_mgclient_linux() -> PathBuf {
+    println!("cargo:rustc-link-lib=dylib=crypto");
+    println!("cargo:rustc-link-lib=dylib=ssl");
+    Config::new("mgclient").build()
+}
+
+fn build_mgclient_windows() -> PathBuf {
+    let openssl_dir = PathBuf::from(
+        std::env::var("OPENSSL_LIB_DIR")
+            .unwrap_or_else(|_| "C:\\Program Files\\OpenSSL-Win64\\lib".to_string()),
+    );
+    println!("cargo:rustc-link-search=native={}", openssl_dir.display());
+    println!("cargo:rustc-link-lib=dylib=libcrypto");
+    println!("cargo:rustc-link-lib=dylib=libssl");
+    Config::new("mgclient")
+        .define("OPENSSL_ROOT_DIR", format!("{}", openssl_dir.display()))
+        .build()
+}
+
 fn main() {
     let host_type = if cfg!(target_os = "linux") {
         HostType::Linux
-    } else if cfg!(windows) {
+    } else if cfg!(target_os = "windows") {
         HostType::Windows
     } else if cfg!(target_os = "macos") {
         HostType::MacOS
@@ -40,133 +168,18 @@ fn main() {
 
     let mgclient = PathBuf::new().join("mgclient");
     let mgclient_out = match host_type {
-        HostType::Windows => Config::new("mgclient").build(),
-
-        HostType::MacOS => {
-            println!("MacOS detected. We will check if you have either the MacPorts or Homebrew package managers.");
-            println!("Checking for MacPorts...");
-            let output = Command::new("/usr/bin/command")
-                .args(["-v", "port"])
-                .output()
-                .expect("Failed to execute shell command: '/usr/bin/command -v port'")
-                .stdout;
-
-            let port_path = String::from_utf8(output).unwrap();
-            if !port_path.is_empty() {
-                let port_path = &port_path[..port_path.len() - 1];
-                println!(
-                    "'port' binary detected at {:?}. We assume MacPorts is installed and is your primary package manager.",
-                    &port_path
-                );
-                let port_binary_path = Path::new(&port_path);
-
-                println!("Checking if the 'openssl' port is installed.");
-
-                let output = String::from_utf8(
-                    Command::new(port_path)
-                        .args(["installed", "openssl"])
-                        .output()
-                        .expect("Failed to execute shell command 'port installed openssl'")
-                        .stdout,
-                )
-                .unwrap();
-
-                if output == "None of the specified ports are installed.\n" {
-                    panic!("The openssl port does not seem to be installed! Please install it using 'port install openssl'.");
-                }
-
-                let openssl_lib_dir = port_binary_path
-                    .ancestors()
-                    .nth(2)
-                    .unwrap()
-                    .join("libexec")
-                    .join("openssl3")
-                    .join("lib");
-
-                // Telling Cargo to tell rustc where to look for the OpenSSL library.
-                println!(
-                    "cargo:rustc-link-search=native={}",
-                    openssl_lib_dir.display()
-                );
-
-                // With MacPorts, you don't need to pass in the OPENSSL_ROOT_DIR,
-                // OPENSSL_CRYPTO_LIBRARY, and OPENSSL_SSL_LIBRARY options to CMake, PkgConfig
-                // should take care of setting those variables.
-                Config::new("mgclient").build()
-            } else {
-                println!("Macports not found.");
-                println!("Checking for Homebrew...");
-
-                let output = Command::new("/usr/bin/command")
-                    .args(["-v", "brew"])
-                    .output()
-                    .expect("Failed to execute shell command: '/usr/bin/command -v brew'")
-                    .stdout;
-
-                let brew_path = String::from_utf8(output).unwrap();
-
-                if brew_path.is_empty() {
-                    println!("Homebrew not found.");
-                    panic!("We did not detect either MacPorts or Homebrew on your machine. We cannot proceed.");
-                } else {
-                    println!("'brew' executable detected at {:?}", &brew_path);
-                    println!(
-                        "Proceeding with installation assuming Homebrew is your package manager"
-                    );
-                }
-
-                let path_openssl = if cfg!(target_arch = "aarch64") {
-                    "/opt/homebrew/Cellar/openssl@1.1"
-                } else {
-                    "/usr/local/Cellar/openssl@1.1"
-                };
-                let mut openssl_dirs = std::fs::read_dir(PathBuf::new().join(path_openssl))
-                    .unwrap()
-                    .map(|r| r.unwrap().path())
-                    .collect::<Vec<PathBuf>>();
-                openssl_dirs.sort_by(|a, b| {
-                    let a_time = a.metadata().unwrap().modified().unwrap();
-                    let b_time = b.metadata().unwrap().modified().unwrap();
-                    b_time.cmp(&a_time)
-                });
-                let openssl_root_path = openssl_dirs[0].clone();
-                println!(
-                    "cargo:rustc-link-search=native={}",
-                    openssl_root_path.join("lib").display()
-                );
-                let openssl_root = openssl_dirs[0].clone();
-                Config::new("mgclient")
-                    .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
-                    .define(
-                        "OPENSSL_CRYPTO_LIBRARY",
-                        format!(
-                            "{}",
-                            openssl_root.join("lib").join("libcrypto.dylib").display()
-                        ),
-                    )
-                    .define(
-                        "OPENSSL_SSL_LIBRARY",
-                        format!(
-                            "{}",
-                            openssl_root.join("lib").join("libssl.dylib").display()
-                        ),
-                    )
-                    .build()
-            }
-        }
-
-        _ => cmake::build("mgclient"),
+        HostType::Windows => build_mgclient_windows(),
+        HostType::MacOS => build_mgclient_macos(),
+        HostType::Linux => build_mgclient_linux(),
+        HostType::Unknown => panic!("Unknown operating system"),
     };
 
     let mgclient_h = mgclient_out.join("include").join("mgclient.h");
     let mgclient_export_h = mgclient_out.join("include").join("mgclient-export.h");
-
     // Required because of tests that rely on the C struct fields.
     let mgclient_mgvalue_h = mgclient.join("src").join("mgvalue.h");
-
     println!("cargo:rerun-if-changed={}", mgclient_h.display());
     println!("cargo:rerun-if-changed={}", mgclient_export_h.display());
-
     let bindings = bindgen::Builder::default()
         .header(format!("{}", mgclient_h.display()))
         .header(format!("{}", mgclient_export_h.display()))
@@ -175,9 +188,7 @@ fn main() {
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .generate()
         .expect("Unable to generate bindings");
-
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
@@ -187,15 +198,4 @@ fn main() {
         mgclient_out.join("lib").display()
     );
     println!("cargo:rustc-link-lib=static=mgclient");
-    match host_type {
-        HostType::Windows => {
-            println!("cargo:rustc-link-search=native=C:\\Program Files\\OpenSSL-Win64\\lib");
-            println!("cargo:rustc-link-lib=dylib=libcrypto");
-            println!("cargo:rustc-link-lib=dylib=libssl");
-        }
-        _ => {
-            println!("cargo:rustc-link-lib=dylib=crypto");
-            println!("cargo:rustc-link-lib=dylib=ssl");
-        }
-    }
 }
