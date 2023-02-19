@@ -187,6 +187,15 @@ fn main() {
         mgclient_out.join("lib").display()
     );
     println!("cargo:rustc-link-lib=static=mgclient");
-    println!("cargo:rustc-link-lib=dylib=crypto");
-    println!("cargo:rustc-link-lib=dylib=ssl");
+    match host_type {
+        HostType::Windows => {
+            println!("cargo:rustc-link-search=native=C:\\Program Files\\OpenSSL-Win64\\lib");
+            println!("cargo:rustc-link-lib=dylib=libcrypto");
+            println!("cargo:rustc-link-lib=dylib=libssl");
+        }
+        _ => {
+            println!("cargo:rustc-link-lib=dylib=crypto");
+            println!("cargo:rustc-link-lib=dylib=ssl");
+        }
+    }
 }
