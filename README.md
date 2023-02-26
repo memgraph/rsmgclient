@@ -28,6 +28,9 @@ own Rust project, you can install it by using `cargo`:
 cargo install rsmgclient
 ```
 
+NOTE: The default OpenSSL path is `C:\Program Files\OpenSSL-Win64\lib`, if you
+would like to change that please provide `OPENSSL_LIB_DIR` env variable.
+
 ### Building from Source
 
 To contribute into `rsmgclient` or just looking closely how it is made,
