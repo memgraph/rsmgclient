@@ -21,6 +21,7 @@ use super::value::{
 
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::os::raw::c_char;
 use std::vec::IntoIter;
 
 /// Parameters for connecting to database.
@@ -693,7 +694,7 @@ impl Connection {
                         "Unable to make pull map integer value.",
                     )));
                 }
-                if bindings::mg_map_insert(mg_map, "n".as_ptr() as *const i8, mg_int) != 0 {
+                if bindings::mg_map_insert(mg_map, "n".as_ptr() as *const c_char, mg_int) != 0 {
                     self.status = ConnectionStatus::Bad;
                     bindings::mg_map_destroy(mg_map);
                     bindings::mg_value_destroy(mg_int);

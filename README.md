@@ -2,9 +2,9 @@
 
 [![](https://github.com/memgraph/rsmgclient/workflows/CI/badge.svg)](https://github.com/memgraph/rsmgclient/actions)
 
-`rsmgclient` is [Memgraph](https://memgraph.com/) database adapter for Rust
-programming language. `rsmgclient` crate is the current implementation of the
-adapter. It is implemented as a wrapper around
+`rsmgclient` is a [Memgraph](https://memgraph.com/) database adapter for Rust
+programming language. The `rsmgclient` crate is the current implementation of
+the adapter. It is implemented as a wrapper around
 [mgclient](https://github.com/memgraph/mgclient), the official Memgraph C/C++
 client library.
 
@@ -21,8 +21,8 @@ client library.
 
 ### Installing from crates.io
 
-Once prerequisites are met, if you want to use `rsmgclient` as library for your
-own Rust project, you can install it by using `cargo`:
+Once prerequisites are met, if you want to use `rsmgclient` as a library for
+your own Rust project, you can install it using `cargo`:
 
 ```bash
 cargo install rsmgclient
@@ -33,16 +33,17 @@ if you would like to change that please provide `OPENSSL_LIB_DIR` env variable.
 
 ### Building from Source
 
-To contribute into `rsmgclient` or just looking closely how it is made,
+To contribute into `rsmgclient` or just to look more closely how it is made,
 you will need:
 
 - Cloned [rsmgclient](https://github.com/memgraph/rsmgclient) repository
 - Properly initialized [mgclient](https://github.com/memgraph/mgclient), please
-  take care of the `mgclient` requirements
+  take care of the `mgclient` requirements.
 - [Memgraph Quick Start Guide](https://memgraph.com/docs/memgraph/quick-start)
 
 Once `rsmgclient` is cloned, you will need to build it and then you can run
 the test suite to verify it is working correctly:
+
 ```bash
 git submodule update --init
 cargo build
@@ -50,7 +51,7 @@ cargo build
 cargo test
 ```
 
-On MacOS, the build will try to detect OpenSSL by using MacPorts or Brew.
+On MacOS, the build will try to detect OpenSSL by using MacPorts or Homebrew.
 
 On Windows, `bindgen` requires `libclang` which is a part of LLVM. If LLVM is
 not already installed just go to the [LLVM
