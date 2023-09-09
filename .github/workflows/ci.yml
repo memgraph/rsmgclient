@@ -2,6 +2,10 @@ name: CI
 
 on: [push]
 
+# TODO(gitbuda): Add OSs -> windows-2022, windows-2019, ubuntu-22.04, ubuntu-20.04, macos-13, macos-12.
+# TODO(gitbuda): Add at least one ARM build.
+# TODO(gitbuda): Fix windows-2019 issue.
+
 jobs:
   build_and_test_ubuntu:
     strategy:
