@@ -185,9 +185,14 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
+    let lib_dir = if Path::new(&mgclient_out.join("lib64")).exists() {
+        "lib64"
+    } else {
+        "lib"
+    };
     println!(
         "cargo:rustc-link-search=native={}",
-        mgclient_out.join("lib").display()
+        mgclient_out.join(lib_dir).display()
     );
     println!("cargo:rustc-link-lib=static=mgclient");
     // If the following part of the code is pushed inside build_mgclient_xzy, linking is not done
