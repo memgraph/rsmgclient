@@ -283,6 +283,7 @@ fn fetchone_summary() {
 
     let summary = connection.summary().unwrap();
     assert_eq!(8, summary.len());
+    panic!("{:?}", summary);
     for key in &[
         "cost_estimate",
         "has_more",
