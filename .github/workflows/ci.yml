@@ -46,6 +46,34 @@ jobs:
     - name: Run test
       run: cargo test
 
+  build_centos:
+    runs-on: ubuntu-latest
+    container: 
+      image: centos:8
+
+    steps:
+    - name: Modify repo files of centos image
+      run: |
+        sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+
+    - name: Install dependencies
+      run: |
+        yum install -y git cmake make gcc gcc-c++ openssl-devel epel-release clang
+
+    - name: Install rustup
+        run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+
+    - uses: actions/checkout@v2
+      with:
+          submodules: true
+
+    - name: Build the project
+      run: |
+        cargo build --release
+
   build_macos:
     strategy:
       matrix:
