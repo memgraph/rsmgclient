@@ -62,13 +62,13 @@ jobs:
         yum install -y git cmake make gcc gcc-c++ openssl-devel epel-release clang
 
     - name: Install rustup
-        run: |
+      run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         source "$HOME/.cargo/env"
 
     - uses: actions/checkout@v2
       with:
-          submodules: true
+        submodules: true
 
     - name: Build the project
       run: |
