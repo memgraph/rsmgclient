@@ -63,11 +63,10 @@ jobs:
     - name: Install rustup
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        echo "$HOME/.cargo/env" >> $GITHUB_PATH
-        echo "$HOME/.cargo/env" >> $GITHUB_PATH
-        echo "$GITHUB_PATH"
+        echo "$HOME"
         ls -alh "$HOME"
-        ls -alh "/root"
+        echo "$HOME/.cargo/env" >> $GITHUB_PATH
+        cat "$GITHUB_PATH"
 
     - uses: actions/checkout@v2
       with:
@@ -75,7 +74,7 @@ jobs:
 
     - name: Build the project
       run: |
-        echo "$GITHUB_PATH"
+        cat "$GITHUB_PATH"
         cargo build --release
 
   build_macos:
