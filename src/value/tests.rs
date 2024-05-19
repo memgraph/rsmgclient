@@ -356,7 +356,7 @@ fn from_c_mg_value_duration() {
         Value::Duration(Duration::days(10) + Duration::seconds(100) + Duration::nanoseconds(1000)),
         mg_value
     );
-    assert_eq!(format!("{}", mg_value), "'P10DT100.000001S'");
+    assert_eq!(format!("{}", mg_value), "'PT864100.000001S'");
 }
 
 #[test]
@@ -822,7 +822,7 @@ fn from_duration_to_mg_value_1() {
         bindings::mg_value_type_MG_VALUE_TYPE_DURATION
     );
     let mg_value = unsafe { Value::from_mg_value(&c_mg_value) };
-    assert_eq!(mg_value.to_string(), "'P1DT3S'");
+    assert_eq!(mg_value.to_string(), "'PT86403S'");
     match mg_value {
         Value::Duration(x) => {
             assert_eq!(x.num_weeks(), 0);

@@ -50,7 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     container: 
       image: centos:8
-
     steps:
     - name: Modify repo files of centos image
       run: |
@@ -64,7 +63,7 @@ jobs:
     - name: Install rustup
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        source "$HOME/.cargo/env"
+        echo "$HOME/.cargo/env" >> $GITHUB_PATH
 
     - uses: actions/checkout@v2
       with:
