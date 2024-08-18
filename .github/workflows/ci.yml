@@ -7,7 +7,7 @@ jobs:
     strategy:
      matrix:
         platform: [ubuntu-20.04, ubuntu-22.04]
-        mgversion: [2.16.1]
+        mgversion: [2.19.0]
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -42,7 +42,7 @@ jobs:
       run: cargo build --verbose
     - name: Run Memgraph
       run: |
-        docker run -d -p 7687:7687 memgraph --telemetry-enabled=False
+        docker run -d -p 7687:7687 memgraph/memgraph --telemetry-enabled=False
     - name: Run test
       run: cargo test
 
