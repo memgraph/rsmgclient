@@ -122,7 +122,7 @@ jobs:
     - name: Add mingw${{ matrix.arch.mingw }} to PATH
       run: |
         echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
-        ls -alh "C:/msys64/mingw${{ matrix.arch.mingw }}/lib"
+        ls "C:/msys64/mingw${{ matrix.arch.mingw }}/lib"
 
     - uses: actions/checkout@v2
       with:
