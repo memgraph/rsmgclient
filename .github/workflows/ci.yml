@@ -119,17 +119,21 @@ jobs:
         update: true
         install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
 
-    - name: Debug
+    - name: Debug 1
       run: |
         ls "C:/"
         ls "C:/msys64"
         ls "C:/msys64/mingw${{ matrix.arch.mingw }}"
-        ls "C:/msys64/mingw${{ matrix.arch.mingw }}/lib"
+        ls "C:/msys64/mingw${{ matrix.arch.mingw }}/lib" # -> empty
 
     - name: Add mingw${{ matrix.arch.mingw }} to PATH
       run: |
         echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
         echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+    - name: Debug 2
+      run: |
+        openssl version -a
 
     - uses: actions/checkout@v2
       with:
