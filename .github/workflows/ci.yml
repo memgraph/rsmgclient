@@ -42,7 +42,7 @@ jobs:
       run: cargo build --verbose
     - name: Run Memgraph
       run: |
-        docker run -d -p 7687:7687 memgraph --telemetry-enabled=False
+        docker run -d -p 7687:7687 memgraph/memgraph --telemetry-enabled=False
     - name: Run test
       run: cargo test
 
