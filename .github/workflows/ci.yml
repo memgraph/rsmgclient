@@ -125,7 +125,7 @@ jobs:
 
     - name: Figure out where is openssl
       run: |
-        Get-ChildItem -Recurse -Name "libssl.a" C:
+        Get-ChildItem C: -Recurse -Name "libssl.a"
 
     - name: Add mingw${{ matrix.arch.mingw }} to PATH and define OPENSSL_LIB_DIR
       run: |
