@@ -102,9 +102,14 @@ jobs:
         arch:
           - { mingw: 64, msys: x86_64 }
     runs-on: ${{ matrix.platform }}
+    # TODO(gitbuda): Maybe shell is a problem, under https://github.com/memgraph/mgclient/blob/master/.github/workflows/ci.yml
+    defaults:
+      run:
+        shell: msys2 {0}
 
     steps:
     - name: Install Rustup using win.rustup.rs
+      shell: pwsh
       run: |
         # Disable the download progress bar which can cause perf issues
         $ProgressPreference = "SilentlyContinue"
@@ -114,19 +119,13 @@ jobs:
         del rustup-init.exe
 
     - uses: msys2/setup-msys2@v2
+      # From https://github.com/msys2/setup-msys2?tab=readme-ov-file#msys2-location
       id: msys2
       with:
         msystem: MINGW${{ matrix.arch.mingw }}
         update: true
         install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
 
-    # - name: Figure out where is openssl
-    #   run: |
-    #     openssl version -a # NOTE: This gives non-MinGW SSL
-    # - name: Figure out where is openssl
-    #   run: |
-    #     Get-ChildItem C: -Recurse -Name "libssl.dll.a"
-    # echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
     - name: Debug
       run: |
         ls "${{ steps.msys2.outputs.msys2-location }}/mingw64/lib"
@@ -134,7 +133,6 @@ jobs:
     - name: Define required environment variables
       run: |
         echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
-        # NOTE: https://github.com/msys2/setup-msys2?tab=readme-ov-file#msys2-location
         echo "OPENSSL_LIB_DIR=${{ steps.msys2.outputs.msys2-location }}/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
 
     - uses: actions/checkout@v2
