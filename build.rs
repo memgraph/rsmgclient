@@ -137,6 +137,7 @@ fn build_mgclient_linux() -> PathBuf {
 }
 
 fn build_mgclient_windows() -> PathBuf {
+    // NOTE: The intention with the default here is to help desktop Windows users
     let openssl_dir = PathBuf::from(
         std::env::var("OPENSSL_LIB_DIR")
             .unwrap_or_else(|_| "C:\\Program Files\\OpenSSL-Win64\\lib".to_string()),
