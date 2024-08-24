@@ -119,19 +119,19 @@ jobs:
         update: true
         install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
 
-    - name: Figure out where is openssl
-      run: |
-        openssl version -a # NOTE: This gives non-MinGW SSL
+    # - name: Figure out where is openssl
+    #   run: |
+    #     openssl version -a # NOTE: This gives non-MinGW SSL
 
-    - name: Figure out where is openssl
-      run: |
-        Get-ChildItem C: -Recurse -Name "libssl.dll.a"
+    # - name: Figure out where is openssl
+    #   run: |
+    #     Get-ChildItem C: -Recurse -Name "libssl.dll.a"
 
     - name: Add mingw${{ matrix.arch.mingw }} to PATH and define OPENSSL_LIB_DIR
       run: |
-        echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
+        # echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
         echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
-        echo "OPENSSL_LIB_DIR=C:/msys64/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+        # echo "OPENSSL_LIB_DIR=C:/msys64/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
 
     - uses: actions/checkout@v2
       with:
