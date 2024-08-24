@@ -282,7 +282,7 @@ fn fetchone_summary() {
     }
 
     let summary = connection.summary().unwrap();
-    assert_eq!(8, summary.len());
+    assert_eq!(9, summary.len());
     for key in &[
         "cost_estimate",
         "has_more",
@@ -292,6 +292,7 @@ fn fetchone_summary() {
         "plan_execution_time",
         "run_id",
         "db",
+        "number_of_hops",
     ] {
         assert!(summary.contains_key(key as &str));
     }
