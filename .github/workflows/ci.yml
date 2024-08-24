@@ -127,7 +127,7 @@ jobs:
       run: |
         echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
         # echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
-        echo "OPENSSL_LIB_DIR=C:\\Program Files\\OpenSSL\\lib\\engines-1_1" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+        echo "OPENSSL_LIB_DIR=C:\\Program Files\\OpenSSL" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
 
     - uses: actions/checkout@v2
       with:
