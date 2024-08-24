@@ -135,8 +135,7 @@ jobs:
 
     - name: Debug
       run: |
-        echo "$OPENSSL_LIB_DIR"
-        ls "$OPENSSL_LIB_DIR"
+        ls "C:\\Program Files\\OpenSSL\\lib"
 
     - name: Build the client
       run: |
