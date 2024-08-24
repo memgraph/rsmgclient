@@ -143,6 +143,7 @@ fn build_mgclient_windows() -> PathBuf {
     );
     println!("cargo:rustc-link-search=native={}", openssl_dir.display());
     Config::new("mgclient")
+        .generator("MinGW Makefiles")
         .define("OPENSSL_ROOT_DIR", format!("{}", openssl_dir.display()))
         .build()
 }
