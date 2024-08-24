@@ -129,8 +129,7 @@ jobs:
     - name: Add mingw${{ matrix.arch.mingw }} to PATH
       run: |
         echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
-        # NOTE: How to set the environment variable?
-        # echo "OPENSSL_LIB_DIR=C:/msys64/mingw${{ matrix.arch.mingw }}/lib" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+        # echo "CMAKE_GENERATOR='MinGW Makefiles'" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
 
     - uses: actions/checkout@v2
       with:
