@@ -123,6 +123,7 @@ jobs:
       run: |
         ls "C:/"
         ls "C:/msys64"
+        ls "C:/msys64/mingw${{ matrix.arch.mingw }}"
 
     - name: Add mingw${{ matrix.arch.mingw }} to PATH
       run: |
