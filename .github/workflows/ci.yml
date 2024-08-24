@@ -126,11 +126,8 @@ jobs:
         update: true
         install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
 
-    - name: Debug
-      run: |
-        ls "${{ steps.msys2.outputs.msys2-location }}/mingw64/lib"
-
     - name: Define required environment variables
+      shell: pwsh
       run: |
         echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
         echo "OPENSSL_LIB_DIR=${{ steps.msys2.outputs.msys2-location }}/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
