@@ -114,6 +114,7 @@ jobs:
         del rustup-init.exe
 
     - uses: msys2/setup-msys2@v2
+      id: msys2
       with:
         msystem: MINGW${{ matrix.arch.mingw }}
         update: true
@@ -122,16 +123,19 @@ jobs:
     # - name: Figure out where is openssl
     #   run: |
     #     openssl version -a # NOTE: This gives non-MinGW SSL
-
     # - name: Figure out where is openssl
     #   run: |
     #     Get-ChildItem C: -Recurse -Name "libssl.dll.a"
+    # echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
+    - name: Debug
+      run: |
+        ls "${{ steps.msys2.outputs.msys2-location }}/mingw64/lib"
 
     - name: Define required environment variables
       run: |
-        # echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
         echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
-        echo "OPENSSL_LIB_DIR=D:/a/_temp/msys64/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+        # NOTE: https://github.com/msys2/setup-msys2?tab=readme-ov-file#msys2-location
+        echo "OPENSSL_LIB_DIR=${{ steps.msys2.outputs.msys2-location }}/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
 
     - uses: actions/checkout@v2
       with:
