@@ -133,6 +133,11 @@ jobs:
       with:
           submodules: true
 
+    - name: Debug
+      run: |
+        echo "$OPENSSL_LIB_DIR"
+        ls "$OPENSSL_LIB_DIR"
+
     - name: Build the client
       run: |
         cargo build --release --target=${{ matrix.target }}
