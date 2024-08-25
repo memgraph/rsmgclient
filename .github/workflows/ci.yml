@@ -1,5 +1,4 @@
 name: CI
-
 on: [push]
 
 jobs:
@@ -9,11 +8,10 @@ jobs:
         platform: [ubuntu-20.04, ubuntu-22.04]
         mgversion: [2.19.0]
     runs-on: ${{ matrix.platform }}
-
     steps:
     - name: Install system dependencies
       run: sudo apt-get install -y git cmake make gcc g++ libssl-dev
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -55,19 +53,15 @@ jobs:
       run: |
         sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-
     - name: Install dependencies
       run: |
         yum install -y git cmake make gcc gcc-c++ openssl-devel epel-release clang
-
     - name: Install rustup
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
     - uses: actions/checkout@v2
       with:
         submodules: true
-
     - name: Build the project
       run: |
         . "$HOME/.cargo/env"
@@ -79,7 +73,6 @@ jobs:
         platform: [macos-latest]
         target: [x86_64-apple-darwin]
     runs-on: ${{ matrix.platform }}
-
     steps:
     - name: Install Rustup
       run: |
@@ -87,21 +80,19 @@ jobs:
         sh rustup-init.sh -y --default-toolchain none
         rustup target add ${{ matrix.target }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
           submodules: true
-
     - name: Build the client
       run: cargo build --release
 
   build_windows:
     strategy:
       matrix:
-        platform: [windows-2019]
+        platform: [windows-2022]
         target: [x86_64-pc-windows-gnu]
         arch:
-          - { mingw: 64, msys: x86_64 }
-        mgversion: [1.5]
+          - { mingw: 32, msys: x86_64 }
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -110,24 +101,31 @@ jobs:
         # Disable the download progress bar which can cause perf issues
         $ProgressPreference = "SilentlyContinue"
         Invoke-WebRequest https://win.rustup.rs/ -OutFile rustup-init.exe
-        .\rustup-init.exe -y --default-host=x86_64-pc-windows-msvc --default-toolchain=none
+        .\rustup-init.exe -y --default-host=x86_64-pc-windows-gnu --default-toolchain=none
         rustup target add ${{ matrix.target }}
         del rustup-init.exe
 
     - uses: msys2/setup-msys2@v2
+      # From https://github.com/msys2/setup-msys2?tab=readme-ov-file#msys2-location
+      id: msys2
       with:
         msystem: MINGW${{ matrix.arch.mingw }}
         update: true
-        install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
+        install: >-
+          git
+          mingw-w${{ matrix.arch.mingw }}-${{ matrix.arch.msys }}-toolchain
+          mingw-w${{ matrix.arch.mingw }}-${{ matrix.arch.msys }}-cmake
+          mingw-w${{ matrix.arch.mingw }}-${{ matrix.arch.msys }}-openssl
 
-    - name: Add mingw${{ matrix.arch.mingw }} to PATH
+    - name: Define required environment variables
       run: |
         echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
+        echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+        echo "OPENSSL_LIB_DIR=${{ steps.msys2.outputs.msys2-location }}/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
           submodules: true
-
     - name: Build the client
       run: |
         cargo build --release --target=${{ matrix.target }}

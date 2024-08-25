@@ -137,14 +137,20 @@ fn build_mgclient_linux() -> PathBuf {
 }
 
 fn build_mgclient_windows() -> PathBuf {
+    // NOTE: The intention with the default here is to help desktop Windows users link OpenSSL
+    // default folder created when OpenSSL is manually installed.
     let openssl_dir = PathBuf::from(
         std::env::var("OPENSSL_LIB_DIR")
             .unwrap_or_else(|_| "C:\\Program Files\\OpenSSL-Win64\\lib".to_string()),
     );
-    println!("cargo:rustc-link-search=native={}", openssl_dir.display());
-    Config::new("mgclient")
-        .define("OPENSSL_ROOT_DIR", format!("{}", openssl_dir.display()))
-        .build()
+    if openssl_dir.exists() {
+        println!("cargo:rustc-link-search=native={}", openssl_dir.display());
+        Config::new("mgclient")
+            .define("OPENSSL_ROOT_DIR", format!("{}", openssl_dir.display()))
+            .build()
+    } else {
+        Config::new("mgclient").build()
+    }
 }
 
 fn main() {

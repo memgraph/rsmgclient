@@ -1,4 +1,6 @@
-use rsmgclient::{ConnectParams, Connection, MgError, Value};
+use std::collections::HashMap;
+
+use rsmgclient::{ConnectParams, Connection, MgError, Point2D, QueryParam, Value};
 
 fn execute_query() -> Result<(), MgError> {
     // Connect to Memgraph.
@@ -28,6 +30,22 @@ fn execute_query() -> Result<(), MgError> {
         println!();
     }
     connection.commit()?;
+
+    let mut query_params: HashMap<String, QueryParam> = HashMap::new();
+    query_params.insert(
+        "point2d".to_string(),
+        QueryParam::Point2D(Point2D {
+            srid: 7203,
+            x_longitude: 0.0,
+            y_latitude: 1.0,
+        }),
+    );
+    connection.execute("RETURN $point2d;", Some(&query_params))?;
+    for record in connection.fetchall()? {
+        for value in record.values {
+            println!("{}", value);
+        }
+    }
 
     Ok(())
 }
