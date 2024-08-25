@@ -1,5 +1,4 @@
 name: CI
-
 on: [push]
 
 jobs:
@@ -9,11 +8,10 @@ jobs:
         platform: [ubuntu-20.04, ubuntu-22.04]
         mgversion: [2.19.0]
     runs-on: ${{ matrix.platform }}
-
     steps:
     - name: Install system dependencies
       run: sudo apt-get install -y git cmake make gcc g++ libssl-dev
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -55,19 +53,15 @@ jobs:
       run: |
         sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-
     - name: Install dependencies
       run: |
         yum install -y git cmake make gcc gcc-c++ openssl-devel epel-release clang
-
     - name: Install rustup
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
     - uses: actions/checkout@v2
       with:
         submodules: true
-
     - name: Build the project
       run: |
         . "$HOME/.cargo/env"
@@ -79,7 +73,6 @@ jobs:
         platform: [macos-latest]
         target: [x86_64-apple-darwin]
     runs-on: ${{ matrix.platform }}
-
     steps:
     - name: Install Rustup
       run: |
@@ -87,10 +80,9 @@ jobs:
         sh rustup-init.sh -y --default-toolchain none
         rustup target add ${{ matrix.target }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
           submodules: true
-
     - name: Build the client
       run: cargo build --release
 
@@ -102,11 +94,11 @@ jobs:
         arch:
           - { mingw: 64, msys: x86_64 }
     runs-on: ${{ matrix.platform }}
-    # TODO(gitbuda): Maybe shell is a problem, under https://github.com/memgraph/mgclient/blob/master/.github/workflows/ci.yml
+    # TODO(gitbuda): Maybe shell is a problem, https://github.com/memgraph/mgclient/blob/master/.github/workflows/ci.yml
     # defaults:
     #   run:
     #     shell: msys2 {0}
-      # shell: pwsh
+    # shell: pwsh
 
     steps:
     - name: Install Rustup using win.rustup.rs
@@ -128,13 +120,13 @@ jobs:
 
     - name: Define required environment variables
       run: |
+        echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
         echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
         echo "OPENSSL_LIB_DIR=${{ steps.msys2.outputs.msys2-location }}/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
           submodules: true
-
     - name: Build the client
       run: |
         cargo build --release --target=${{ matrix.target }}
