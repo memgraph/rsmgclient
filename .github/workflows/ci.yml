@@ -103,13 +103,13 @@ jobs:
           - { mingw: 64, msys: x86_64 }
     runs-on: ${{ matrix.platform }}
     # TODO(gitbuda): Maybe shell is a problem, under https://github.com/memgraph/mgclient/blob/master/.github/workflows/ci.yml
-    defaults:
-      run:
-        shell: msys2 {0}
+    # defaults:
+    #   run:
+    #     shell: msys2 {0}
+      # shell: pwsh
 
     steps:
     - name: Install Rustup using win.rustup.rs
-      shell: pwsh
       run: |
         # Disable the download progress bar which can cause perf issues
         $ProgressPreference = "SilentlyContinue"
@@ -127,7 +127,6 @@ jobs:
         install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
 
     - name: Define required environment variables
-      shell: pwsh
       run: |
         echo "CMAKE_GENERATOR=MinGW Makefiles" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
         echo "OPENSSL_LIB_DIR=${{ steps.msys2.outputs.msys2-location }}/mingw${{ matrix.arch.mingw }}" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
