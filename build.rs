@@ -75,6 +75,7 @@ fn build_mgclient_macos() -> PathBuf {
         // should take care of setting those variables.
         Config::new("mgclient").build()
     } else {
+
         println!("Macports not found.");
         println!("Checking for Homebrew...");
         let openssl_root_path = {
@@ -85,7 +86,6 @@ fn build_mgclient_macos() -> PathBuf {
                     std::path::Path::new(path.trim()).to_path_buf()
                 }
                 _ => {
-                    // Fallback to `which openssl` if not found via Homebrew
                     let fallback_output = Command::new("which").arg("openssl").output();
                     match fallback_output {
                         Ok(fallback_output) if fallback_output.status.success() => {
@@ -99,6 +99,7 @@ fn build_mgclient_macos() -> PathBuf {
                 }
             }
         };
+
         println!(
             "cargo:rustc-link-search=native={}",
             openssl_root_path.join("lib").display()
