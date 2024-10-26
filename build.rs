@@ -75,7 +75,6 @@ fn build_mgclient_macos() -> PathBuf {
         // should take care of setting those variables.
         Config::new("mgclient").build()
     } else {
-
         println!("Macports not found.");
         println!("Checking for Homebrew...");
         let openssl_root_path = {
