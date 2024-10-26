@@ -77,55 +77,52 @@ fn build_mgclient_macos() -> PathBuf {
     } else {
         println!("Macports not found.");
         println!("Checking for Homebrew...");
-        let output = Command::new("/usr/bin/command")
-            .args(["-v", "brew"])
-            .output()
-            .expect("Failed to execute shell command: '/usr/bin/command -v brew'")
-            .stdout;
-        let brew_path = String::from_utf8(output).unwrap();
-        if brew_path.is_empty() {
-            println!("Homebrew not found.");
-            panic!(
-                "We did not detect either MacPorts or Homebrew on your machine. We cannot proceed."
-            );
-        } else {
-            println!("'brew' executable detected at {:?}", &brew_path);
-            println!("Proceeding with installation assuming Homebrew is your package manager");
-        }
-        let path_openssl = if cfg!(target_arch = "aarch64") {
-            "/opt/homebrew/Cellar/openssl@1.1"
-        } else {
-            "/usr/local/Cellar/openssl@1.1"
+        let openssl_root_path = {
+            let output = Command::new("brew").arg("--prefix").arg("openssl").output();
+            match output {
+                Ok(output) if output.status.success() => {
+                    let path = String::from_utf8_lossy(&output.stdout);
+                    std::path::Path::new(path.trim()).to_path_buf()
+                }
+                _ => {
+                    // Fallback to `which openssl` if not found via Homebrew
+                    let fallback_output = Command::new("which").arg("openssl").output();
+                    match fallback_output {
+                        Ok(fallback_output) if fallback_output.status.success() => {
+                            let fallback_path = String::from_utf8_lossy(&fallback_output.stdout);
+                            std::path::Path::new(fallback_path.trim()).to_path_buf()
+                        }
+                        _ => {
+                            panic!("OpenSSL not found on this system under brew.");
+                        }
+                    }
+                }
+            }
         };
-        let mut openssl_dirs = std::fs::read_dir(PathBuf::new().join(path_openssl))
-            .unwrap()
-            .map(|r| r.unwrap().path())
-            .collect::<Vec<PathBuf>>();
-        openssl_dirs.sort_by(|a, b| {
-            let a_time = a.metadata().unwrap().modified().unwrap();
-            let b_time = b.metadata().unwrap().modified().unwrap();
-            b_time.cmp(&a_time)
-        });
-        let openssl_root_path = openssl_dirs[0].clone();
         println!(
             "cargo:rustc-link-search=native={}",
             openssl_root_path.join("lib").display()
         );
-        let openssl_root = openssl_dirs[0].clone();
         Config::new("mgclient")
-            .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
+            .define(
+                "OPENSSL_ROOT_DIR",
+                format!("{}", openssl_root_path.display()),
+            )
             .define(
                 "OPENSSL_CRYPTO_LIBRARY",
                 format!(
                     "{}",
-                    openssl_root.join("lib").join("libcrypto.dylib").display()
+                    openssl_root_path
+                        .join("lib")
+                        .join("libcrypto.dylib")
+                        .display()
                 ),
             )
             .define(
                 "OPENSSL_SSL_LIBRARY",
                 format!(
                     "{}",
-                    openssl_root.join("lib").join("libssl.dylib").display()
+                    openssl_root_path.join("lib").join("libssl.dylib").display()
                 ),
             )
             .build()
