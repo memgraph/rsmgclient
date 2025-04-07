@@ -372,7 +372,7 @@ impl Connection {
         unsafe {
             bindings::mg_session_params_destroy(mg_session_params);
             if !trust_callback_ptr.is_null() {
-                Box::from_raw(trust_callback_ptr);
+                let _ = Box::from_raw(trust_callback_ptr);
             }
         };
 

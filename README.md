@@ -15,9 +15,9 @@ client library.
 - [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
   1.42.0 or above
 - Prerequisites of [mgclient](https://github.com/memgraph/mgclient):
-  - A C compiler supporting C11 standard
-  - CMake 3.8 or newer
-  - OpenSSL 1.0.2 or newer
+    - A C compiler supporting C11 standard
+    - CMake 3.8 or newer
+    - OpenSSL 1.0.2 or newer
 
 ### Installing from crates.io
 
@@ -45,7 +45,7 @@ Once `rsmgclient` is cloned, you will need to build it and then you can run
 the test suite to verify it is working correctly:
 
 ```bash
-git submodule update --init
+git submodule update --init --recursive
 cargo build
 # Please run Memgraph based on the quick start guide
 cargo test
