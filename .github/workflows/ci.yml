@@ -1,6 +1,8 @@
 name: CI
 
-on: [push]
+on: 
+  push:
+  pull_request:
 
 jobs:
   build_and_test_ubuntu:
@@ -13,13 +15,13 @@ jobs:
     steps:
     - name: Install system dependencies
       run: sudo apt-get install -y git cmake make gcc g++ libssl-dev
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
     - name: Cache Memgraph Docker image
       id: cache-memgraph-community-docker
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: ~/memgraph
         key: cache-memgraph-v${{ matrix.mgversion }}-docker-image
@@ -31,9 +33,8 @@ jobs:
     - name: Load Memgraph Docker image
       run: docker load -i ~/memgraph/memgraph-docker.tar.gz
 
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
+    - name: Set up Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
     - name: Run rust linter
       run: cargo clippy
     - name: Run rust formatter
@@ -64,7 +65,7 @@ jobs:
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -87,7 +88,7 @@ jobs:
         sh rustup-init.sh -y --default-toolchain none
         rustup target add ${{ matrix.target }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
           submodules: true
 
@@ -124,7 +125,7 @@ jobs:
       run: |
         echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
           submodules: true
 
