@@ -152,7 +152,10 @@ fn build_mgclient_macos() -> Result<PathBuf, BuildError> {
         let openssl_root = openssl_dirs[0].clone();
         let path = Config::new("mgclient")
             .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
-            .define("OPENSSL_INCLUDE_DIR", format!("{}", openssl_root.join("include").display()))
+            .define(
+                "OPENSSL_INCLUDE_DIR",
+                format!("{}", openssl_root.join("include").display()),
+            )
             .define(
                 "OPENSSL_CRYPTO_LIBRARY",
                 format!(
