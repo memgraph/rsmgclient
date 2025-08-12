@@ -9,7 +9,7 @@ jobs:
     strategy:
      matrix:
         platform: [ubuntu-20.04, ubuntu-22.04]
-        mgversion: [2.19.0]
+        mgversion: [3.4.0]
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -102,7 +102,7 @@ jobs:
         target: [x86_64-pc-windows-gnu]
         arch:
           - { mingw: 64, msys: x86_64 }
-        mgversion: [1.5]
+        mgversion: [3.4.0]
     runs-on: ${{ matrix.platform }}
 
     steps:
