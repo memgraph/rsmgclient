@@ -94,12 +94,13 @@ jobs:
       with:
         targets: x86_64-pc-windows-msvc
 
-    - name: Install OpenSSL
+    - name: Install OpenSSL via vcpkg
       run: |
-        choco install openssl --version=3.0.5
+        vcpkg install openssl:x64-windows-static
         
     - name: Build the client
       run: cargo build --release --target=x86_64-pc-windows-msvc
       env:
-        OPENSSL_LIB_DIR: "C:\\Program Files\\OpenSSL-Win64\\lib"
-        OPENSSL_INCLUDE_DIR: "C:\\Program Files\\OpenSSL-Win64\\include"
+        OPENSSL_LIB_DIR: "C:\\vcpkg\\installed\\x64-windows-static\\lib"
+        OPENSSL_INCLUDE_DIR: "C:\\vcpkg\\installed\\x64-windows-static\\include"
+        OPENSSL_STATIC: "1"

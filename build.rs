@@ -197,6 +197,22 @@ fn build_mgclient_windows() -> Result<PathBuf, BuildError> {
         openssl_lib_dir.display()
     );
 
+    // Check if we're using vcpkg (static libraries)
+    let is_vcpkg = openssl_lib_dir.to_string_lossy().contains("vcpkg");
+    let (crypto_lib, ssl_lib) = if is_vcpkg {
+        // vcpkg uses different library names for static builds
+        (
+            format!("{}\\libcrypto.lib", openssl_lib_dir.display()),
+            format!("{}\\libssl.lib", openssl_lib_dir.display()),
+        )
+    } else {
+        // Standard OpenSSL installation
+        (
+            format!("{}\\libcrypto.lib", openssl_lib_dir.display()),
+            format!("{}\\libssl.lib", openssl_lib_dir.display()),
+        )
+    };
+
     let path = Config::new("mgclient")
         .define(
             "OPENSSL_ROOT_DIR",
@@ -206,14 +222,8 @@ fn build_mgclient_windows() -> Result<PathBuf, BuildError> {
             "OPENSSL_INCLUDE_DIR",
             format!("{}", openssl_include_dir.display()),
         )
-        .define(
-            "OPENSSL_CRYPTO_LIBRARY",
-            format!("{}\\libcrypto.lib", openssl_lib_dir.display()),
-        )
-        .define(
-            "OPENSSL_SSL_LIBRARY",
-            format!("{}\\libssl.lib", openssl_lib_dir.display()),
-        )
+        .define("OPENSSL_CRYPTO_LIBRARY", crypto_lib)
+        .define("OPENSSL_SSL_LIBRARY", ssl_lib)
         .build();
 
     Ok(path)
