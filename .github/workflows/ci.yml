@@ -82,39 +82,24 @@ jobs:
       run: cargo build --release
 
   build_windows:
-    strategy:
-      matrix:
-        platform: [windows-2019]
-        target: [x86_64-pc-windows-gnu]
-        arch:
-          - { mingw: 64, msys: x86_64 }
-        mgversion: [3.4.0]
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
 
     steps:
-    - name: Install Rustup using win.rustup.rs
-      run: |
-        # Disable the download progress bar which can cause perf issues
-        $ProgressPreference = "SilentlyContinue"
-        Invoke-WebRequest https://win.rustup.rs/ -OutFile rustup-init.exe
-        .\rustup-init.exe -y --default-host=x86_64-pc-windows-msvc --default-toolchain=none
-        rustup target add ${{ matrix.target }}
-        del rustup-init.exe
-
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW${{ matrix.arch.mingw }}
-        update: true
-        install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
-
-    - name: Add mingw${{ matrix.arch.mingw }} to PATH
-      run: |
-        echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
-
     - uses: actions/checkout@v4
       with:
-          submodules: true
+        submodules: true
+
+    - name: Set up Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-pc-windows-msvc
+
+    - name: Install vcpkg dependencies
+      run: |
+        vcpkg install openssl:x64-windows-static
 
     - name: Build the client
-      run: |
-        cargo build --release --target=${{ matrix.target }}
+      run: cargo build --release --target=x86_64-pc-windows-msvc
+      env:
+        VCPKG_ROOT: C:\vcpkg
+        OPENSSL_DIR: C:\vcpkg\installed\x64-windows-static
