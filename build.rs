@@ -191,14 +191,29 @@ fn build_mgclient_windows() -> Result<PathBuf, BuildError> {
             .unwrap_or_else(|_| "C:\\Program Files\\OpenSSL-Win64\\include".to_string()),
     );
     let openssl_root_dir = openssl_lib_dir.parent().unwrap_or(&openssl_lib_dir);
-    
-    println!("cargo:rustc-link-search=native={}", openssl_lib_dir.display());
-    
+
+    println!(
+        "cargo:rustc-link-search=native={}",
+        openssl_lib_dir.display()
+    );
+
     let path = Config::new("mgclient")
-        .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root_dir.display()))
-        .define("OPENSSL_INCLUDE_DIR", format!("{}", openssl_include_dir.display()))
-        .define("OPENSSL_CRYPTO_LIBRARY", format!("{}\\libcrypto.lib", openssl_lib_dir.display()))
-        .define("OPENSSL_SSL_LIBRARY", format!("{}\\libssl.lib", openssl_lib_dir.display()))
+        .define(
+            "OPENSSL_ROOT_DIR",
+            format!("{}", openssl_root_dir.display()),
+        )
+        .define(
+            "OPENSSL_INCLUDE_DIR",
+            format!("{}", openssl_include_dir.display()),
+        )
+        .define(
+            "OPENSSL_CRYPTO_LIBRARY",
+            format!("{}\\libcrypto.lib", openssl_lib_dir.display()),
+        )
+        .define(
+            "OPENSSL_SSL_LIBRARY",
+            format!("{}\\libssl.lib", openssl_lib_dir.display()),
+        )
         .build();
 
     Ok(path)
