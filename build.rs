@@ -213,7 +213,8 @@ fn build_mgclient_windows() -> Result<PathBuf, BuildError> {
         )
     };
 
-    let path = Config::new("mgclient")
+    let mut config = Config::new("mgclient");
+    config
         .define(
             "OPENSSL_ROOT_DIR",
             format!("{}", openssl_root_dir.display()),
@@ -223,9 +224,17 @@ fn build_mgclient_windows() -> Result<PathBuf, BuildError> {
             format!("{}", openssl_include_dir.display()),
         )
         .define("OPENSSL_CRYPTO_LIBRARY", crypto_lib)
-        .define("OPENSSL_SSL_LIBRARY", ssl_lib)
-        .build();
+        .define("OPENSSL_SSL_LIBRARY", ssl_lib);
 
+    // If using static OpenSSL (vcpkg), configure for static linking
+    if is_vcpkg {
+        config.define("OPENSSL_USE_STATIC_LIBS", "TRUE");
+        // Add system libraries that static OpenSSL depends on
+        config.define("CMAKE_EXE_LINKER_FLAGS", "/DEFAULTLIB:crypt32.lib /DEFAULTLIB:ws2_32.lib /DEFAULTLIB:user32.lib /DEFAULTLIB:advapi32.lib");
+        config.define("CMAKE_SHARED_LINKER_FLAGS", "/DEFAULTLIB:crypt32.lib /DEFAULTLIB:ws2_32.lib /DEFAULTLIB:user32.lib /DEFAULTLIB:advapi32.lib");
+    }
+
+    let path = config.build();
     Ok(path)
 }
 
