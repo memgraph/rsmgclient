@@ -285,8 +285,22 @@ fn main() -> Result<(), BuildError> {
             println!("cargo:rustc-link-lib=dylib=ssl");
         }
         HostType::Windows => {
-            println!("cargo:rustc-link-lib=dylib=libcrypto");
-            println!("cargo:rustc-link-lib=dylib=libssl");
+            // Check if we're using static OpenSSL (vcpkg)
+            let openssl_static = std::env::var("OPENSSL_STATIC").unwrap_or_default() == "1";
+            if openssl_static {
+                // Static linking - link with static libraries and system dependencies
+                println!("cargo:rustc-link-lib=static=libcrypto");
+                println!("cargo:rustc-link-lib=static=libssl");
+                // Windows system libraries required by static OpenSSL
+                println!("cargo:rustc-link-lib=crypt32");
+                println!("cargo:rustc-link-lib=ws2_32");
+                println!("cargo:rustc-link-lib=user32");
+                println!("cargo:rustc-link-lib=advapi32");
+            } else {
+                // Dynamic linking
+                println!("cargo:rustc-link-lib=dylib=libcrypto");
+                println!("cargo:rustc-link-lib=dylib=libssl");
+            }
         }
         HostType::MacOS => {
             println!("cargo:rustc-link-lib=dylib=crypto");
