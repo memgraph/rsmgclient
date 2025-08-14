@@ -1,39 +1,26 @@
 name: CI
 
-on: [push]
+on: 
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build_and_test_ubuntu:
     strategy:
      matrix:
-        platform: [ubuntu-20.04, ubuntu-22.04]
-        mgversion: [2.19.0]
+        platform: [ubuntu-24.04]
+        mgversion: [latest]
     runs-on: ${{ matrix.platform }}
 
     steps:
     - name: Install system dependencies
       run: sudo apt-get install -y git cmake make gcc g++ libssl-dev
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
-    - name: Cache Memgraph Docker image
-      id: cache-memgraph-community-docker
-      uses: actions/cache@v1
-      with:
-        path: ~/memgraph
-        key: cache-memgraph-v${{ matrix.mgversion }}-docker-image
-    - name: Download Memgraph Docker image
-      if: steps.cache-memgraph-community-docker.outputs.cache-hit != 'true'
-      run: |
-        mkdir ~/memgraph
-        curl -L https://download.memgraph.com/memgraph/v${{ matrix.mgversion }}/docker/memgraph-${{ matrix.mgversion }}-docker.tar.gz > ~/memgraph/memgraph-docker.tar.gz
-    - name: Load Memgraph Docker image
-      run: docker load -i ~/memgraph/memgraph-docker.tar.gz
-
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
+    - name: Set up Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
     - name: Run rust linter
       run: cargo clippy
     - name: Run rust formatter
@@ -42,7 +29,7 @@ jobs:
       run: cargo build --verbose
     - name: Run Memgraph
       run: |
-        docker run -d -p 7687:7687 memgraph/memgraph --telemetry-enabled=False
+        docker run -d -p 7687:7687 memgraph/memgraph:${{ matrix.mgversion }} --telemetry-enabled=False
     - name: Run test
       run: cargo test
 
@@ -64,7 +51,7 @@ jobs:
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
@@ -87,7 +74,7 @@ jobs:
         sh rustup-init.sh -y --default-toolchain none
         rustup target add ${{ matrix.target }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
           submodules: true
 
@@ -95,39 +82,25 @@ jobs:
       run: cargo build --release
 
   build_windows:
-    strategy:
-      matrix:
-        platform: [windows-2019]
-        target: [x86_64-pc-windows-gnu]
-        arch:
-          - { mingw: 64, msys: x86_64 }
-        mgversion: [1.5]
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
 
     steps:
-    - name: Install Rustup using win.rustup.rs
-      run: |
-        # Disable the download progress bar which can cause perf issues
-        $ProgressPreference = "SilentlyContinue"
-        Invoke-WebRequest https://win.rustup.rs/ -OutFile rustup-init.exe
-        .\rustup-init.exe -y --default-host=x86_64-pc-windows-msvc --default-toolchain=none
-        rustup target add ${{ matrix.target }}
-        del rustup-init.exe
-
-    - uses: msys2/setup-msys2@v2
+    - uses: actions/checkout@v4
       with:
-        msystem: MINGW${{ matrix.arch.mingw }}
-        update: true
-        install: git mingw-w64-${{ matrix.arch.msys }}-toolchain mingw-w64-${{ matrix.arch.msys }}-cmake mingw-w64-${{ matrix.arch.msys }}-openssl
+        submodules: true
 
-    - name: Add mingw${{ matrix.arch.mingw }} to PATH
-      run: |
-        echo "C:/msys64/mingw${{ matrix.arch.mingw }}/bin" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
-
-    - uses: actions/checkout@v2
+    - name: Set up Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
       with:
-          submodules: true
+        targets: x86_64-pc-windows-msvc
 
+    - name: Install OpenSSL via vcpkg
+      run: |
+        vcpkg install openssl:x64-windows-static
+        
     - name: Build the client
-      run: |
-        cargo build --release --target=${{ matrix.target }}
+      run: cargo build --release --target=x86_64-pc-windows-msvc
+      env:
+        OPENSSL_LIB_DIR: "C:\\vcpkg\\installed\\x64-windows-static\\lib"
+        OPENSSL_INCLUDE_DIR: "C:\\vcpkg\\installed\\x64-windows-static\\include"
+        OPENSSL_STATIC: "1"
