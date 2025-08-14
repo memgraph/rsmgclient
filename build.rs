@@ -153,6 +153,10 @@ fn build_mgclient_macos() -> Result<PathBuf, BuildError> {
         let path = Config::new("mgclient")
             .define("OPENSSL_ROOT_DIR", format!("{}", openssl_root.display()))
             .define(
+                "OPENSSL_INCLUDE_DIR",
+                format!("{}", openssl_root.join("include").display()),
+            )
+            .define(
                 "OPENSSL_CRYPTO_LIBRARY",
                 format!(
                     "{}",
@@ -178,15 +182,59 @@ fn build_mgclient_linux() -> Result<PathBuf, BuildError> {
 }
 
 fn build_mgclient_windows() -> Result<PathBuf, BuildError> {
-    let openssl_dir = PathBuf::from(
+    let openssl_lib_dir = PathBuf::from(
         std::env::var("OPENSSL_LIB_DIR")
             .unwrap_or_else(|_| "C:\\Program Files\\OpenSSL-Win64\\lib".to_string()),
     );
-    println!("cargo:rustc-link-search=native={}", openssl_dir.display());
-    let path = Config::new("mgclient")
-        .define("OPENSSL_ROOT_DIR", format!("{}", openssl_dir.display()))
-        .build();
+    let openssl_include_dir = PathBuf::from(
+        std::env::var("OPENSSL_INCLUDE_DIR")
+            .unwrap_or_else(|_| "C:\\Program Files\\OpenSSL-Win64\\include".to_string()),
+    );
+    let openssl_root_dir = openssl_lib_dir.parent().unwrap_or(&openssl_lib_dir);
 
+    println!(
+        "cargo:rustc-link-search=native={}",
+        openssl_lib_dir.display()
+    );
+
+    // Check if we're using vcpkg (static libraries)
+    let is_vcpkg = openssl_lib_dir.to_string_lossy().contains("vcpkg");
+    let (crypto_lib, ssl_lib) = if is_vcpkg {
+        // vcpkg uses different library names for static builds
+        (
+            format!("{}\\libcrypto.lib", openssl_lib_dir.display()),
+            format!("{}\\libssl.lib", openssl_lib_dir.display()),
+        )
+    } else {
+        // Standard OpenSSL installation
+        (
+            format!("{}\\libcrypto.lib", openssl_lib_dir.display()),
+            format!("{}\\libssl.lib", openssl_lib_dir.display()),
+        )
+    };
+
+    let mut config = Config::new("mgclient");
+    config
+        .define(
+            "OPENSSL_ROOT_DIR",
+            format!("{}", openssl_root_dir.display()),
+        )
+        .define(
+            "OPENSSL_INCLUDE_DIR",
+            format!("{}", openssl_include_dir.display()),
+        )
+        .define("OPENSSL_CRYPTO_LIBRARY", crypto_lib)
+        .define("OPENSSL_SSL_LIBRARY", ssl_lib);
+
+    // If using static OpenSSL (vcpkg), configure for static linking
+    if is_vcpkg {
+        config.define("OPENSSL_USE_STATIC_LIBS", "TRUE");
+        // Add system libraries that static OpenSSL depends on
+        config.define("CMAKE_EXE_LINKER_FLAGS", "/DEFAULTLIB:crypt32.lib /DEFAULTLIB:ws2_32.lib /DEFAULTLIB:user32.lib /DEFAULTLIB:advapi32.lib");
+        config.define("CMAKE_SHARED_LINKER_FLAGS", "/DEFAULTLIB:crypt32.lib /DEFAULTLIB:ws2_32.lib /DEFAULTLIB:user32.lib /DEFAULTLIB:advapi32.lib");
+    }
+
+    let path = config.build();
     Ok(path)
 }
 
@@ -246,8 +294,22 @@ fn main() -> Result<(), BuildError> {
             println!("cargo:rustc-link-lib=dylib=ssl");
         }
         HostType::Windows => {
-            println!("cargo:rustc-link-lib=dylib=libcrypto");
-            println!("cargo:rustc-link-lib=dylib=libssl");
+            // Check if we're using static OpenSSL (vcpkg)
+            let openssl_static = std::env::var("OPENSSL_STATIC").unwrap_or_default() == "1";
+            if openssl_static {
+                // Static linking - link with static libraries and system dependencies
+                println!("cargo:rustc-link-lib=static=libcrypto");
+                println!("cargo:rustc-link-lib=static=libssl");
+                // Windows system libraries required by static OpenSSL
+                println!("cargo:rustc-link-lib=crypt32");
+                println!("cargo:rustc-link-lib=ws2_32");
+                println!("cargo:rustc-link-lib=user32");
+                println!("cargo:rustc-link-lib=advapi32");
+            } else {
+                // Dynamic linking
+                println!("cargo:rustc-link-lib=dylib=libcrypto");
+                println!("cargo:rustc-link-lib=dylib=libssl");
+            }
         }
         HostType::MacOS => {
             println!("cargo:rustc-link-lib=dylib=crypto");
