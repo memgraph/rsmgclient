@@ -68,6 +68,11 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
             Value::LocalDateTime(x) => bindings::mg_value_make_local_date_time(
                 naive_local_date_time_to_mg_local_date_time(x),
             ),
+            Value::DateTime(_x) => {
+                // TODO: Implement conversion from DateTime to mg_value
+                // For now, we'll create a null value as placeholder
+                bindings::mg_value_make_null()
+            }
             Value::Duration(x) => bindings::mg_value_make_duration(duration_to_mg_duration(x)),
             Value::List(x) => {
                 bindings::mg_value_make_list(bindings::mg_list_copy(vector_to_mg_list(x)))

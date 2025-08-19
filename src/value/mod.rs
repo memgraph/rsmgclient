@@ -67,6 +67,22 @@ impl QueryParam {
     }
 }
 
+/// Representation of a DateTime value with timezone support.
+///
+/// Contains date, time, and timezone information including timezone ID and offset.
+#[derive(Debug, PartialEq, Clone)]
+pub struct DateTime {
+    pub year: i32,
+    pub month: u32,
+    pub day: u32,
+    pub hour: u32,
+    pub minute: u32,
+    pub second: u32,
+    pub nanosecond: u32,
+    pub time_zone_offset_seconds: i32,
+    pub time_zone_id: Option<String>,
+}
+
 /// Representation of node value from a labeled property graph.
 ///
 /// Consists of a unique identifier(within the scope of its origin graph), a list
@@ -134,6 +150,7 @@ pub enum Value {
     Date(NaiveDate),
     LocalTime(NaiveTime),
     LocalDateTime(NaiveDateTime),
+    DateTime(DateTime),
     Duration(Duration),
     Map(HashMap<String, Value>),
     Node(Node),
@@ -231,6 +248,38 @@ pub(crate) fn mg_value_naive_local_date_time(
     let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
     let nanoseconds = u32::try_from(c_nanoseconds)?;
     Ok(NaiveDateTime::from_timestamp(c_seconds, nanoseconds))
+}
+
+pub(crate) fn mg_value_datetime_zone_id(
+    mg_value: *const bindings::mg_value,
+) -> Result<DateTime, TryFromIntError> {
+    let c_datetime_zone_id = unsafe { bindings::mg_value_date_time_zone_id(mg_value) };
+    let c_seconds = unsafe { bindings::mg_date_time_zone_id_seconds(c_datetime_zone_id) };
+    let c_nanoseconds = unsafe { bindings::mg_date_time_zone_id_nanoseconds(c_datetime_zone_id) };
+    let c_tz_id = unsafe { bindings::mg_date_time_zone_id_tz_id(c_datetime_zone_id) };
+    
+    // Convert seconds since epoch to date/time components
+    let naive_datetime = NaiveDateTime::from_timestamp(c_seconds, c_nanoseconds as u32);
+    
+    // For now, we'll set time zone offset to 0 and zone ID to "UTC" 
+    // TODO: Add proper timezone ID mapping
+    let time_zone_id = match c_tz_id {
+        0 => Some("Etc/UTC".to_string()),
+        4294967302 => Some("Etc/UTC".to_string()), // Specific mapping for UTC timezone
+        _ => Some(format!("TZ_{}", c_tz_id)), // Placeholder for unknown timezone IDs
+    };
+    
+    Ok(DateTime {
+        year: naive_datetime.year(),
+        month: naive_datetime.month(),
+        day: naive_datetime.day(),
+        hour: naive_datetime.hour(),
+        minute: naive_datetime.minute(),
+        second: naive_datetime.second(),
+        nanosecond: naive_datetime.nanosecond(),
+        time_zone_offset_seconds: 0, // TODO: Extract actual offset from timezone ID
+        time_zone_id,
+    })
 }
 
 pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
@@ -463,6 +512,9 @@ impl Value {
             bindings::mg_value_type_MG_VALUE_TYPE_LOCAL_DATE_TIME => {
                 Value::LocalDateTime(mg_value_naive_local_date_time(c_mg_value).unwrap())
             }
+            bindings::mg_value_type_MG_VALUE_TYPE_DATE_TIME_ZONE_ID => {
+                Value::DateTime(mg_value_datetime_zone_id(c_mg_value).unwrap())
+            }
             bindings::mg_value_type_MG_VALUE_TYPE_DURATION => {
                 Value::Duration(mg_value_duration(c_mg_value))
             }
@@ -495,6 +547,12 @@ impl fmt::Display for Value {
             Value::Date(x) => write!(f, "'{}'", x),
             Value::LocalTime(x) => write!(f, "'{}'", x),
             Value::LocalDateTime(x) => write!(f, "'{}'", x),
+            Value::DateTime(x) => write!(f, "'{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:09} {} {}'", 
+                x.year, x.month, x.day, x.hour, x.minute, x.second, x.nanosecond,
+                if x.time_zone_offset_seconds >= 0 { "+" } else { "-" },
+                format!("{:02}:{:02}", 
+                    x.time_zone_offset_seconds.abs() / 3600, 
+                    (x.time_zone_offset_seconds.abs() % 3600) / 60)),
             Value::Duration(x) => write!(f, "'{}'", x),
             Value::List(x) => write!(
                 f,

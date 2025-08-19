@@ -3,20 +3,25 @@ use rsmgclient::{Connection, ConnectParams, Value};
 #[test]
 fn test_datetime_with_timezone() {
     // Setup: Create connection parameters and connect to the database
-    let params = ConnectParams::default();
+    let params = ConnectParams {
+        host: Some(String::from("localhost")),
+        ..ConnectParams::default()
+    };
     let mut connection = Connection::connect(&params).unwrap();
 
     // Create a node with a datetime property including timezone
     let query = "CREATE (:Flight {AIR123: datetime({year: 2024, month: 4, day: 21, hour: 14, minute: 15, timezone: 'UTC'})})";
     connection.execute(query, None).unwrap();
+    connection.fetchall().unwrap(); // Complete the first query
 
     // Query the node to retrieve the datetime property
     let query = "MATCH (f:Flight) RETURN f.AIR123";
-    let result = connection.execute(query, None).unwrap();
+    connection.execute(query, None).unwrap();
+    let records = connection.fetchall().unwrap();
 
     // Extract the datetime value from the result
-    if let Some(Value::Map(properties)) = result.next().unwrap() {
-        if let Some(Value::DateTime(datetime)) = properties.get("AIR123") {
+    if let Some(record) = records.first() {
+        if let Some(Value::DateTime(datetime)) = record.values.get(0) {
             // Assert the datetime fields
             assert_eq!(datetime.year, 2024);
             assert_eq!(datetime.month, 4);
@@ -31,6 +36,6 @@ fn test_datetime_with_timezone() {
             panic!("Expected a DateTime value for AIR123");
         }
     } else {
-        panic!("Expected a Map result");
+        panic!("Expected at least one record");
     }
 }
