@@ -257,18 +257,18 @@ pub(crate) fn mg_value_datetime_zone_id(
     let c_seconds = unsafe { bindings::mg_date_time_zone_id_seconds(c_datetime_zone_id) };
     let c_nanoseconds = unsafe { bindings::mg_date_time_zone_id_nanoseconds(c_datetime_zone_id) };
     let c_tz_id = unsafe { bindings::mg_date_time_zone_id_tz_id(c_datetime_zone_id) };
-    
+
     // Convert seconds since epoch to date/time components
     let naive_datetime = NaiveDateTime::from_timestamp(c_seconds, c_nanoseconds as u32);
-    
-    // For now, we'll set time zone offset to 0 and zone ID to "UTC" 
+
+    // For now, we'll set time zone offset to 0 and zone ID to "UTC"
     // TODO: Add proper timezone ID mapping
     let time_zone_id = match c_tz_id {
         0 => Some("Etc/UTC".to_string()),
         4294967302 => Some("Etc/UTC".to_string()), // Specific mapping for UTC timezone
-        _ => Some(format!("TZ_{}", c_tz_id)), // Placeholder for unknown timezone IDs
+        _ => Some(format!("TZ_{}", c_tz_id)),      // Placeholder for unknown timezone IDs
     };
-    
+
     Ok(DateTime {
         year: naive_datetime.year(),
         month: naive_datetime.month(),
@@ -547,12 +547,27 @@ impl fmt::Display for Value {
             Value::Date(x) => write!(f, "'{}'", x),
             Value::LocalTime(x) => write!(f, "'{}'", x),
             Value::LocalDateTime(x) => write!(f, "'{}'", x),
-            Value::DateTime(x) => write!(f, "'{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:09} {} {}'", 
-                x.year, x.month, x.day, x.hour, x.minute, x.second, x.nanosecond,
-                if x.time_zone_offset_seconds >= 0 { "+" } else { "-" },
-                format!("{:02}:{:02}", 
-                    x.time_zone_offset_seconds.abs() / 3600, 
-                    (x.time_zone_offset_seconds.abs() % 3600) / 60)),
+            Value::DateTime(x) => write!(
+                f,
+                "'{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:09} {} {}'",
+                x.year,
+                x.month,
+                x.day,
+                x.hour,
+                x.minute,
+                x.second,
+                x.nanosecond,
+                if x.time_zone_offset_seconds >= 0 {
+                    "+"
+                } else {
+                    "-"
+                },
+                format!(
+                    "{:02}:{:02}",
+                    x.time_zone_offset_seconds.abs() / 3600,
+                    (x.time_zone_offset_seconds.abs() % 3600) / 60
+                )
+            ),
             Value::Duration(x) => write!(f, "'{}'", x),
             Value::List(x) => write!(
                 f,

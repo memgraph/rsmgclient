@@ -1,4 +1,4 @@
-use rsmgclient::{Connection, ConnectParams, Value};
+use rsmgclient::{ConnectParams, Connection, Value};
 
 #[test]
 fn test_datetime_with_timezone() {
