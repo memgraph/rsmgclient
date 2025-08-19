@@ -393,10 +393,13 @@ impl Connection {
 
     /// Fully Executes provided query but doesn't return any results even if they exist.
     pub fn execute_without_results(&mut self, query: &str) -> Result<(), MgError> {
+        // Allocate the C string without leaking. Keep it alive for the duration of the FFI call.
+        let c_query = CString::new(query).map_err(|_| MgError::new("Invalid query".to_string()))?;
+
         match unsafe {
             bindings::mg_session_run(
                 self.mg_session,
-                str_to_c_str(query),
+                c_query.as_ptr(), // no leak: pointer valid during this call
                 std::ptr::null(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),

@@ -1,0 +1,4 @@
+# Global code owners
+# These users will be automatically assigned as reviewers for all PRs
+
+* @antejavor @gitbuda
