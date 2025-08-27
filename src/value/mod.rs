@@ -250,76 +250,45 @@ pub(crate) fn mg_value_naive_local_date_time(
     Ok(NaiveDateTime::from_timestamp(c_seconds, nanoseconds))
 }
 
-pub(crate) fn mg_value_datetime_zone_id(
-    mg_value: *const bindings::mg_value,
-) -> Result<DateTime, TryFromIntError> {
-    let c_datetime_zone_id = unsafe { bindings::mg_value_date_time_zone_id(mg_value) };
+fn mg_value_datetime_zone_id(
+    c_datetime_zone_id: *const bindings::mg_date_time_zone_id,
+) -> Result<DateTime, crate::error::MgError> {
     let c_seconds = unsafe { bindings::mg_date_time_zone_id_seconds(c_datetime_zone_id) };
     let c_nanoseconds = unsafe { bindings::mg_date_time_zone_id_nanoseconds(c_datetime_zone_id) };
-    let c_tz_id = unsafe { bindings::mg_date_time_zone_id_tz_id(c_datetime_zone_id) };
+    let c_timezone_name_ptr = unsafe { bindings::mg_date_time_zone_id_timezone_name(c_datetime_zone_id) };
 
-    // Convert seconds since epoch to date/time components
-    let naive_datetime = NaiveDateTime::from_timestamp(c_seconds, c_nanoseconds as u32);
+    // Create NaiveDateTime from timestamp
+    let naive_datetime = match NaiveDateTime::from_timestamp_opt(c_seconds, c_nanoseconds as u32) {
+        Some(dt) => dt,
+        None => return Err(crate::error::MgError::new("Invalid timestamp values".to_string())),
+    };
 
-    // Systematic timezone ID resolution using hybrid approach
-    let (time_zone_id, time_zone_offset_seconds) = resolve_timezone_info(c_tz_id, c_seconds);
+    // Extract timezone name from mg_string
+    let timezone_name = if c_timezone_name_ptr.is_null() {
+        "UTC".to_string()
+    } else {
+        unsafe { mg_string_to_string(c_timezone_name_ptr) }
+    };
+
+    // Extract individual date/time fields
+    let date = naive_datetime.date();
+    let time = naive_datetime.time();
 
     Ok(DateTime {
-        year: naive_datetime.year(),
-        month: naive_datetime.month(),
-        day: naive_datetime.day(),
-        hour: naive_datetime.hour(),
-        minute: naive_datetime.minute(),
-        second: naive_datetime.second(),
-        nanosecond: naive_datetime.nanosecond(),
-        time_zone_offset_seconds,
-        time_zone_id,
+        year: date.year(),
+        month: date.month(),
+        day: date.day(),
+        hour: time.hour(),
+        minute: time.minute(),
+        second: time.second(),
+        nanosecond: time.nanosecond(),
+        time_zone_offset_seconds: 0, // For now, use 0 offset
+        time_zone_id: Some(timezone_name),
     })
 }
 
 /// Resolves timezone information from the numeric timezone ID using a hybrid approach
 ///
-/// This function implements a systematic approach to timezone resolution:
-/// 1. Check for known exact timezone ID mappings
-/// 2. Use heuristics to detect UTC-like timezones
-/// 3. Fall back to a descriptive format that preserves the numeric ID
-fn resolve_timezone_info(c_tz_id: i64, timestamp_seconds: i64) -> (Option<String>, i32) {
-    // Phase 1: Known exact mappings
-    match c_tz_id {
-        0 => return (Some("Etc/UTC".to_string()), 0),
-        4294967302 | 139637976727558 => return (Some("Etc/UTC".to_string()), 0),
-        _ => {}
-    }
-
-    // Phase 2: Heuristic detection for UTC-like timezones
-    if is_likely_utc_timezone(c_tz_id, timestamp_seconds) {
-        return (Some("Etc/UTC".to_string()), 0);
-    }
-
-    // Phase 3: Preserve unknown timezone IDs with metadata
-    (Some(format!("TZ_{}", c_tz_id)), 0)
-}
-
-/// Determines if a timezone ID likely represents UTC using heuristic analysis
-///
-/// This function uses patterns observed from different environments to detect
-/// UTC timezones that may have system-specific numeric representations.
-fn is_likely_utc_timezone(tz_id: i64, _timestamp_seconds: i64) -> bool {
-    // Pattern observed: large positive numbers often represent UTC in various systems
-    // This heuristic successfully identified UTC in both local and CI environments
-    if tz_id > 1000000000 {
-        return true;
-    }
-
-    // Additional heuristics can be added here:
-    // - Check against known UTC ranges from different systems
-    // - Validate timezone behavior for known timestamps
-    // - Pattern matching based on collected data from various environments
-
-    // Conservative fallback
-    false
-}
-
 pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
     let c_duration = unsafe { bindings::mg_value_duration(mg_value) };
     let days = unsafe { bindings::mg_duration_days(c_duration) };
@@ -551,7 +520,8 @@ impl Value {
                 Value::LocalDateTime(mg_value_naive_local_date_time(c_mg_value).unwrap())
             }
             bindings::mg_value_type_MG_VALUE_TYPE_DATE_TIME_ZONE_ID => {
-                Value::DateTime(mg_value_datetime_zone_id(c_mg_value).unwrap())
+                let c_datetime_zone_id = unsafe { bindings::mg_value_date_time_zone_id(c_mg_value) };
+                Value::DateTime(mg_value_datetime_zone_id(c_datetime_zone_id).unwrap())
             }
             bindings::mg_value_type_MG_VALUE_TYPE_DURATION => {
                 Value::Duration(mg_value_duration(c_mg_value))
