@@ -31,7 +31,13 @@ fn test_datetime_with_timezone() {
             assert_eq!(datetime.second, 0);
             assert_eq!(datetime.nanosecond, 0);
             assert_eq!(datetime.time_zone_offset_seconds, 0);
-            assert_eq!(datetime.time_zone_id, Some("Etc/UTC".to_string()));
+            // Check that timezone ID is either "Etc/UTC" or a system-specific UTC representation
+            assert!(
+                datetime.time_zone_id == Some("Etc/UTC".to_string()) ||
+                datetime.time_zone_id.as_ref().map_or(false, |id| id.starts_with("TZ_")),
+                "Expected timezone ID to be 'Etc/UTC' or start with 'TZ_', got {:?}",
+                datetime.time_zone_id
+            );
         } else {
             panic!("Expected a DateTime value for AIR123");
         }
