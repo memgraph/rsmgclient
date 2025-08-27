@@ -292,7 +292,6 @@ fn mg_value_datetime_zone_id(
     })
 }
 
-
 pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
     let c_duration = unsafe { bindings::mg_value_duration(mg_value) };
     let days = unsafe { bindings::mg_duration_days(c_duration) };
