@@ -278,7 +278,7 @@ pub(crate) fn mg_value_datetime_zone_id(
 }
 
 /// Resolves timezone information from the numeric timezone ID using a hybrid approach
-/// 
+///
 /// This function implements a systematic approach to timezone resolution:
 /// 1. Check for known exact timezone ID mappings
 /// 2. Use heuristics to detect UTC-like timezones
@@ -290,18 +290,18 @@ fn resolve_timezone_info(c_tz_id: i64, timestamp_seconds: i64) -> (Option<String
         4294967302 | 139637976727558 => return (Some("Etc/UTC".to_string()), 0),
         _ => {}
     }
-    
+
     // Phase 2: Heuristic detection for UTC-like timezones
     if is_likely_utc_timezone(c_tz_id, timestamp_seconds) {
         return (Some("Etc/UTC".to_string()), 0);
     }
-    
+
     // Phase 3: Preserve unknown timezone IDs with metadata
     (Some(format!("TZ_{}", c_tz_id)), 0)
 }
 
 /// Determines if a timezone ID likely represents UTC using heuristic analysis
-/// 
+///
 /// This function uses patterns observed from different environments to detect
 /// UTC timezones that may have system-specific numeric representations.
 fn is_likely_utc_timezone(tz_id: i64, _timestamp_seconds: i64) -> bool {
@@ -310,12 +310,12 @@ fn is_likely_utc_timezone(tz_id: i64, _timestamp_seconds: i64) -> bool {
     if tz_id > 1000000000 {
         return true;
     }
-    
+
     // Additional heuristics can be added here:
     // - Check against known UTC ranges from different systems
     // - Validate timezone behavior for known timestamps
     // - Pattern matching based on collected data from various environments
-    
+
     // Conservative fallback
     false
 }
