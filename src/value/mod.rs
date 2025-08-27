@@ -255,12 +255,17 @@ fn mg_value_datetime_zone_id(
 ) -> Result<DateTime, crate::error::MgError> {
     let c_seconds = unsafe { bindings::mg_date_time_zone_id_seconds(c_datetime_zone_id) };
     let c_nanoseconds = unsafe { bindings::mg_date_time_zone_id_nanoseconds(c_datetime_zone_id) };
-    let c_timezone_name_ptr = unsafe { bindings::mg_date_time_zone_id_timezone_name(c_datetime_zone_id) };
+    let c_timezone_name_ptr =
+        unsafe { bindings::mg_date_time_zone_id_timezone_name(c_datetime_zone_id) };
 
     // Create NaiveDateTime from timestamp
     let naive_datetime = match NaiveDateTime::from_timestamp_opt(c_seconds, c_nanoseconds as u32) {
         Some(dt) => dt,
-        None => return Err(crate::error::MgError::new("Invalid timestamp values".to_string())),
+        None => {
+            return Err(crate::error::MgError::new(
+                "Invalid timestamp values".to_string(),
+            ))
+        }
     };
 
     // Extract timezone name from mg_string
@@ -287,8 +292,7 @@ fn mg_value_datetime_zone_id(
     })
 }
 
-/// Resolves timezone information from the numeric timezone ID using a hybrid approach
-///
+
 pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
     let c_duration = unsafe { bindings::mg_value_duration(mg_value) };
     let days = unsafe { bindings::mg_duration_days(c_duration) };
@@ -520,7 +524,8 @@ impl Value {
                 Value::LocalDateTime(mg_value_naive_local_date_time(c_mg_value).unwrap())
             }
             bindings::mg_value_type_MG_VALUE_TYPE_DATE_TIME_ZONE_ID => {
-                let c_datetime_zone_id = unsafe { bindings::mg_value_date_time_zone_id(c_mg_value) };
+                let c_datetime_zone_id =
+                    unsafe { bindings::mg_value_date_time_zone_id(c_mg_value) };
                 Value::DateTime(mg_value_datetime_zone_id(c_datetime_zone_id).unwrap())
             }
             bindings::mg_value_type_MG_VALUE_TYPE_DURATION => {
