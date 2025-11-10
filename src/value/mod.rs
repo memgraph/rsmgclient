@@ -23,6 +23,43 @@ use std::num::TryFromIntError;
 use std::os::raw::c_char;
 use std::slice;
 
+/// Representation of Point2D spatial data type.
+#[derive(Debug, PartialEq, Clone)]
+pub struct Point2D {
+    pub srid: u16,
+    pub x_longitude: f64,
+    pub y_latitude: f64,
+}
+
+impl fmt::Display for Point2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Point2D({{ srid:{}, x:{}, y:{} }})",
+            self.srid, self.x_longitude, self.y_latitude
+        )
+    }
+}
+
+/// Representation of Point3D spatial data type.
+#[derive(Debug, PartialEq, Clone)]
+pub struct Point3D {
+    pub srid: u16,
+    pub x_longitude: f64,
+    pub y_latitude: f64,
+    pub z_height: f64,
+}
+
+impl fmt::Display for Point3D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Point2D({{ srid:{}, x:{}, y:{}, z:{} }})",
+            self.srid, self.x_longitude, self.y_latitude, self.z_height
+        )
+    }
+}
+
 /// Representation of parameter value used in query.
 pub enum QueryParam {
     Null,
@@ -34,6 +71,8 @@ pub enum QueryParam {
     LocalTime(NaiveTime),
     LocalDateTime(NaiveDateTime),
     Duration(Duration),
+    Point2D(Point2D),
+    Point3D(Point3D),
     List(Vec<QueryParam>),
     Map(HashMap<String, QueryParam>),
 }
@@ -59,6 +98,12 @@ impl QueryParam {
                 ),
                 QueryParam::Duration(x) => {
                     bindings::mg_value_make_duration(duration_to_mg_duration(x))
+                }
+                QueryParam::Point2D(x) => {
+                    bindings::mg_value_make_point_2d(point2d_to_mg_point_2d(x))
+                }
+                QueryParam::Point3D(x) => {
+                    bindings::mg_value_make_point_3d(point3d_to_mg_point_3d(x))
                 }
                 QueryParam::List(x) => bindings::mg_value_make_list(vector_to_mg_list(x)),
                 QueryParam::Map(x) => bindings::mg_value_make_map(hash_map_to_mg_map(x)),
@@ -152,6 +197,8 @@ pub enum Value {
     LocalDateTime(NaiveDateTime),
     DateTime(DateTime),
     Duration(Duration),
+    Point2D(Point2D),
+    Point3D(Point3D),
     Map(HashMap<String, Value>),
     Node(Node),
     Relationship(Relationship),
@@ -298,6 +345,32 @@ pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration
     let seconds = unsafe { bindings::mg_duration_seconds(c_duration) };
     let nanoseconds = unsafe { bindings::mg_duration_nanoseconds(c_duration) };
     Duration::days(days) + Duration::seconds(seconds) + Duration::nanoseconds(nanoseconds)
+}
+
+pub(crate) fn mg_value_point2d(mg_value: *const bindings::mg_value) -> Point2D {
+    let c_point2d = unsafe { bindings::mg_value_point_2d(mg_value) };
+    let srid = unsafe { bindings::mg_point_2d_srid(c_point2d) } as u16;
+    let x_longitude = unsafe { bindings::mg_point_2d_x(c_point2d) };
+    let y_latitude = unsafe { bindings::mg_point_2d_y(c_point2d) };
+    Point2D {
+        srid,
+        x_longitude,
+        y_latitude,
+    }
+}
+
+pub(crate) fn mg_value_point3d(mg_value: *const bindings::mg_value) -> Point3D {
+    let c_point3d = unsafe { bindings::mg_value_point_3d(mg_value) };
+    let srid = unsafe { bindings::mg_point_3d_srid(c_point3d) } as u16;
+    let x_longitude = unsafe { bindings::mg_point_3d_x(c_point3d) };
+    let y_latitude = unsafe { bindings::mg_point_3d_y(c_point3d) };
+    let z_height = unsafe { bindings::mg_point_3d_z(c_point3d) };
+    Point3D {
+        srid,
+        x_longitude,
+        y_latitude,
+        z_height,
+    }
 }
 
 pub(crate) fn mg_map_to_hash_map(mg_map: *const bindings::mg_map) -> HashMap<String, Value> {
@@ -492,6 +565,21 @@ pub(crate) fn duration_to_mg_duration(input: &Duration) -> *mut bindings::mg_dur
     unsafe { bindings::mg_duration_make(0, days, seconds, nanoseconds) }
 }
 
+pub(crate) fn point2d_to_mg_point_2d(input: &Point2D) -> *mut bindings::mg_point_2d {
+    unsafe { bindings::mg_point_2d_make(input.srid, input.x_longitude, input.y_latitude) }
+}
+
+pub(crate) fn point3d_to_mg_point_3d(input: &Point3D) -> *mut bindings::mg_point_3d {
+    unsafe {
+        bindings::mg_point_3d_make(
+            input.srid,
+            input.x_longitude,
+            input.y_latitude,
+            input.z_height,
+        )
+    }
+}
+
 pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {
     let size = vector.len() as u32;
     let mg_list = unsafe { bindings::mg_list_make_empty(size) };
@@ -529,6 +617,12 @@ impl Value {
             }
             bindings::mg_value_type_MG_VALUE_TYPE_DURATION => {
                 Value::Duration(mg_value_duration(c_mg_value))
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_POINT_2D => {
+                Value::Point2D(mg_value_point2d(c_mg_value))
+            }
+            bindings::mg_value_type_MG_VALUE_TYPE_POINT_3D => {
+                Value::Point3D(mg_value_point3d(c_mg_value))
             }
             bindings::mg_value_type_MG_VALUE_TYPE_LIST => {
                 Value::List(mg_value_list_to_vec(c_mg_value))
@@ -581,6 +675,8 @@ impl fmt::Display for Value {
                 )
             ),
             Value::Duration(x) => write!(f, "'{}'", x),
+            Value::Point2D(x) => write!(f, "'{}'", x),
+            Value::Point3D(x) => write!(f, "'{}'", x),
             Value::List(x) => write!(
                 f,
                 "{}",

@@ -74,6 +74,8 @@ fn mg_value_to_c_mg_value(mg_value: &Value) -> *mut bindings::mg_value {
                 bindings::mg_value_make_null()
             }
             Value::Duration(x) => bindings::mg_value_make_duration(duration_to_mg_duration(x)),
+            Value::Point2D(x) => bindings::mg_value_make_point_2d(point2d_to_mg_point_2d(x)),
+            Value::Point3D(x) => bindings::mg_value_make_point_3d(point3d_to_mg_point_3d(x)),
             Value::List(x) => {
                 bindings::mg_value_make_list(bindings::mg_list_copy(vector_to_mg_list(x)))
             }
@@ -362,6 +364,53 @@ fn from_c_mg_value_duration() {
         mg_value
     );
     assert_eq!(format!("{}", mg_value), "'PT864100.000001S'");
+}
+
+#[test]
+fn from_c_mg_value_point_2d() {
+    let c_point2d = bindings::mg_point_2d {
+        srid: 0,
+        x: 1.0,
+        y: 2.0,
+    };
+    let c_mg_value =
+        unsafe { bindings::mg_value_make_point_2d(bindings::mg_point_2d_copy(&c_point2d)) };
+    let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
+    assert_eq!(
+        Value::Point2D(Point2D {
+            srid: 0,
+            x_longitude: 1.0,
+            y_latitude: 2.0
+        }),
+        mg_value
+    );
+    assert_eq!(format!("{}", mg_value), "'Point2D({ srid:0, x:1, y:2 })'");
+}
+
+#[test]
+fn from_c_mg_value_point_3d() {
+    let c_point3d = bindings::mg_point_3d {
+        srid: 0,
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+    };
+    let c_mg_value =
+        unsafe { bindings::mg_value_make_point_3d(bindings::mg_point_3d_copy(&c_point3d)) };
+    let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
+    assert_eq!(
+        Value::Point3D(Point3D {
+            srid: 0,
+            x_longitude: 1.0,
+            y_latitude: 2.0,
+            z_height: 3.0
+        }),
+        mg_value
+    );
+    assert_eq!(
+        format!("{}", mg_value),
+        "'Point2D({ srid:0, x:1, y:2, z:3 })'"
+    );
 }
 
 #[test]
@@ -864,6 +913,35 @@ fn from_duration_to_mg_value_2() {
             panic!("QueryParam::Duration converted into a wrong Value type!");
         }
     }
+}
+
+#[test]
+fn from_point2d_to_mg_point_2d() {
+    let query_param = QueryParam::Point2D(Point2D {
+        srid: 0,
+        x_longitude: 1.0,
+        y_latitude: 2.0,
+    });
+    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_POINT_2D
+    );
+}
+
+#[test]
+fn from_point3d_to_mg_point_3d() {
+    let query_param = QueryParam::Point3D(Point3D {
+        srid: 0,
+        x_longitude: 1.0,
+        y_latitude: 2.0,
+        z_height: 3.0,
+    });
+    let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
+    assert_eq!(
+        c_mg_value.type_,
+        bindings::mg_value_type_MG_VALUE_TYPE_POINT_3D
+    );
 }
 
 #[test]
