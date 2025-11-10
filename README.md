@@ -15,9 +15,9 @@ client library.
 - [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
   1.42.0 or above
 - Prerequisites of [mgclient](https://github.com/memgraph/mgclient):
-  - A C compiler supporting C11 standard
-  - CMake 3.8 or newer
-  - OpenSSL 1.0.2 or newer
+    - A C compiler supporting C11 standard
+    - CMake 3.8 or newer
+    - OpenSSL 1.0.2 or newer
 
 ### Installing from crates.io
 
@@ -28,8 +28,16 @@ your own Rust project, you can install it using `cargo`:
 cargo install rsmgclient
 ```
 
-NOTE: The default OpenSSL path on Windows is `C:\Program Files\OpenSSL-Win64\lib`,
-if you would like to change that please provide `OPENSSL_LIB_DIR` env variable.
+**Windows Users**: If you encounter OpenSSL-related build issues, you can install OpenSSL via vcpkg:
+```bash
+vcpkg install openssl:x64-windows-static
+```
+Then set the environment variables:
+```bash
+set OPENSSL_LIB_DIR=C:\vcpkg\installed\x64-windows-static\lib
+set OPENSSL_INCLUDE_DIR=C:\vcpkg\installed\x64-windows-static\include
+set OPENSSL_STATIC=1
+```
 
 ### Building from Source
 
@@ -45,21 +53,20 @@ Once `rsmgclient` is cloned, you will need to build it and then you can run
 the test suite to verify it is working correctly:
 
 ```bash
-git submodule update --init
+git submodule update --init --recursive
 cargo build
 # Please run Memgraph based on the quick start guide
 cargo test
 ```
 
-On MacOS, the build will try to detect OpenSSL by using MacPorts or Homebrew.
+On MacOS, the build will automatically detect OpenSSL using MacPorts or Homebrew.
 
-On Windows, `bindgen` requires `libclang` which is a part of LLVM. If LLVM is
-not already installed just go to the [LLVM
-download](https://releases.llvm.org/download.html) page, download and install
-`LLVM.exe` file (select the option to put LLVM on the PATH). In addition,
-default OpenSSL path is `C:\Program Files\OpenSSL-Win64\lib`, if you would like
-to change that please provide `OPENSSL_LIB_DIR` env variable during the build
-phase.
+On Windows, the build supports multiple OpenSSL configurations:
+- **Recommended**: The build will automatically use vcpkg to install OpenSSL if available
+- **Manual**: You can provide custom OpenSSL paths using `OPENSSL_LIB_DIR` and `OPENSSL_INCLUDE_DIR` environment variables
+- **Default**: Falls back to `C:\Program Files\OpenSSL-Win64\` if no custom paths are provided
+
+`bindgen` requires `libclang` which is part of LLVM. On Windows, if LLVM is not installed, download it from the [LLVM download page](https://releases.llvm.org/download.html) and install the `LLVM.exe` file (make sure to select the option to add LLVM to PATH).
 
 ## Documentation
 

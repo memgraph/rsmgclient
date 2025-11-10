@@ -112,6 +112,22 @@ impl QueryParam {
     }
 }
 
+/// Representation of a DateTime value with timezone support.
+///
+/// Contains date, time, and timezone information including timezone ID and offset.
+#[derive(Debug, PartialEq, Clone)]
+pub struct DateTime {
+    pub year: i32,
+    pub month: u32,
+    pub day: u32,
+    pub hour: u32,
+    pub minute: u32,
+    pub second: u32,
+    pub nanosecond: u32,
+    pub time_zone_offset_seconds: i32,
+    pub time_zone_id: Option<String>,
+}
+
 /// Representation of node value from a labeled property graph.
 ///
 /// Consists of a unique identifier(within the scope of its origin graph), a list
@@ -179,6 +195,7 @@ pub enum Value {
     Date(NaiveDate),
     LocalTime(NaiveTime),
     LocalDateTime(NaiveDateTime),
+    DateTime(DateTime),
     Duration(Duration),
     Point2D(Point2D),
     Point3D(Point3D),
@@ -278,6 +295,48 @@ pub(crate) fn mg_value_naive_local_date_time(
     let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
     let nanoseconds = u32::try_from(c_nanoseconds)?;
     Ok(NaiveDateTime::from_timestamp(c_seconds, nanoseconds))
+}
+
+fn mg_value_datetime_zone_id(
+    c_datetime_zone_id: *const bindings::mg_date_time_zone_id,
+) -> Result<DateTime, crate::error::MgError> {
+    let c_seconds = unsafe { bindings::mg_date_time_zone_id_seconds(c_datetime_zone_id) };
+    let c_nanoseconds = unsafe { bindings::mg_date_time_zone_id_nanoseconds(c_datetime_zone_id) };
+    let c_timezone_name_ptr =
+        unsafe { bindings::mg_date_time_zone_id_timezone_name(c_datetime_zone_id) };
+
+    // Create NaiveDateTime from timestamp
+    let naive_datetime = match NaiveDateTime::from_timestamp_opt(c_seconds, c_nanoseconds as u32) {
+        Some(dt) => dt,
+        None => {
+            return Err(crate::error::MgError::new(
+                "Invalid timestamp values".to_string(),
+            ))
+        }
+    };
+
+    // Extract timezone name from mg_string
+    let timezone_name = if c_timezone_name_ptr.is_null() {
+        "UTC".to_string()
+    } else {
+        unsafe { mg_string_to_string(c_timezone_name_ptr) }
+    };
+
+    // Extract individual date/time fields
+    let date = naive_datetime.date();
+    let time = naive_datetime.time();
+
+    Ok(DateTime {
+        year: date.year(),
+        month: date.month(),
+        day: date.day(),
+        hour: time.hour(),
+        minute: time.minute(),
+        second: time.second(),
+        nanosecond: time.nanosecond(),
+        time_zone_offset_seconds: 0, // For now, use 0 offset
+        time_zone_id: Some(timezone_name),
+    })
 }
 
 pub(crate) fn mg_value_duration(mg_value: *const bindings::mg_value) -> Duration {
@@ -551,6 +610,11 @@ impl Value {
             bindings::mg_value_type_MG_VALUE_TYPE_LOCAL_DATE_TIME => {
                 Value::LocalDateTime(mg_value_naive_local_date_time(c_mg_value).unwrap())
             }
+            bindings::mg_value_type_MG_VALUE_TYPE_DATE_TIME_ZONE_ID => {
+                let c_datetime_zone_id =
+                    unsafe { bindings::mg_value_date_time_zone_id(c_mg_value) };
+                Value::DateTime(mg_value_datetime_zone_id(c_datetime_zone_id).unwrap())
+            }
             bindings::mg_value_type_MG_VALUE_TYPE_DURATION => {
                 Value::Duration(mg_value_duration(c_mg_value))
             }
@@ -589,6 +653,27 @@ impl fmt::Display for Value {
             Value::Date(x) => write!(f, "'{}'", x),
             Value::LocalTime(x) => write!(f, "'{}'", x),
             Value::LocalDateTime(x) => write!(f, "'{}'", x),
+            Value::DateTime(x) => write!(
+                f,
+                "'{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:09} {} {}'",
+                x.year,
+                x.month,
+                x.day,
+                x.hour,
+                x.minute,
+                x.second,
+                x.nanosecond,
+                if x.time_zone_offset_seconds >= 0 {
+                    "+"
+                } else {
+                    "-"
+                },
+                format!(
+                    "{:02}:{:02}",
+                    x.time_zone_offset_seconds.abs() / 3600,
+                    (x.time_zone_offset_seconds.abs() % 3600) / 60
+                )
+            ),
             Value::Duration(x) => write!(f, "'{}'", x),
             Value::Point2D(x) => write!(f, "'{}'", x),
             Value::Point3D(x) => write!(f, "'{}'", x),
