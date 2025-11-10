@@ -281,10 +281,7 @@ pub(crate) fn mg_value_naive_local_time(
     let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
     let seconds = u32::try_from(c_nanoseconds / NSEC_IN_SEC)?;
     let nanoseconds = u32::try_from(c_nanoseconds % NSEC_IN_SEC)?;
-    Ok(NaiveTime::from_num_seconds_from_midnight_opt(
-        seconds,
-        nanoseconds,
-    ).unwrap())
+    Ok(NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds).unwrap())
 }
 
 pub(crate) fn mg_value_naive_local_date_time(
@@ -294,7 +291,10 @@ pub(crate) fn mg_value_naive_local_date_time(
     let c_seconds = unsafe { bindings::mg_local_date_time_seconds(c_local_date_time) };
     let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
     let nanoseconds = u32::try_from(c_nanoseconds)?;
-    Ok(Utc.timestamp_opt(c_seconds, nanoseconds).unwrap().naive_utc())
+    Ok(Utc
+        .timestamp_opt(c_seconds, nanoseconds)
+        .unwrap()
+        .naive_utc())
 }
 
 fn mg_value_datetime_zone_id(
@@ -525,7 +525,9 @@ pub(crate) fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
 }
 
 pub(crate) fn naive_date_to_mg_date(input: &NaiveDate) -> *mut bindings::mg_date {
-    let unix_epoch = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap().num_days_from_ce();
+    let unix_epoch = NaiveDate::from_ymd_opt(1970, 1, 1)
+        .unwrap()
+        .num_days_from_ce();
     unsafe { bindings::mg_date_make((input.num_days_from_ce() - unix_epoch) as i64) }
 }
 
@@ -540,7 +542,9 @@ pub(crate) fn naive_local_time_to_mg_local_time(input: &NaiveTime) -> *mut bindi
 pub(crate) fn naive_local_date_time_to_mg_local_date_time(
     input: &NaiveDateTime,
 ) -> *mut bindings::mg_local_date_time {
-    let unix_epoch = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap().num_days_from_ce();
+    let unix_epoch = NaiveDate::from_ymd_opt(1970, 1, 1)
+        .unwrap()
+        .num_days_from_ce();
     let days_s = days_as_seconds((input.num_days_from_ce() - unix_epoch) as i64);
     let hours_s = hours_as_seconds(input.hour() as i64);
     let minutes_s = minutes_as_seconds(input.minute() as i64);
