@@ -19,3 +19,6 @@ Cargo.lock
 tarpaulin-report.html
 
 # End of https://www.toptal.com/developers/gitignore/api/rust
+
+# Environment variables file
+.env
