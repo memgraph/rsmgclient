@@ -249,7 +249,8 @@ fn from_c_mg_value_date1() {
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
     assert_eq!(
         Value::Date(
-            NaiveDate::from_ymd(1970, 1, 1)
+            NaiveDate::from_ymd_opt(1970, 1, 1)
+                .unwrap()
                 .checked_add_signed(Duration::days(100))
                 .unwrap()
         ),
@@ -263,7 +264,10 @@ fn from_c_mg_value_date2() {
     let c_date = bindings::mg_date { days: 365 };
     let c_mg_value = unsafe { bindings::mg_value_make_date(bindings::mg_date_copy(&c_date)) };
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
-    assert_eq!(Value::Date(NaiveDate::from_ymd(1971, 1, 1)), mg_value);
+    assert_eq!(
+        Value::Date(NaiveDate::from_ymd_opt(1971, 1, 1).unwrap()),
+        mg_value
+    );
     assert_eq!(format!("{}", mg_value), "'1971-01-01'");
 }
 
@@ -272,7 +276,10 @@ fn from_c_mg_value_date3() {
     let c_date = bindings::mg_date { days: -365 };
     let c_mg_value = unsafe { bindings::mg_value_make_date(bindings::mg_date_copy(&c_date)) };
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
-    assert_eq!(Value::Date(NaiveDate::from_ymd(1969, 1, 1)), mg_value);
+    assert_eq!(
+        Value::Date(NaiveDate::from_ymd_opt(1969, 1, 1).unwrap()),
+        mg_value
+    );
     assert_eq!(format!("{}", mg_value), "'1969-01-01'");
 }
 
@@ -285,7 +292,7 @@ fn from_c_mg_value_local_time() {
         unsafe { bindings::mg_value_make_local_time(bindings::mg_local_time_copy(&c_local_time)) };
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
     assert_eq!(
-        Value::LocalTime(NaiveTime::from_hms_micro(14, 40, 35, 851241)),
+        Value::LocalTime(NaiveTime::from_hms_micro_opt(14, 40, 35, 851241).unwrap()),
         mg_value
     );
     assert_eq!(format!("{}", mg_value), "'14:40:35.851241'");
@@ -304,7 +311,12 @@ fn from_c_mg_value_local_date_time1() {
     };
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
     assert_eq!(
-        Value::LocalDateTime(NaiveDate::from_ymd(1971, 5, 16).and_hms_micro(14, 40, 35, 851241)),
+        Value::LocalDateTime(
+            NaiveDate::from_ymd_opt(1971, 5, 16)
+                .unwrap()
+                .and_hms_micro_opt(14, 40, 35, 851241)
+                .unwrap()
+        ),
         mg_value
     );
     assert_eq!(format!("{}", mg_value), "'1971-05-16 14:40:35.851241'");
@@ -323,7 +335,12 @@ fn from_c_mg_value_local_date_time2() {
     };
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
     assert_eq!(
-        Value::LocalDateTime(NaiveDate::from_ymd(1968, 8, 19).and_hms_micro(14, 40, 35, 851241)),
+        Value::LocalDateTime(
+            NaiveDate::from_ymd_opt(1968, 8, 19)
+                .unwrap()
+                .and_hms_micro_opt(14, 40, 35, 851241)
+                .unwrap()
+        ),
         mg_value
     );
     assert_eq!(format!("{}", mg_value), "'1968-08-19 14:40:35.851241'");
@@ -342,7 +359,12 @@ fn from_c_mg_value_local_date_time3() {
     };
     let mg_value = unsafe { Value::from_mg_value(c_mg_value) };
     assert_eq!(
-        Value::LocalDateTime(NaiveDate::from_ymd(1969, 12, 31).and_hms_micro(23, 59, 59, 0)),
+        Value::LocalDateTime(
+            NaiveDate::from_ymd_opt(1969, 12, 31)
+                .unwrap()
+                .and_hms_micro_opt(23, 59, 59, 0)
+                .unwrap()
+        ),
         mg_value
     );
     assert_eq!(format!("{}", mg_value), "'1969-12-31 23:59:59'");
@@ -800,7 +822,7 @@ fn from_to_c_mg_value_string() {
 
 #[test]
 fn from_naive_date_param_to_mg_value() {
-    let query_param = QueryParam::Date(NaiveDate::from_ymd(1971, 1, 1));
+    let query_param = QueryParam::Date(NaiveDate::from_ymd_opt(1971, 1, 1).unwrap());
     let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
     assert_eq!(c_mg_value.type_, bindings::mg_value_type_MG_VALUE_TYPE_DATE);
     let mg_value = unsafe { Value::from_mg_value(&c_mg_value) };
@@ -819,7 +841,7 @@ fn from_naive_date_param_to_mg_value() {
 
 #[test]
 fn from_naive_local_time_param_to_mg_value() {
-    let query_param = QueryParam::LocalTime(NaiveTime::from_hms_nano(2, 3, 4, 1234));
+    let query_param = QueryParam::LocalTime(NaiveTime::from_hms_nano_opt(2, 3, 4, 1234).unwrap());
     let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
     assert_eq!(
         c_mg_value.type_,
@@ -842,8 +864,12 @@ fn from_naive_local_time_param_to_mg_value() {
 
 #[test]
 fn from_naive_local_date_time_param_to_mg_value() {
-    let query_param =
-        QueryParam::LocalDateTime(NaiveDate::from_ymd(1960, 1, 1).and_hms_nano(2, 3, 4, 1234));
+    let query_param = QueryParam::LocalDateTime(
+        NaiveDate::from_ymd_opt(1960, 1, 1)
+            .unwrap()
+            .and_hms_nano_opt(2, 3, 4, 1234)
+            .unwrap(),
+    );
     let c_mg_value = unsafe { *(query_param.to_c_mg_value()) };
     assert_eq!(
         c_mg_value.type_,
