@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::bindings;
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike, Utc};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::ffi::{CStr, CString};
@@ -269,7 +269,7 @@ const NSEC_IN_SEC: i64 = 1_000_000_000;
 pub(crate) fn mg_value_naive_date(mg_value: *const bindings::mg_value) -> Result<NaiveDate, ()> {
     let c_date = unsafe { bindings::mg_value_date(mg_value) };
     let c_delta_days = unsafe { bindings::mg_date_days(c_date) };
-    let epoch_date = NaiveDate::from_ymd(1970, 1, 1);
+    let epoch_date = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
     let delta_days = Duration::days(c_delta_days);
     Ok(epoch_date.checked_add_signed(delta_days).unwrap())
 }
@@ -281,10 +281,7 @@ pub(crate) fn mg_value_naive_local_time(
     let c_nanoseconds = unsafe { bindings::mg_local_time_nanoseconds(c_local_time) };
     let seconds = u32::try_from(c_nanoseconds / NSEC_IN_SEC)?;
     let nanoseconds = u32::try_from(c_nanoseconds % NSEC_IN_SEC)?;
-    Ok(NaiveTime::from_num_seconds_from_midnight(
-        seconds,
-        nanoseconds,
-    ))
+    Ok(NaiveTime::from_num_seconds_from_midnight_opt(seconds, nanoseconds).unwrap())
 }
 
 pub(crate) fn mg_value_naive_local_date_time(
@@ -294,7 +291,10 @@ pub(crate) fn mg_value_naive_local_date_time(
     let c_seconds = unsafe { bindings::mg_local_date_time_seconds(c_local_date_time) };
     let c_nanoseconds = unsafe { bindings::mg_local_date_time_nanoseconds(c_local_date_time) };
     let nanoseconds = u32::try_from(c_nanoseconds)?;
-    Ok(NaiveDateTime::from_timestamp(c_seconds, nanoseconds))
+    Ok(Utc
+        .timestamp_opt(c_seconds, nanoseconds)
+        .unwrap()
+        .naive_utc())
 }
 
 fn mg_value_datetime_zone_id(
@@ -306,9 +306,9 @@ fn mg_value_datetime_zone_id(
         unsafe { bindings::mg_date_time_zone_id_timezone_name(c_datetime_zone_id) };
 
     // Create NaiveDateTime from timestamp
-    let naive_datetime = match NaiveDateTime::from_timestamp_opt(c_seconds, c_nanoseconds as u32) {
-        Some(dt) => dt,
-        None => {
+    let naive_datetime = match Utc.timestamp_opt(c_seconds, c_nanoseconds as u32) {
+        chrono::LocalResult::Single(dt) => dt.naive_utc(),
+        _ => {
             return Err(crate::error::MgError::new(
                 "Invalid timestamp values".to_string(),
             ))
@@ -319,7 +319,7 @@ fn mg_value_datetime_zone_id(
     let timezone_name = if c_timezone_name_ptr.is_null() {
         "UTC".to_string()
     } else {
-        unsafe { mg_string_to_string(c_timezone_name_ptr) }
+        mg_string_to_string(c_timezone_name_ptr)
     };
 
     // Extract individual date/time fields
@@ -525,7 +525,9 @@ pub(crate) fn str_to_c_str(string: &str) -> *const std::os::raw::c_char {
 }
 
 pub(crate) fn naive_date_to_mg_date(input: &NaiveDate) -> *mut bindings::mg_date {
-    let unix_epoch = NaiveDate::from_ymd(1970, 1, 1).num_days_from_ce();
+    let unix_epoch = NaiveDate::from_ymd_opt(1970, 1, 1)
+        .unwrap()
+        .num_days_from_ce();
     unsafe { bindings::mg_date_make((input.num_days_from_ce() - unix_epoch) as i64) }
 }
 
@@ -540,7 +542,9 @@ pub(crate) fn naive_local_time_to_mg_local_time(input: &NaiveTime) -> *mut bindi
 pub(crate) fn naive_local_date_time_to_mg_local_date_time(
     input: &NaiveDateTime,
 ) -> *mut bindings::mg_local_date_time {
-    let unix_epoch = NaiveDate::from_ymd(1970, 1, 1).num_days_from_ce();
+    let unix_epoch = NaiveDate::from_ymd_opt(1970, 1, 1)
+        .unwrap()
+        .num_days_from_ce();
     let days_s = days_as_seconds((input.num_days_from_ce() - unix_epoch) as i64);
     let hours_s = hours_as_seconds(input.hour() as i64);
     let minutes_s = minutes_as_seconds(input.minute() as i64);
