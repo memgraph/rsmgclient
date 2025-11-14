@@ -52,14 +52,17 @@ impl Error for BuildError {}
 // NOTE: We have to build mgclient and link the rust binary with the same SSL and Crypto libs.
 
 fn build_mgclient_macos() -> Result<PathBuf, BuildError> {
-    println!("MacOS detected. We will check if you have either the MacPorts or Homebrew package managers.");
+    println!(
+        "MacOS detected. We will check if you have either the MacPorts or Homebrew package managers."
+    );
     println!("Checking for MacPorts...");
     let output = Command::new("/usr/bin/command")
         .args(["-v", "port"])
         .output()
         .map_err(|err| BuildError::IoError(format!("'/usr/bin/command -v port': {}", err)))?
         .stdout;
-    let port_path = String::from_utf8(output).unwrap();
+    let port_path = String::from_utf8(output)
+        .map_err(|err| BuildError::Unknown(format!("Invalid UTF-8 in port path: {}", err)))?;
     if !port_path.is_empty() {
         let port_path = &port_path[..port_path.len() - 1];
         println!(
@@ -72,17 +75,19 @@ fn build_mgclient_macos() -> Result<PathBuf, BuildError> {
             Command::new(port_path)
                 .args(["installed", "openssl"])
                 .output()
-                .expect("Failed to execute shell command 'port installed openssl'")
+                .map_err(|err| BuildError::IoError(format!("'port installed openssl': {}", err)))?
                 .stdout,
         )
-        .unwrap();
+        .map_err(|err| BuildError::Unknown(format!("Invalid UTF-8 in port output: {}", err)))?;
         if output == "None of the specified ports are installed.\n" {
-            panic!("The openssl port does not seem to be installed! Please install it using 'port install openssl'.");
+            panic!(
+                "The openssl port does not seem to be installed! Please install it using 'port install openssl'."
+            );
         }
         let openssl_lib_dir = port_binary_path
             .ancestors()
             .nth(2)
-            .unwrap()
+            .ok_or_else(|| BuildError::Unknown("Unable to find port parent directory".to_string()))?
             .join("libexec")
             .join("openssl3")
             .join("lib");
@@ -104,13 +109,14 @@ fn build_mgclient_macos() -> Result<PathBuf, BuildError> {
             .output()
             .map_err(|err| BuildError::IoError(format!("'/usr/bin/command -v brew': {}", err)))?
             .stdout;
-        let brew_path = String::from_utf8(output).unwrap();
+        let brew_path = String::from_utf8(output)
+            .map_err(|err| BuildError::Unknown(format!("Invalid UTF-8 in brew path: {}", err)))?;
         if brew_path.is_empty() {
             println!("Homebrew not found.");
-            BuildError::Unknown(
+            return Err(BuildError::Unknown(
                 "We did not detect either MacPorts or Homebrew on your machine. We cannot proceed."
                     .to_string(),
-            );
+            ));
         } else {
             println!("'brew' executable detected at {:?}", &brew_path);
             println!("Proceeding with installation assuming Homebrew is your package manager");
@@ -140,9 +146,15 @@ fn build_mgclient_macos() -> Result<PathBuf, BuildError> {
             })
             .collect::<Vec<PathBuf>>();
         openssl_dirs.sort_by(|a, b| {
-            let a_time = a.metadata().unwrap().modified().unwrap();
-            let b_time = b.metadata().unwrap().modified().unwrap();
-            b_time.cmp(&a_time)
+            // If we can't get metadata, treat as older file (sort to end)
+            let a_time = a.metadata().ok().and_then(|m| m.modified().ok());
+            let b_time = b.metadata().ok().and_then(|m| m.modified().ok());
+            match (b_time, a_time) {
+                (Some(b), Some(a)) => b.cmp(&a),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
         });
         let openssl_root_path = openssl_dirs[0].clone();
         println!(
@@ -268,10 +280,14 @@ fn main() -> Result<(), BuildError> {
         .header(format!("{}", mgclient_export_h.display()))
         .header(format!("{}", mgclient_mgvalue_h.display()))
         .clang_arg(format!("-I{}", mgclient_out.join("include").display()))
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .generate_cstr(true)
         .generate()
         .expect("Unable to generate bindings");
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path =
+        PathBuf::from(env::var("OUT_DIR").map_err(|_| {
+            BuildError::Unknown("OUT_DIR environment variable not set".to_string())
+        })?);
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");

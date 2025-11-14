@@ -7,7 +7,7 @@ use std::{thread, time};
 
 use serde_json::json;
 use std::collections::HashMap;
-use std::fs::{create_dir_all, OpenOptions};
+use std::fs::{OpenOptions, create_dir_all};
 use std::io::prelude::*;
 use std::path::Path;
 
