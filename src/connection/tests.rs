@@ -660,9 +660,11 @@ fn fetching_close_panic() {
 fn execute_without_results() {
     let mut connection = initialize();
 
-    assert!(connection
-        .execute_without_results("CREATE (n1) CREATE (n2) RETURN n1, n2;")
-        .is_ok());
+    assert!(
+        connection
+            .execute_without_results("CREATE (n1) CREATE (n2) RETURN n1, n2;")
+            .is_ok()
+    );
     assert_eq!(ConnectionStatus::Ready, connection.status());
 
     assert!(connection.execute("MATCH (n) RETURN n;", None).is_ok());

@@ -15,14 +15,22 @@
 use super::bindings;
 use super::error::MgError;
 use super::value::{
-    c_string_to_string, hash_map_to_mg_map, mg_list_to_vec, mg_map_to_hash_map, mg_value_string,
-    str_to_c_str, QueryParam, Record, Value,
+    QueryParam, Record, Value, c_string_to_string, hash_map_to_mg_map, mg_list_to_vec,
+    mg_map_to_hash_map, mg_value_string,
 };
 
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::os::raw::c_char;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::vec::IntoIter;
+
+/// Static counter to track the number of active connections.
+/// This ensures mg_init() and mg_finalize() are called correctly
+/// as they are process-wide operations, not per-connection.
+static CONNECTION_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+/// Type alias for SSL trust callback function.
+pub type TrustCallback = *const dyn Fn(&String, &String, &String, &String) -> i32;
 
 /// Parameters for connecting to database.
 ///
@@ -74,7 +82,7 @@ pub struct ConnectParams {
     /// the hostname, IP address, public key type and fingerprint and user provided data. If the
     /// function returns a non-zero value, SSL connection will be immediately terminated. This can
     /// be used to implement TOFU (trust on first use) mechanism.
-    pub trust_callback: Option<*const dyn Fn(&String, &String, &String, &String) -> i32>,
+    pub trust_callback: Option<TrustCallback>,
     /// Initial value of `lazy` field, defaults to true, Can be changed using `Connection::set_lazy`.
     pub lazy: bool,
     /// Initial value of `autocommit` field, defaults to false. Can be changed using
@@ -144,6 +152,10 @@ pub struct Connection {
     results_iter: Option<IntoIter<Record>>,
     arraysize: u32,
     summary: Option<HashMap<String, Value>>,
+    /// Stored to keep the callback alive for the lifetime of the connection.
+    /// mgclient stores the pointer and may call it during SSL operations.
+    #[allow(dead_code)]
+    trust_callback: Option<Box<TrustCallback>>,
 }
 
 /// Representation of current connection status.
@@ -172,7 +184,12 @@ fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
 impl Drop for Connection {
     fn drop(&mut self) {
         unsafe { bindings::mg_session_destroy(self.mg_session) };
-        Connection::finalize();
+
+        // Decrement the connection counter and finalize only if this was the last connection
+        if CONNECTION_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
+            // This was the last connection, safe to finalize
+            Connection::finalize();
+        }
     }
 }
 
@@ -298,37 +315,68 @@ impl Connection {
     /// # Ok(()) }
     /// ```
     pub fn connect(param_struct: &ConnectParams) -> Result<Connection, MgError> {
-        Connection::init();
+        // Increment the connection counter and initialize only if this is the first connection
+        let prev_count = CONNECTION_COUNT.fetch_add(1, Ordering::SeqCst);
+        if prev_count == 0 {
+            // First connection, need to initialize
+            Connection::init();
+        }
+
         let mg_session_params = unsafe { bindings::mg_session_params_make() };
-        let mut trust_callback_ptr = std::ptr::null_mut();
+        if mg_session_params.is_null() {
+            // Connection failed, decrement the counter and finalize if needed
+            if CONNECTION_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
+                Connection::finalize();
+            }
+            return Err(MgError::ffi(
+                "Failed to allocate mg_session_params".to_string(),
+            ));
+        }
+        let mut trust_callback_box: Option<Box<TrustCallback>> = None;
+
+        // Create CStrings and keep them alive for the duration of mg_connect
+        let c_host = match param_struct.host.as_ref() {
+            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("host"))?),
+            None => None,
+        };
+        let c_address = match param_struct.address.as_ref() {
+            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("address"))?),
+            None => None,
+        };
+        let c_username = match param_struct.username.as_ref() {
+            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("username"))?),
+            None => None,
+        };
+        let c_password = match param_struct.password.as_ref() {
+            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("password"))?),
+            None => None,
+        };
+        let c_client_name = CString::new(param_struct.client_name.as_str())
+            .map_err(|_| MgError::null_byte("client_name"))?;
+        let c_sslcert = match param_struct.sslcert.as_ref() {
+            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("sslcert"))?),
+            None => None,
+        };
+        let c_sslkey = match param_struct.sslkey.as_ref() {
+            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("sslkey"))?),
+            None => None,
+        };
+
         unsafe {
-            match &param_struct.host {
-                Some(x) => bindings::mg_session_params_set_host(mg_session_params, str_to_c_str(x)),
-                None => {}
+            if let Some(ref x) = c_host {
+                bindings::mg_session_params_set_host(mg_session_params, x.as_ptr())
             }
             bindings::mg_session_params_set_port(mg_session_params, param_struct.port);
-            match &param_struct.address {
-                Some(x) => {
-                    bindings::mg_session_params_set_address(mg_session_params, str_to_c_str(x))
-                }
-                None => {}
+            if let Some(ref x) = c_address {
+                bindings::mg_session_params_set_address(mg_session_params, x.as_ptr())
             }
-            match &param_struct.username {
-                Some(x) => {
-                    bindings::mg_session_params_set_username(mg_session_params, str_to_c_str(x))
-                }
-                None => {}
+            if let Some(ref x) = c_username {
+                bindings::mg_session_params_set_username(mg_session_params, x.as_ptr())
             }
-            match &param_struct.password {
-                Some(x) => {
-                    bindings::mg_session_params_set_password(mg_session_params, str_to_c_str(x))
-                }
-                None => {}
+            if let Some(ref x) = c_password {
+                bindings::mg_session_params_set_password(mg_session_params, x.as_ptr())
             }
-            bindings::mg_session_params_set_user_agent(
-                mg_session_params,
-                str_to_c_str(&param_struct.client_name),
-            );
+            bindings::mg_session_params_set_user_agent(mg_session_params, c_client_name.as_ptr());
             bindings::mg_session_params_set_sslmode(
                 mg_session_params,
                 // Bindings struct is not used because on Linux bindgen
@@ -338,32 +386,28 @@ impl Connection {
                     SSLMode::Require => 1,
                 },
             );
-            match &param_struct.sslcert {
-                Some(x) => {
-                    bindings::mg_session_params_set_sslcert(mg_session_params, str_to_c_str(x))
-                }
-                None => {}
+            if let Some(ref x) = c_sslcert {
+                bindings::mg_session_params_set_sslcert(mg_session_params, x.as_ptr())
             }
-            match &param_struct.sslkey {
-                Some(x) => {
-                    bindings::mg_session_params_set_sslkey(mg_session_params, str_to_c_str(x))
-                }
-                None => {}
+            if let Some(ref x) = c_sslkey {
+                bindings::mg_session_params_set_sslkey(mg_session_params, x.as_ptr())
             }
-            match &param_struct.trust_callback {
-                Some(x) => {
-                    trust_callback_ptr = Box::into_raw(Box::new(*x));
+            if let Some(x) = &param_struct.trust_callback {
+                let callback_box = Box::new(*x);
+                let trust_callback_ptr = Box::into_raw(callback_box);
 
-                    bindings::mg_session_params_set_trust_data(
-                        mg_session_params,
-                        trust_callback_ptr as *mut ::std::os::raw::c_void,
-                    );
-                    bindings::mg_session_params_set_trust_callback(
-                        mg_session_params,
-                        Some(trust_callback_wrapper),
-                    );
-                }
-                None => {}
+                bindings::mg_session_params_set_trust_data(
+                    mg_session_params,
+                    trust_callback_ptr as *mut ::std::os::raw::c_void,
+                );
+                bindings::mg_session_params_set_trust_callback(
+                    mg_session_params,
+                    Some(trust_callback_wrapper),
+                );
+
+                // Store the callback box for later (will be owned by Connection)
+                // SAFETY: We just created this raw pointer from Box::into_raw above
+                trust_callback_box = Some(Box::from_raw(trust_callback_ptr));
             }
         }
 
@@ -371,13 +415,14 @@ impl Connection {
         let status = unsafe { bindings::mg_connect(mg_session_params, &mut mg_session) };
         unsafe {
             bindings::mg_session_params_destroy(mg_session_params);
-            if !trust_callback_ptr.is_null() {
-                let _ = Box::from_raw(trust_callback_ptr);
-            }
         };
 
         if status != 0 {
-            return Err(MgError::new(read_error_message(mg_session)));
+            // Connection failed, decrement the counter and finalize if needed
+            if CONNECTION_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
+                Connection::finalize();
+            }
+            return Err(MgError::connection(read_error_message(mg_session)));
         }
 
         Ok(Connection {
@@ -388,13 +433,14 @@ impl Connection {
             results_iter: None,
             arraysize: 1,
             summary: None,
+            trust_callback: trust_callback_box,
         })
     }
 
     /// Fully Executes provided query but doesn't return any results even if they exist.
     pub fn execute_without_results(&mut self, query: &str) -> Result<(), MgError> {
         // Allocate the C string without leaking. Keep it alive for the duration of the FFI call.
-        let c_query = CString::new(query).map_err(|_| MgError::new("Invalid query".to_string()))?;
+        let c_query = CString::new(query).map_err(|_| MgError::null_byte("query"))?;
 
         match unsafe {
             bindings::mg_session_run(
@@ -411,7 +457,7 @@ impl Connection {
             }
             _ => {
                 self.status = ConnectionStatus::Bad;
-                return Err(MgError::new(read_error_message(self.mg_session)));
+                return Err(MgError::query(read_error_message(self.mg_session)));
             }
         }
 
@@ -421,7 +467,7 @@ impl Connection {
             }
             _ => {
                 self.status = ConnectionStatus::Bad;
-                return Err(MgError::new(read_error_message(self.mg_session)));
+                return Err(MgError::query(read_error_message(self.mg_session)));
             }
         }
 
@@ -437,7 +483,7 @@ impl Connection {
                 }
                 _ => {
                     self.status = ConnectionStatus::Bad;
-                    return Err(MgError::new(read_error_message(self.mg_session)));
+                    return Err(MgError::query(read_error_message(self.mg_session)));
                 }
             };
         }
@@ -460,24 +506,16 @@ impl Connection {
             ConnectionStatus::Ready => {}
             ConnectionStatus::InTransaction => {}
             ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from(
-                    "Can't call execute while already executing",
-                )))
+                return Err(MgError::invalid_state("execute", "already executing"));
             }
             ConnectionStatus::Fetching => {
-                return Err(MgError::new(String::from(
-                    "Can't call execute while fetching",
-                )))
+                return Err(MgError::invalid_state("execute", "fetching"));
             }
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from(
-                    "Can't call execute while connection is closed",
-                )))
+                return Err(MgError::invalid_state("execute", "connection closed"));
             }
             ConnectionStatus::Bad => {
-                return Err(MgError::new(String::from(
-                    "Can't call execute while connection is bad",
-                )))
+                return Err(MgError::invalid_state("execute", "bad connection"));
             }
         }
 
@@ -490,7 +528,7 @@ impl Connection {
 
         self.summary = None;
 
-        let c_query = CString::new(query).unwrap();
+        let c_query = CString::new(query).map_err(|_| MgError::null_byte("query"))?;
         let mg_params = match params {
             Some(x) => hash_map_to_mg_map(x),
             None => std::ptr::null_mut(),
@@ -507,9 +545,14 @@ impl Connection {
             )
         };
 
+        // Clean up the parameter map - mgclient has copied the data
+        if !mg_params.is_null() {
+            unsafe { bindings::mg_map_destroy(mg_params) };
+        }
+
         if status != 0 {
             self.status = ConnectionStatus::Bad;
-            return Err(MgError::new(read_error_message(self.mg_session)));
+            return Err(MgError::query(read_error_message(self.mg_session)));
         }
 
         self.status = ConnectionStatus::Executing;
@@ -534,26 +577,18 @@ impl Connection {
     pub fn fetchone(&mut self) -> Result<Option<Record>, MgError> {
         match self.status {
             ConnectionStatus::Ready => {
-                return Err(MgError::new(String::from(
-                    "Can't call fetchone while ready",
-                )))
+                return Err(MgError::invalid_state("fetchone", "ready"));
             }
             ConnectionStatus::InTransaction => {
-                return Err(MgError::new(String::from(
-                    "Can't call fetchone while in transaction",
-                )))
+                return Err(MgError::invalid_state("fetchone", "in transaction"));
             }
             ConnectionStatus::Executing => {}
             ConnectionStatus::Fetching => {}
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from(
-                    "Can't call fetchone if connection is closed",
-                )))
+                return Err(MgError::invalid_state("fetchone", "connection closed"));
             }
             ConnectionStatus::Bad => {
-                return Err(MgError::new(String::from(
-                    "Can't call fetchone if connection is bad",
-                )))
+                return Err(MgError::invalid_state("fetchone", "bad connection"));
             }
         }
 
@@ -578,7 +613,20 @@ impl Connection {
                         }
                         Ok(Some(x))
                     }
-                    (None, _) => {
+                    (None, Some(has_more)) => {
+                        if has_more {
+                            self.status = ConnectionStatus::Executing;
+                        } else {
+                            self.status = if self.autocommit {
+                                ConnectionStatus::Ready
+                            } else {
+                                ConnectionStatus::InTransaction
+                            };
+                        }
+                        Ok(None)
+                    }
+                    (None, None) => {
+                        // This shouldn't happen, but handle it
                         self.status = if self.autocommit {
                             ConnectionStatus::Ready
                         } else {
@@ -658,57 +706,53 @@ impl Connection {
     fn pull(&mut self, n: i64) -> Result<(), MgError> {
         match self.status {
             ConnectionStatus::Ready => {
-                return Err(MgError::new(String::from("Can't call pull while ready")))
+                return Err(MgError::invalid_state("pull", "ready"));
             }
             ConnectionStatus::InTransaction => {
-                return Err(MgError::new(String::from(
-                    "Can't call pull while in transaction",
-                )))
+                return Err(MgError::invalid_state("pull", "in transaction"));
             }
             ConnectionStatus::Executing => {}
             ConnectionStatus::Fetching => {
-                return Err(MgError::new(String::from("Can't call pull while fetching")))
+                return Err(MgError::invalid_state("pull", "fetching"));
             }
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from(
-                    "Can't call pull if connection is closed",
-                )))
+                return Err(MgError::invalid_state("pull", "connection closed"));
             }
             ConnectionStatus::Bad => {
-                return Err(MgError::new(String::from(
-                    "Can't call pull if connection is bad",
-                )))
+                return Err(MgError::invalid_state("pull", "bad connection"));
             }
         }
 
         let pull_status = match n {
             0 => unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) },
-            _ => unsafe {
-                let mg_map = bindings::mg_map_make_empty(1);
-                if mg_map.is_null() {
-                    self.status = ConnectionStatus::Bad;
-                    return Err(MgError::new(String::from("Unable to make pull map.")));
-                }
-                let mg_int = bindings::mg_value_make_integer(n);
-                if mg_int.is_null() {
-                    self.status = ConnectionStatus::Bad;
+            _ => {
+                // Create NUL-terminated C string outside unsafe block to ensure proper lifetime
+                let n_key = CString::new("n").expect("'n' is a valid C string");
+                unsafe {
+                    let mg_map = bindings::mg_map_make_empty(1);
+                    if mg_map.is_null() {
+                        self.status = ConnectionStatus::Bad;
+                        return Err(MgError::ffi("Failed to allocate pull map".to_string()));
+                    }
+                    let mg_int = bindings::mg_value_make_integer(n);
+                    if mg_int.is_null() {
+                        self.status = ConnectionStatus::Bad;
+                        bindings::mg_map_destroy(mg_map);
+                        return Err(MgError::ffi(
+                            "Failed to allocate pull map integer value".to_string(),
+                        ));
+                    }
+                    if bindings::mg_map_insert(mg_map, n_key.as_ptr(), mg_int) != 0 {
+                        self.status = ConnectionStatus::Bad;
+                        bindings::mg_map_destroy(mg_map);
+                        bindings::mg_value_destroy(mg_int);
+                        return Err(MgError::ffi("Failed to insert into pull map".to_string()));
+                    }
+                    let status = bindings::mg_session_pull(self.mg_session, mg_map);
                     bindings::mg_map_destroy(mg_map);
-                    return Err(MgError::new(String::from(
-                        "Unable to make pull map integer value.",
-                    )));
+                    status
                 }
-                if bindings::mg_map_insert(mg_map, "n".as_ptr() as *const c_char, mg_int) != 0 {
-                    self.status = ConnectionStatus::Bad;
-                    bindings::mg_map_destroy(mg_map);
-                    bindings::mg_value_destroy(mg_int);
-                    return Err(MgError::new(String::from(
-                        "Unable to insert into pull map.",
-                    )));
-                }
-                let status = bindings::mg_session_pull(self.mg_session, mg_map);
-                bindings::mg_map_destroy(mg_map);
-                status
-            },
+            }
         };
 
         match pull_status {
@@ -718,7 +762,7 @@ impl Connection {
             }
             _ => {
                 self.status = ConnectionStatus::Bad;
-                Err(MgError::new(read_error_message(self.mg_session)))
+                Err(MgError::query(read_error_message(self.mg_session)))
             }
         }
     }
@@ -727,28 +771,20 @@ impl Connection {
     fn fetch(&mut self) -> Result<(Option<Record>, Option<bool>), MgError> {
         match self.status {
             ConnectionStatus::Ready => {
-                return Err(MgError::new(String::from("Can't call fetch while ready")))
+                return Err(MgError::invalid_state("fetch", "ready"));
             }
             ConnectionStatus::InTransaction => {
-                return Err(MgError::new(String::from(
-                    "Can't call fetch while in transaction",
-                )))
+                return Err(MgError::invalid_state("fetch", "in transaction"));
             }
             ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from(
-                    "Can't call fetch while executing",
-                )))
+                return Err(MgError::invalid_state("fetch", "executing"));
             }
             ConnectionStatus::Fetching => {}
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from(
-                    "Can't call fetch if connection is closed",
-                )))
+                return Err(MgError::invalid_state("fetch", "connection closed"));
             }
             ConnectionStatus::Bad => {
-                return Err(MgError::new(String::from(
-                    "Can't call fetch if connection is bad",
-                )))
+                return Err(MgError::invalid_state("fetch", "bad connection"));
             }
         }
 
@@ -766,12 +802,14 @@ impl Connection {
             },
             0 => unsafe {
                 let mg_summary = bindings::mg_result_summary(mg_result);
-                let mg_has_more = bindings::mg_map_at(mg_summary, str_to_c_str("has_more"));
+                // "has_more" is a known constant string with no null bytes
+                let c_has_more = CString::new("has_more").expect("'has_more' is a valid C string");
+                let mg_has_more = bindings::mg_map_at(mg_summary, c_has_more.as_ptr());
                 let has_more = bindings::mg_value_bool(mg_has_more) != 0;
                 self.summary = Some(mg_map_to_hash_map(mg_summary));
                 Ok((None, Some(has_more)))
             },
-            _ => Err(MgError::new(read_error_message(self.mg_session))),
+            _ => Err(MgError::query(read_error_message(self.mg_session))),
         }
     }
 
@@ -800,20 +838,16 @@ impl Connection {
             ConnectionStatus::Ready => {}
             ConnectionStatus::InTransaction => {}
             ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from("Can't commit while executing")))
+                return Err(MgError::invalid_state("commit", "executing"));
             }
             ConnectionStatus::Fetching => {
-                return Err(MgError::new(String::from("Can't commit while fetching")))
+                return Err(MgError::invalid_state("commit", "fetching"));
             }
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from(
-                    "Can't commit while connection is closed",
-                )))
+                return Err(MgError::invalid_state("commit", "connection closed"));
             }
             ConnectionStatus::Bad => {
-                return Err(MgError::new(String::from(
-                    "Can't commit while connection is bad",
-                )))
+                return Err(MgError::invalid_state("commit", "bad connection"));
             }
         }
 
@@ -838,26 +872,20 @@ impl Connection {
     pub fn rollback(&mut self) -> Result<(), MgError> {
         match self.status {
             ConnectionStatus::Ready => {
-                return Err(MgError::new(String::from(
-                    "Can't rollback while not in transaction",
-                )))
+                return Err(MgError::invalid_state("rollback", "not in transaction"));
             }
             ConnectionStatus::InTransaction => {}
             ConnectionStatus::Executing => {
-                return Err(MgError::new(String::from("Can't rollback while executing")))
+                return Err(MgError::invalid_state("rollback", "executing"));
             }
             ConnectionStatus::Fetching => {
-                return Err(MgError::new(String::from("Can't rollback while fetching")))
+                return Err(MgError::invalid_state("rollback", "fetching"));
             }
             ConnectionStatus::Closed => {
-                return Err(MgError::new(String::from(
-                    "Can't rollback while connection is closed",
-                )))
+                return Err(MgError::invalid_state("rollback", "connection closed"));
             }
             ConnectionStatus::Bad => {
-                return Err(MgError::new(String::from(
-                    "Can't rollback while connection is bad",
-                )))
+                return Err(MgError::invalid_state("rollback", "bad connection"));
             }
         }
 
