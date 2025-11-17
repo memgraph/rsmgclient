@@ -21,7 +21,9 @@ jobs:
       run: sudo apt-get install -y git cmake make gcc g++ libssl-dev
 
     - name: Set up Rust toolchain
-      uses: dtolnay/rust-toolchain@1.91
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
     - name: Run rust linter
       run: cargo clippy
     - name: Run rust formatter
@@ -53,7 +55,9 @@ jobs:
         yum install -y git cmake make gcc gcc-c++ openssl-devel epel-release clang
 
     - name: Set up Rust toolchain
-      uses: dtolnay/rust-toolchain@1.91
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
 
     - name: Build the project
       run: cargo build --release
@@ -71,9 +75,10 @@ jobs:
         submodules: true
 
     - name: Set up Rust toolchain
-      uses: dtolnay/rust-toolchain@1.91
+      uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ matrix.target }}
+        components: clippy, rustfmt
 
     - name: Build the client
       run: cargo build --release
@@ -87,9 +92,10 @@ jobs:
         submodules: true
 
     - name: Set up Rust toolchain
-      uses: dtolnay/rust-toolchain@1.91
+      uses: dtolnay/rust-toolchain@stable
       with:
         targets: x86_64-pc-windows-msvc
+        components: clippy, rustfmt
 
     - name: Install OpenSSL via vcpkg
       run: |

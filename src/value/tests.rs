@@ -461,7 +461,7 @@ fn from_c_mg_value_point_3d() {
     );
     assert_eq!(
         format!("{}", mg_value),
-        "'Point2D({ srid:0, x:1, y:2, z:3 })'"
+        "'Point3D({ srid:0, x:1, y:2, z:3 })'"
     );
 }
 

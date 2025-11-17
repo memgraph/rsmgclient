@@ -597,7 +597,7 @@ impl Connection {
                 if self.status == ConnectionStatus::Executing {
                     match self.pull(1) {
                         Ok(_) => {
-                            // The state update is alredy done in the pull.
+                            // The state update is already done in the pull.
                         }
                         Err(err) => {
                             self.status = ConnectionStatus::Bad;
@@ -605,15 +605,26 @@ impl Connection {
                         }
                     }
                 }
-                match self.fetch()? {
-                    (Some(x), None) => Ok(Some(x)),
-                    (Some(x), Some(has_more)) => {
-                        if has_more {
-                            self.status = ConnectionStatus::Executing;
+
+                // Fetch the record or summary
+                match self.fetch() {
+                    Ok((Some(x), None)) => {
+                        // Got a record, fetch summary to check has_more
+                        match self.fetch()? {
+                            (None, Some(has_more)) => {
+                                if has_more {
+                                    self.status = ConnectionStatus::Executing;
+                                }
+                                // If has_more is false, leave status as Fetching
+                            }
+                            _ => {
+                                // If we don't get a summary, stay in Fetching state
+                            }
                         }
                         Ok(Some(x))
                     }
-                    (None, Some(has_more)) => {
+                    Ok((None, Some(has_more))) => {
+                        // Got summary (no more local records)
                         if has_more {
                             self.status = ConnectionStatus::Executing;
                         } else {
@@ -625,8 +636,18 @@ impl Connection {
                         }
                         Ok(None)
                     }
-                    (None, None) => {
-                        // This shouldn't happen, but handle it
+                    Ok(_) => {
+                        // Unexpected case
+                        self.status = if self.autocommit {
+                            ConnectionStatus::Ready
+                        } else {
+                            ConnectionStatus::InTransaction
+                        };
+                        Ok(None)
+                    }
+                    Err(_) => {
+                        // If fetch fails (e.g., "called fetch while not executing"),
+                        // it means no more records, finalize the transaction
                         self.status = if self.autocommit {
                             ConnectionStatus::Ready
                         } else {
