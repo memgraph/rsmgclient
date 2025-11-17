@@ -1,6 +1,6 @@
 [package]
 name = "rsmgclient"
-version = "2.0.3"
+version = "3.0.0"
 description = "Memgraph database adapter for Rust programming language."
 authors = ["Memgraph Contributors <tech@memgraph.com>"]
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ homepage = "https://memgraph.com"
 repository = "https://github.com/memgraph/rsmgclient"
 readme = "README.md"
 documentation = "https://docs.rs/rsmgclient"
-edition = "2018"
+edition = "2024"
 keywords = ["memgraph", "client", "driver", "database-adapter"]
 categories = ["database", "api-bindings"]
 exclude = [
@@ -16,17 +16,19 @@ exclude = [
 ]
 
 [dependencies]
-maplit = "1.0.2"
-chrono = "0.4.19"
+maplit = "1.0"
+chrono = "0.4"
+chrono-tz = "0.10"
+thiserror = "2.0"
 
 [dev-dependencies]
 libc = "0.2"
-serial_test = "0.4.0"
-serde_json = "1.0.57"
+serial_test = "3.2"
+serde_json = "1.0"
 
 [build-dependencies]
-bindgen = "0.68.1"
-cmake = "0.1.51"
+bindgen = "0.72"
+cmake = "0.1"
 
 [dev-dependencies.cargo-husky]
 version = "1"
