@@ -158,7 +158,7 @@ fn execute_fetching_error() {
 fn execute_closed_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
-    test_execute_error(&mut connection, "is closed");
+    test_execute_error(&mut connection, "connection closed");
 }
 
 #[test]
@@ -166,7 +166,7 @@ fn execute_closed_error() {
 fn execute_bad_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
-    test_execute_error(&mut connection, "is bad");
+    test_execute_error(&mut connection, "bad connection");
 }
 
 #[test]
@@ -198,13 +198,13 @@ fn parameter_provided() {
 
 #[test]
 #[serial]
-#[should_panic(expected = "Query failed: Parameter $name not provided.")]
+#[should_panic(expected = "Query execution error: Parameter $name not provided.")]
 fn parameter_not_provided() {
     let mut connection = initialize();
 
     match connection.execute("MATCH (n) WHERE n.name = $name RETURN n;", None) {
         Ok(x) => x,
-        Err(err) => panic!("Query failed: {}", err),
+        Err(err) => panic!("{}", err),
     };
 }
 
@@ -282,6 +282,8 @@ fn fetchone_summary() {
     }
 
     let summary = connection.summary().unwrap();
+    eprintln!("Summary keys: {:?}", summary.keys().collect::<Vec<_>>());
+    eprintln!("Summary len: {}", summary.len());
     assert_eq!(9, summary.len());
     for key in &[
         "cost_estimate",
@@ -332,7 +334,7 @@ fn fetchone_in_transaction_error() {
 fn fetchone_closed_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
-    test_fetchone_error(&mut connection, "is closed");
+    test_fetchone_error(&mut connection, "connection closed");
 }
 
 #[test]
@@ -340,10 +342,10 @@ fn fetchone_closed_error() {
 fn fetchone_bad_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
-    test_fetchone_error(&mut connection, "is bad");
+    test_fetchone_error(&mut connection, "bad connection");
 }
 
-fn test_fetchmany_empty_nodes(connection: &mut Connection) {
+fn test_fetchmany_empty_nodes_lazy(connection: &mut Connection) {
     execute_query_and_fetchall("CREATE (), (), ();");
 
     let columns = execute_query(connection, "MATCH (n) RETURN n;");
@@ -355,6 +357,31 @@ fn test_fetchmany_empty_nodes(connection: &mut Connection) {
         }
         Err(err) => panic!("Fetch many unexpectedly failed: {}", err),
     }
+    // In lazy mode: after fetching 2 out of 3 records, has_more is true, so status is Executing
+    assert_eq!(connection.status, ConnectionStatus::Executing);
+
+    match connection.fetchmany(Some(2)) {
+        Ok(records) => {
+            assert_eq!(records.len(), 1);
+        }
+        Err(err) => panic!("Fetch many unexpectedly failed: {}", err),
+    }
+    assert_eq!(connection.status, ConnectionStatus::InTransaction);
+}
+
+fn test_fetchmany_empty_nodes_not_lazy(connection: &mut Connection) {
+    execute_query_and_fetchall("CREATE (), (), ();");
+
+    let columns = execute_query(connection, "MATCH (n) RETURN n;");
+    assert_eq!(columns.join(", "), "n");
+
+    match connection.fetchmany(Some(2)) {
+        Ok(records) => {
+            assert_eq!(records.len(), 2);
+        }
+        Err(err) => panic!("Fetch many unexpectedly failed: {}", err),
+    }
+    // In non-lazy mode: all records are already fetched, status is Fetching
     assert_eq!(connection.status, ConnectionStatus::Fetching);
 
     match connection.fetchmany(Some(2)) {
@@ -371,7 +398,7 @@ fn test_fetchmany_empty_nodes(connection: &mut Connection) {
 fn fetchmany_lazy() {
     let mut connection = initialize();
 
-    test_fetchmany_empty_nodes(&mut connection);
+    test_fetchmany_empty_nodes_lazy(&mut connection);
 }
 
 #[test]
@@ -382,7 +409,7 @@ fn fetchmany_not_lazy() {
     connection.set_lazy(false);
     assert!(!connection.lazy);
 
-    test_fetchmany_empty_nodes(&mut connection);
+    test_fetchmany_empty_nodes_not_lazy(&mut connection);
 }
 
 fn test_fetchall_empty_nodes(connection: &mut Connection) {
@@ -416,7 +443,7 @@ fn fetchall_not_lazy() {
     connection.set_lazy(false);
     assert!(!connection.lazy);
 
-    test_fetchmany_empty_nodes(&mut connection);
+    test_fetchall_empty_nodes(&mut connection);
 }
 
 fn test_commit_error(connection: &mut Connection, error: &str) {
@@ -446,7 +473,7 @@ fn commit_fetching_error() {
 fn commit_closed_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
-    test_commit_error(&mut connection, "is closed");
+    test_commit_error(&mut connection, "connection closed");
 }
 
 #[test]
@@ -454,7 +481,7 @@ fn commit_closed_error() {
 fn commit_bad_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
-    test_commit_error(&mut connection, "is bad");
+    test_commit_error(&mut connection, "bad connection");
 }
 
 #[test]
@@ -512,7 +539,7 @@ fn rollback_fetching_error() {
 fn rollback_closed_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Closed;
-    test_rollback_error(&mut connection, "is closed");
+    test_rollback_error(&mut connection, "connection closed");
 }
 
 #[test]
@@ -520,7 +547,7 @@ fn rollback_closed_error() {
 fn rollback_bad_error() {
     let mut connection = initialize();
     connection.status = ConnectionStatus::Bad;
-    test_rollback_error(&mut connection, "is bad");
+    test_rollback_error(&mut connection, "bad connection");
 }
 
 #[test]
@@ -660,15 +687,19 @@ fn fetching_close_panic() {
 fn execute_without_results() {
     let mut connection = initialize();
 
-    assert!(connection
-        .execute_without_results("CREATE (n1) CREATE (n2) RETURN n1, n2;")
-        .is_ok());
+    assert!(
+        connection
+            .execute_without_results("CREATE (n1) CREATE (n2) RETURN n1, n2;")
+            .is_ok()
+    );
     assert_eq!(ConnectionStatus::Ready, connection.status());
 
     assert!(connection.execute("MATCH (n) RETURN n;", None).is_ok());
     assert_eq!(ConnectionStatus::Executing, connection.status());
     match connection.fetchall() {
-        Ok(records) => assert_eq!(records.len(), 2),
+        Ok(records) => {
+            assert_eq!(records.len(), 2);
+        }
         Err(err) => panic!("Failed to get data after execute without results {}.", err),
     }
     assert_eq!(ConnectionStatus::InTransaction, connection.status());
