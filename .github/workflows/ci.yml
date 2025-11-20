@@ -37,10 +37,14 @@ jobs:
       run: cargo test
 
   build_macos:
+    needs: build_and_test_ubuntu
     strategy:
       matrix:
-        platform: [macos-latest]
-        target: [x86_64-apple-darwin]
+        include:
+          - platform: macos-15
+            target: aarch64-apple-darwin
+          - platform: macos-14
+            target: x86_64-apple-darwin
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -58,7 +62,17 @@ jobs:
       run: cargo build --release
 
   build_windows:
-    runs-on: windows-latest
+    needs: build_and_test_ubuntu
+    strategy:
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            vcpkg_triplet: x64-windows-static
+          - platform: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            vcpkg_triplet: arm64-windows-static
+    runs-on: ${{ matrix.platform }}
 
     steps:
     - uses: actions/checkout@v5
@@ -68,16 +82,16 @@ jobs:
     - name: Set up Rust toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
-        targets: x86_64-pc-windows-msvc
+        targets: ${{ matrix.target }}
         components: clippy, rustfmt
 
     - name: Install OpenSSL via vcpkg
       run: |
-        vcpkg install openssl:x64-windows-static
+        vcpkg install openssl:${{ matrix.vcpkg_triplet }}
 
     - name: Build the client
-      run: cargo build --release --target=x86_64-pc-windows-msvc
+      run: cargo build --release --target=${{ matrix.target }}
       env:
-        OPENSSL_LIB_DIR: "C:\\vcpkg\\installed\\x64-windows-static\\lib"
-        OPENSSL_INCLUDE_DIR: "C:\\vcpkg\\installed\\x64-windows-static\\include"
+        OPENSSL_LIB_DIR: "C:\\vcpkg\\installed\\${{ matrix.vcpkg_triplet }}\\lib"
+        OPENSSL_INCLUDE_DIR: "C:\\vcpkg\\installed\\${{ matrix.vcpkg_triplet }}\\include"
         OPENSSL_STATIC: "1"
