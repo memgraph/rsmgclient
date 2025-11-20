@@ -13,7 +13,7 @@ client library.
 ### Prerequisites
 
 - [Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-  1.42.0 or above
+  1.85.0 or above
 - Prerequisites of [mgclient](https://github.com/memgraph/mgclient):
     - A C compiler supporting C11 standard
     - CMake 3.8 or newer
