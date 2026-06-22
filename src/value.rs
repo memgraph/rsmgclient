@@ -80,143 +80,94 @@ pub enum QueryParam {
     Map(HashMap<String, QueryParam>),
 }
 
+/// Returns `ptr` unless it is null, in which case a fresh mg null value is returned instead.
+fn value_or_null(ptr: *mut bindings::mg_value) -> *mut bindings::mg_value {
+    if ptr.is_null() {
+        unsafe { bindings::mg_value_make_null() }
+    } else {
+        ptr
+    }
+}
+
 impl QueryParam {
     fn to_c_mg_value(&self) -> *mut bindings::mg_value {
+        // Wraps an intermediate mgclient handle in an mg_value, destroying the handle and
+        // falling back to an mg null value if either allocation fails.
+        macro_rules! wrap_or_null {
+            ($intermediate:expr, $make:path, $destroy:path) => {{
+                let handle = $intermediate;
+                if handle.is_null() {
+                    return bindings::mg_value_make_null();
+                }
+                let ptr = $make(handle);
+                if ptr.is_null() {
+                    $destroy(handle);
+                    return bindings::mg_value_make_null();
+                }
+                ptr
+            }};
+        }
+
         unsafe {
             match self {
                 QueryParam::Null => bindings::mg_value_make_null(),
                 QueryParam::Bool(x) => {
-                    let ptr = bindings::mg_value_make_bool(match *x {
+                    let val = match *x {
                         false => 0,
                         true => 1,
-                    });
-                    if ptr.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
+                    };
+                    value_or_null(bindings::mg_value_make_bool(val))
                 }
-                QueryParam::Int(x) => {
-                    let ptr = bindings::mg_value_make_integer(*x);
-                    if ptr.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
-                QueryParam::Float(x) => {
-                    let ptr = bindings::mg_value_make_float(*x);
-                    if ptr.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
+                QueryParam::Int(x) => value_or_null(bindings::mg_value_make_integer(*x)),
+                QueryParam::Float(x) => value_or_null(bindings::mg_value_make_float(*x)),
                 QueryParam::String(x) => {
                     // String parameter may contain null bytes - return null on error
                     let c_string = match CString::new(x.as_str()) {
                         Ok(s) => s,
                         Err(_) => return bindings::mg_value_make_null(),
                     };
-                    let ptr = bindings::mg_value_make_string(c_string.as_ptr());
-                    if ptr.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
+                    value_or_null(bindings::mg_value_make_string(c_string.as_ptr()))
                 }
-                QueryParam::Date(x) => {
-                    let mg_date = naive_date_to_mg_date(x);
-                    if mg_date.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    let ptr = bindings::mg_value_make_date(mg_date);
-                    if ptr.is_null() {
-                        bindings::mg_date_destroy(mg_date);
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
-                QueryParam::LocalTime(x) => {
-                    let mg_local_time = naive_local_time_to_mg_local_time(x);
-                    if mg_local_time.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    let ptr = bindings::mg_value_make_local_time(mg_local_time);
-                    if ptr.is_null() {
-                        bindings::mg_local_time_destroy(mg_local_time);
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
-                QueryParam::LocalDateTime(x) => {
-                    let mg_local_date_time = naive_local_date_time_to_mg_local_date_time(x);
-                    if mg_local_date_time.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    let ptr = bindings::mg_value_make_local_date_time(mg_local_date_time);
-                    if ptr.is_null() {
-                        bindings::mg_local_date_time_destroy(mg_local_date_time);
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
-                QueryParam::Duration(x) => {
-                    let mg_duration = duration_to_mg_duration(x);
-                    if mg_duration.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    let ptr = bindings::mg_value_make_duration(mg_duration);
-                    if ptr.is_null() {
-                        bindings::mg_duration_destroy(mg_duration);
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
-                QueryParam::Point2D(x) => {
-                    let mg_point_2d = point2d_to_mg_point_2d(x);
-                    if mg_point_2d.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    let ptr = bindings::mg_value_make_point_2d(mg_point_2d);
-                    if ptr.is_null() {
-                        bindings::mg_point_2d_destroy(mg_point_2d);
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
-                QueryParam::Point3D(x) => {
-                    let mg_point_3d = point3d_to_mg_point_3d(x);
-                    if mg_point_3d.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    let ptr = bindings::mg_value_make_point_3d(mg_point_3d);
-                    if ptr.is_null() {
-                        bindings::mg_point_3d_destroy(mg_point_3d);
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
-                QueryParam::List(x) => {
-                    let mg_list = vector_to_mg_list(x);
-                    if mg_list.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    let ptr = bindings::mg_value_make_list(mg_list);
-                    if ptr.is_null() {
-                        bindings::mg_list_destroy(mg_list);
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
-                QueryParam::Map(x) => {
-                    let mg_map = hash_map_to_mg_map(x);
-                    if mg_map.is_null() {
-                        return bindings::mg_value_make_null();
-                    }
-                    let ptr = bindings::mg_value_make_map(mg_map);
-                    if ptr.is_null() {
-                        bindings::mg_map_destroy(mg_map);
-                        return bindings::mg_value_make_null();
-                    }
-                    ptr
-                }
+                QueryParam::Date(x) => wrap_or_null!(
+                    naive_date_to_mg_date(x),
+                    bindings::mg_value_make_date,
+                    bindings::mg_date_destroy
+                ),
+                QueryParam::LocalTime(x) => wrap_or_null!(
+                    naive_local_time_to_mg_local_time(x),
+                    bindings::mg_value_make_local_time,
+                    bindings::mg_local_time_destroy
+                ),
+                QueryParam::LocalDateTime(x) => wrap_or_null!(
+                    naive_local_date_time_to_mg_local_date_time(x),
+                    bindings::mg_value_make_local_date_time,
+                    bindings::mg_local_date_time_destroy
+                ),
+                QueryParam::Duration(x) => wrap_or_null!(
+                    duration_to_mg_duration(x),
+                    bindings::mg_value_make_duration,
+                    bindings::mg_duration_destroy
+                ),
+                QueryParam::Point2D(x) => wrap_or_null!(
+                    point2d_to_mg_point_2d(x),
+                    bindings::mg_value_make_point_2d,
+                    bindings::mg_point_2d_destroy
+                ),
+                QueryParam::Point3D(x) => wrap_or_null!(
+                    point3d_to_mg_point_3d(x),
+                    bindings::mg_value_make_point_3d,
+                    bindings::mg_point_3d_destroy
+                ),
+                QueryParam::List(x) => wrap_or_null!(
+                    vector_to_mg_list(x),
+                    bindings::mg_value_make_list,
+                    bindings::mg_list_destroy
+                ),
+                QueryParam::Map(x) => wrap_or_null!(
+                    hash_map_to_mg_map(x),
+                    bindings::mg_value_make_map,
+                    bindings::mg_map_destroy
+                ),
             }
         }
     }
@@ -662,12 +613,8 @@ pub(crate) fn naive_date_to_mg_date(input: &NaiveDate) -> *mut bindings::mg_date
     let unix_epoch = NaiveDate::from_ymd_opt(1970, 1, 1)
         .expect("Unix epoch is a valid date")
         .num_days_from_ce();
-    let ptr = unsafe { bindings::mg_date_make((input.num_days_from_ce() - unix_epoch) as i64) };
-    // mg_date_make can return NULL on OOM
-    if ptr.is_null() {
-        return std::ptr::null_mut();
-    }
-    ptr
+    // mg_date_make returns NULL on OOM, which we propagate to the caller as-is.
+    unsafe { bindings::mg_date_make((input.num_days_from_ce() - unix_epoch) as i64) }
 }
 
 pub(crate) fn naive_local_time_to_mg_local_time(input: &NaiveTime) -> *mut bindings::mg_local_time {
@@ -675,13 +622,8 @@ pub(crate) fn naive_local_time_to_mg_local_time(input: &NaiveTime) -> *mut bindi
     let minutes_ns = minutes_as_seconds(input.minute() as i64) * NSEC_IN_SEC;
     let seconds_ns = (input.second() as i64) * NSEC_IN_SEC;
     let nanoseconds = input.nanosecond() as i64;
-    let ptr =
-        unsafe { bindings::mg_local_time_make(hours_ns + minutes_ns + seconds_ns + nanoseconds) };
-    // mg_local_time_make can return NULL on OOM
-    if ptr.is_null() {
-        return std::ptr::null_mut();
-    }
-    ptr
+    // mg_local_time_make returns NULL on OOM, which we propagate to the caller as-is.
+    unsafe { bindings::mg_local_time_make(hours_ns + minutes_ns + seconds_ns + nanoseconds) }
 }
 
 pub(crate) fn naive_local_date_time_to_mg_local_date_time(
@@ -696,14 +638,10 @@ pub(crate) fn naive_local_date_time_to_mg_local_date_time(
     let minutes_s = minutes_as_seconds(input.minute() as i64);
     let seconds_s = input.second() as i64;
     let nanoseconds = input.nanosecond() as i64;
-    let ptr = unsafe {
+    // mg_local_date_time_make returns NULL on OOM, which we propagate to the caller as-is.
+    unsafe {
         bindings::mg_local_date_time_make(days_s + hours_s + minutes_s + seconds_s, nanoseconds)
-    };
-    // mg_local_date_time_make can return NULL on OOM
-    if ptr.is_null() {
-        return std::ptr::null_mut();
     }
-    ptr
 }
 
 pub(crate) fn duration_to_mg_duration(input: &Duration) -> *mut bindings::mg_duration {
@@ -718,38 +656,25 @@ pub(crate) fn duration_to_mg_duration(input: &Duration) -> *mut bindings::mg_dur
     duration -= Duration::seconds(seconds);
     // After subtracting days and seconds, remaining nanoseconds should always fit in i64
     let nanoseconds = duration.num_nanoseconds().unwrap_or(0);
-    let ptr = unsafe { bindings::mg_duration_make(0, days, seconds, nanoseconds) };
-    // mg_duration_make can return NULL on OOM
-    if ptr.is_null() {
-        return std::ptr::null_mut();
-    }
-    ptr
+    // mg_duration_make returns NULL on OOM, which we propagate to the caller as-is.
+    unsafe { bindings::mg_duration_make(0, days, seconds, nanoseconds) }
 }
 
 pub(crate) fn point2d_to_mg_point_2d(input: &Point2D) -> *mut bindings::mg_point_2d {
-    let ptr =
-        unsafe { bindings::mg_point_2d_make(input.srid, input.x_longitude, input.y_latitude) };
-    // mg_point_2d_make can return NULL on OOM
-    if ptr.is_null() {
-        return std::ptr::null_mut();
-    }
-    ptr
+    // mg_point_2d_make returns NULL on OOM, which we propagate to the caller as-is.
+    unsafe { bindings::mg_point_2d_make(input.srid, input.x_longitude, input.y_latitude) }
 }
 
 pub(crate) fn point3d_to_mg_point_3d(input: &Point3D) -> *mut bindings::mg_point_3d {
-    let ptr = unsafe {
+    // mg_point_3d_make returns NULL on OOM, which we propagate to the caller as-is.
+    unsafe {
         bindings::mg_point_3d_make(
             input.srid,
             input.x_longitude,
             input.y_latitude,
             input.z_height,
         )
-    };
-    // mg_point_3d_make can return NULL on OOM
-    if ptr.is_null() {
-        return std::ptr::null_mut();
     }
-    ptr
 }
 
 pub(crate) fn vector_to_mg_list(vector: &[QueryParam]) -> *mut bindings::mg_list {

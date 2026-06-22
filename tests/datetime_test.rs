@@ -21,7 +21,7 @@ fn test_datetime_with_timezone() {
 
     // Extract the datetime value from the result
     if let Some(record) = records.first() {
-        if let Some(Value::DateTime(datetime)) = record.values.get(0) {
+        if let Some(Value::DateTime(datetime)) = record.values.first() {
             // Assert the datetime fields
             assert_eq!(datetime.year, 2024);
             assert_eq!(datetime.month, 4);
@@ -37,7 +37,7 @@ fn test_datetime_with_timezone() {
                     || datetime
                         .time_zone_id
                         .as_ref()
-                        .map_or(false, |id| id.starts_with("TZ_")),
+                        .is_some_and(|id| id.starts_with("TZ_")),
                 "Expected timezone ID to be 'Etc/UTC' or start with 'TZ_', got {:?}",
                 datetime.time_zone_id
             );
