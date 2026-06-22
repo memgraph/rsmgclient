@@ -4,7 +4,13 @@ use rsmgclient::{ConnectParams, Connection, Value};
 fn test_datetime_with_timezone() {
     // Setup: Create connection parameters and connect to the database
     let params = ConnectParams {
-        host: Some(String::from("localhost")),
+        host: Some(std::env::var("MGHOST").unwrap_or_else(|_| "localhost".to_string())),
+        port: std::env::var("MGPORT")
+            .ok()
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(7687),
+        username: std::env::var("MGUSER").ok(),
+        password: std::env::var("MGPASSWORD").ok(),
         ..ConnectParams::default()
     };
     let mut connection = Connection::connect(&params).unwrap();
