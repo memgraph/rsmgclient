@@ -181,15 +181,25 @@ fn read_error_message(mg_session: *mut bindings::mg_session) -> String {
     unsafe { c_string_to_string(c_error_message, None) }
 }
 
+/// Decrements the global connection count, finalizing mgclient once the last connection is gone.
+fn release_connection() {
+    if CONNECTION_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
+        // This was the last connection, safe to finalize.
+        Connection::finalize();
+    }
+}
+
+/// Converts an optional string into an optional `CString`, mapping interior null bytes to an error.
+fn optional_cstring(value: Option<&String>, field: &str) -> Result<Option<CString>, MgError> {
+    value
+        .map(|s| CString::new(s.as_str()).map_err(|_| MgError::null_byte(field)))
+        .transpose()
+}
+
 impl Drop for Connection {
     fn drop(&mut self) {
         unsafe { bindings::mg_session_destroy(self.mg_session) };
-
-        // Decrement the connection counter and finalize only if this was the last connection
-        if CONNECTION_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
-            // This was the last connection, safe to finalize
-            Connection::finalize();
-        }
+        release_connection();
     }
 }
 
@@ -294,6 +304,26 @@ impl Connection {
         self.arraysize = arraysize;
     }
 
+    /// Builds a query error from the session's last error message, without changing status.
+    fn query_error(&self) -> MgError {
+        MgError::query(read_error_message(self.mg_session))
+    }
+
+    /// Marks the connection as bad and returns a query error from the session's last message.
+    fn fail_query(&mut self) -> MgError {
+        self.status = ConnectionStatus::Bad;
+        self.query_error()
+    }
+
+    /// The status to settle into once a query's results have been fully consumed.
+    fn settled_status(&self) -> ConnectionStatus {
+        if self.autocommit {
+            ConnectionStatus::Ready
+        } else {
+            ConnectionStatus::InTransaction
+        }
+    }
+
     /// Creates a connection to database using provided connection parameters.
     ///
     /// Returns `Connection` if connection to database is successfully established, otherwise
@@ -324,10 +354,8 @@ impl Connection {
 
         let mg_session_params = unsafe { bindings::mg_session_params_make() };
         if mg_session_params.is_null() {
-            // Connection failed, decrement the counter and finalize if needed
-            if CONNECTION_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
-                Connection::finalize();
-            }
+            // Connection failed, release the counter and finalize if needed
+            release_connection();
             return Err(MgError::ffi(
                 "Failed to allocate mg_session_params".to_string(),
             ));
@@ -335,32 +363,14 @@ impl Connection {
         let mut trust_callback_box: Option<Box<TrustCallback>> = None;
 
         // Create CStrings and keep them alive for the duration of mg_connect
-        let c_host = match param_struct.host.as_ref() {
-            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("host"))?),
-            None => None,
-        };
-        let c_address = match param_struct.address.as_ref() {
-            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("address"))?),
-            None => None,
-        };
-        let c_username = match param_struct.username.as_ref() {
-            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("username"))?),
-            None => None,
-        };
-        let c_password = match param_struct.password.as_ref() {
-            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("password"))?),
-            None => None,
-        };
+        let c_host = optional_cstring(param_struct.host.as_ref(), "host")?;
+        let c_address = optional_cstring(param_struct.address.as_ref(), "address")?;
+        let c_username = optional_cstring(param_struct.username.as_ref(), "username")?;
+        let c_password = optional_cstring(param_struct.password.as_ref(), "password")?;
         let c_client_name = CString::new(param_struct.client_name.as_str())
             .map_err(|_| MgError::null_byte("client_name"))?;
-        let c_sslcert = match param_struct.sslcert.as_ref() {
-            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("sslcert"))?),
-            None => None,
-        };
-        let c_sslkey = match param_struct.sslkey.as_ref() {
-            Some(s) => Some(CString::new(s.as_str()).map_err(|_| MgError::null_byte("sslkey"))?),
-            None => None,
-        };
+        let c_sslcert = optional_cstring(param_struct.sslcert.as_ref(), "sslcert")?;
+        let c_sslkey = optional_cstring(param_struct.sslkey.as_ref(), "sslkey")?;
 
         unsafe {
             if let Some(ref x) = c_host {
@@ -418,10 +428,8 @@ impl Connection {
         };
 
         if status != 0 {
-            // Connection failed, decrement the counter and finalize if needed
-            if CONNECTION_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
-                Connection::finalize();
-            }
+            // Connection failed, release the counter and finalize if needed
+            release_connection();
             return Err(MgError::connection(read_error_message(mg_session)));
         }
 
@@ -455,20 +463,14 @@ impl Connection {
             0 => {
                 self.status = ConnectionStatus::Executing;
             }
-            _ => {
-                self.status = ConnectionStatus::Bad;
-                return Err(MgError::query(read_error_message(self.mg_session)));
-            }
+            _ => return Err(self.fail_query()),
         }
 
         match unsafe { bindings::mg_session_pull(self.mg_session, std::ptr::null_mut()) } {
             0 => {
                 self.status = ConnectionStatus::Fetching;
             }
-            _ => {
-                self.status = ConnectionStatus::Bad;
-                return Err(MgError::query(read_error_message(self.mg_session)));
-            }
+            _ => return Err(self.fail_query()),
         }
 
         loop {
@@ -481,10 +483,7 @@ impl Connection {
                     self.status = ConnectionStatus::Ready;
                     return Ok(());
                 }
-                _ => {
-                    self.status = ConnectionStatus::Bad;
-                    return Err(MgError::query(read_error_message(self.mg_session)));
-                }
+                _ => return Err(self.fail_query()),
             };
         }
     }
@@ -520,10 +519,8 @@ impl Connection {
         }
 
         if !self.autocommit && self.status == ConnectionStatus::Ready {
-            match self.execute_without_results("BEGIN") {
-                Ok(()) => self.status = ConnectionStatus::InTransaction,
-                Err(err) => return Err(err),
-            }
+            self.execute_without_results("BEGIN")?;
+            self.status = ConnectionStatus::InTransaction;
         }
 
         self.summary = None;
@@ -551,8 +548,7 @@ impl Connection {
         }
 
         if status != 0 {
-            self.status = ConnectionStatus::Bad;
-            return Err(MgError::query(read_error_message(self.mg_session)));
+            return Err(self.fail_query());
         }
 
         self.status = ConnectionStatus::Executing;
@@ -594,33 +590,22 @@ impl Connection {
 
         match self.lazy {
             true => {
-                if self.status == ConnectionStatus::Executing {
-                    match self.pull(1) {
-                        Ok(_) => {
-                            // The state update is already done in the pull.
-                        }
-                        Err(err) => {
-                            self.status = ConnectionStatus::Bad;
-                            return Err(err);
-                        }
-                    }
+                if self.status == ConnectionStatus::Executing
+                    && let Err(err) = self.pull(1)
+                {
+                    self.status = ConnectionStatus::Bad;
+                    return Err(err);
                 }
+                // On success pull() has already updated the status.
 
                 // Fetch the record or summary
                 match self.fetch() {
                     Ok((Some(x), None)) => {
-                        // Got a record, fetch summary to check has_more
-                        match self.fetch()? {
-                            (None, Some(has_more)) => {
-                                if has_more {
-                                    self.status = ConnectionStatus::Executing;
-                                }
-                                // If has_more is false, leave status as Fetching
-                            }
-                            _ => {
-                                // If we don't get a summary, stay in Fetching state
-                            }
+                        // Got a record; peek at the summary to see if more records remain.
+                        if let (None, Some(true)) = self.fetch()? {
+                            self.status = ConnectionStatus::Executing;
                         }
+                        // Otherwise stay in Fetching state.
                         Ok(Some(x))
                     }
                     Ok((None, Some(has_more))) => {
@@ -628,31 +613,14 @@ impl Connection {
                         if has_more {
                             self.status = ConnectionStatus::Executing;
                         } else {
-                            self.status = if self.autocommit {
-                                ConnectionStatus::Ready
-                            } else {
-                                ConnectionStatus::InTransaction
-                            };
+                            self.status = self.settled_status();
                         }
                         Ok(None)
                     }
-                    Ok(_) => {
-                        // Unexpected case
-                        self.status = if self.autocommit {
-                            ConnectionStatus::Ready
-                        } else {
-                            ConnectionStatus::InTransaction
-                        };
-                        Ok(None)
-                    }
-                    Err(_) => {
-                        // If fetch fails (e.g., "called fetch while not executing"),
-                        // it means no more records, finalize the transaction
-                        self.status = if self.autocommit {
-                            ConnectionStatus::Ready
-                        } else {
-                            ConnectionStatus::InTransaction
-                        };
+                    // No more records: either an unexpected fetch result, or a fetch error such as
+                    // "called fetch while not executing". Either way, finalize the transaction.
+                    Ok(_) | Err(_) => {
+                        self.status = self.settled_status();
                         Ok(None)
                     }
                 }
@@ -660,11 +628,7 @@ impl Connection {
             false => match self.next_record() {
                 Some(x) => Ok(Some(x)),
                 None => {
-                    self.status = if self.autocommit {
-                        ConnectionStatus::Ready
-                    } else {
-                        ConnectionStatus::InTransaction
-                    };
+                    self.status = self.settled_status();
                     Ok(None)
                 }
             },
@@ -687,22 +651,25 @@ impl Connection {
     /// Returns error if connection is not in `Executing` status or if there was an error while
     /// pulling record from database.
     pub fn fetchmany(&mut self, size: Option<u32>) -> Result<Vec<Record>, MgError> {
-        let size = match size {
-            Some(x) => x,
-            None => self.arraysize,
-        };
+        let size = size.unwrap_or(self.arraysize);
+        self.fetch_records(Some(size))
+    }
 
+    /// Fetches records one at a time until exhausted, or until `limit` records have been
+    /// collected when a limit is provided.
+    fn fetch_records(&mut self, limit: Option<u32>) -> Result<Vec<Record>, MgError> {
         let mut vec = Vec::new();
-        for _i in 0..size {
-            match self.fetchone() {
-                Ok(record) => match record {
-                    Some(x) => vec.push(x),
-                    None => break,
-                },
-                Err(err) => return Err(err),
+        let mut remaining = limit;
+        loop {
+            if remaining == Some(0) {
+                break;
             }
+            match self.fetchone()? {
+                Some(x) => vec.push(x),
+                None => break,
+            }
+            remaining = remaining.map(|n| n - 1);
         }
-
         Ok(vec)
     }
 
@@ -711,17 +678,7 @@ impl Connection {
     /// Returns error if connection is not in `Executing` status or if there was an error while
     /// pulling record from database.
     pub fn fetchall(&mut self) -> Result<Vec<Record>, MgError> {
-        let mut vec = Vec::new();
-        loop {
-            match self.fetchone() {
-                Ok(record) => match record {
-                    Some(x) => vec.push(x),
-                    None => break,
-                },
-                Err(err) => return Err(err),
-            }
-        }
-        Ok(vec)
+        self.fetch_records(None)
     }
 
     fn pull(&mut self, n: i64) -> Result<(), MgError> {
@@ -781,10 +738,7 @@ impl Connection {
                 self.status = ConnectionStatus::Fetching;
                 Ok(())
             }
-            _ => {
-                self.status = ConnectionStatus::Bad;
-                Err(MgError::query(read_error_message(self.mg_session)))
-            }
+            _ => Err(self.fail_query()),
         }
     }
 
@@ -830,21 +784,15 @@ impl Connection {
                 self.summary = Some(mg_map_to_hash_map(mg_summary));
                 Ok((None, Some(has_more)))
             },
-            _ => Err(MgError::query(read_error_message(self.mg_session))),
+            _ => Err(self.query_error()),
         }
     }
 
     fn pull_and_fetch_all(&mut self) -> Result<Vec<Record>, MgError> {
+        self.pull(0)?;
         let mut res = Vec::new();
-        match self.pull(0) {
-            Ok(_) => loop {
-                let x = self.fetch()?;
-                match x {
-                    (Some(x), _) => res.push(x),
-                    (None, _) => break,
-                }
-            },
-            Err(err) => return Err(err),
+        while let (Some(x), _) = self.fetch()? {
+            res.push(x);
         }
         Ok(res)
     }
@@ -876,13 +824,9 @@ impl Connection {
             return Ok(());
         }
 
-        match self.execute_without_results("COMMIT") {
-            Ok(()) => {
-                self.status = ConnectionStatus::Ready;
-                Ok(())
-            }
-            Err(err) => Err(err),
-        }
+        self.execute_without_results("COMMIT")?;
+        self.status = ConnectionStatus::Ready;
+        Ok(())
     }
 
     /// Rollback any pending transaction to the database.
@@ -914,13 +858,9 @@ impl Connection {
             return Ok(());
         }
 
-        match self.execute_without_results("ROLLBACK") {
-            Ok(()) => {
-                self.status = ConnectionStatus::Ready;
-                Ok(())
-            }
-            Err(err) => Err(err),
-        }
+        self.execute_without_results("ROLLBACK")?;
+        self.status = ConnectionStatus::Ready;
+        Ok(())
     }
 
     /// Closes the connection.

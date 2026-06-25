@@ -50,7 +50,7 @@ unsafe fn to_array_of_unbound_relationships(
 }
 
 unsafe fn to_c_int_array(vec: &[i64]) -> *mut i64 {
-    let size = vec.len() * mem::size_of::<i64>();
+    let size = mem::size_of_val(vec);
     let ptr = unsafe { libc::malloc(size) as *mut i64 };
     for (i, el) in vec.iter().enumerate() {
         unsafe { *ptr.add(i) = *el };

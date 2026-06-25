@@ -137,6 +137,7 @@ fn write_to_file(file_name: &str, data: &[u8]) {
     };
     let mut file = OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(path)
         .expect("unable to write to file");

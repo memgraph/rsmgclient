@@ -2,6 +2,21 @@ use super::*;
 use crate::{Node, Value};
 use serial_test::serial;
 
+/// Base connection params for tests, overridable via `MGHOST`/`MGPORT`/`MGUSER`/`MGPASSWORD`
+/// (host/port default to `127.0.0.1:7687`, credentials unset).
+fn test_params() -> ConnectParams {
+    ConnectParams {
+        host: Some(std::env::var("MGHOST").unwrap_or_else(|_| "127.0.0.1".to_string())),
+        port: std::env::var("MGPORT")
+            .ok()
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(7687),
+        username: std::env::var("MGUSER").ok(),
+        password: std::env::var("MGPASSWORD").ok(),
+        ..Default::default()
+    }
+}
+
 fn get_connection(prms: &ConnectParams) -> Connection {
     match Connection::connect(prms) {
         Ok(c) => c,
@@ -18,9 +33,8 @@ fn execute_query(connection: &mut Connection, query: &str) -> Vec<String> {
 
 fn execute_query_and_fetchall(query: &str) -> Vec<Record> {
     let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
         autocommit: true,
-        ..Default::default()
+        ..test_params()
     };
     let mut connection = get_connection(&connect_prms);
     assert_eq!(connection.status, ConnectionStatus::Ready);
@@ -41,10 +55,7 @@ fn execute_query_and_fetchall(query: &str) -> Vec<Record> {
 }
 
 fn initialize() -> Connection {
-    let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
-        ..Default::default()
-    };
+    let connect_prms = test_params();
     let mut connection = get_connection(&connect_prms);
     assert_eq!(connection.status, ConnectionStatus::Ready);
 
@@ -107,11 +118,10 @@ fn my_callback(host: &String, ip_address: &String, key_type: &String, fingerprin
 fn panic_sslcert() {
     initialize();
     let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
         lazy: false,
         sslcert: Some(String::from("test_sslcert")),
-        ..Default::default()
+        ..test_params()
     };
     get_connection(&connect_prms);
 }
@@ -122,11 +132,10 @@ fn panic_sslcert() {
 fn panic_sslkey() {
     initialize();
     let connect_prms = ConnectParams {
-        address: Some(String::from("127.0.0.1")),
         trust_callback: Some(&my_callback),
         lazy: false,
         sslkey: Some(String::from("test_sslkey")),
-        ..Default::default()
+        ..test_params()
     };
     let _connection = get_connection(&connect_prms);
 }
