@@ -21,7 +21,7 @@ jobs:
       run: sudo apt-get install -y git cmake make gcc g++ libssl-dev
 
     - name: Set up Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       with:
         components: clippy, rustfmt
     - name: Run rust linter
@@ -53,7 +53,7 @@ jobs:
         submodules: true
 
     - name: Set up Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       with:
         targets: ${{ matrix.target }}
         components: clippy, rustfmt
@@ -80,7 +80,7 @@ jobs:
         submodules: true
 
     - name: Set up Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
       with:
         targets: ${{ matrix.target }}
         components: clippy, rustfmt
