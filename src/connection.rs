@@ -590,11 +590,11 @@ impl Connection {
 
         match self.lazy {
             true => {
-                if self.status == ConnectionStatus::Executing
-                    && let Err(err) = self.pull(1)
-                {
-                    self.status = ConnectionStatus::Bad;
-                    return Err(err);
+                if self.status == ConnectionStatus::Executing {
+                    if let Err(err) = self.pull(1) {
+                        self.status = ConnectionStatus::Bad;
+                        return Err(err);
+                    }
                 }
                 // On success pull() has already updated the status.
 
